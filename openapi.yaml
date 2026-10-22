@@ -1,0 +1,584 @@
+openapi: 3.1.0
+info:
+  title: Vinyl Shelf API
+  version: 0.1.0
+  summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
+  description: |
+    Contract-first API for the Vinyl Shelf web app (working title). This file is the
+    source of truth: server validation and client types are generated from it.
+    See docs/adr/0001-contract-first-api.md.
+
+    **Discogs data.** Fields sourced from Discogs carry `fetchedAt` and `expiresAt`.
+    Clients MUST NOT display a Discogs-sourced value after `expiresAt`, and MUST render
+    the attribution required by Discogs' API Terms of Use next to it
+    (see docs/adr/0004-discogs-data-lifecycle.md). `discogsUrl` is provided for that link.
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development
+tags:
+  - name: Auth
+    description: Discogs OAuth login and the current session.
+  - name: Collection
+    description: Importing and browsing the user's Discogs collection.
+  - name: Releases
+    description: Release detail and manual search.
+  - name: Recognition
+    description: Listen sessions, audio upload and recognition results.
+  - name: Meta
+    description: Operational endpoints.
+
+security:
+  - sessionCookie: []
+
+paths:
+  /health:
+    get:
+      tags: [Meta]
+      operationId: getHealth
+      summary: Liveness and readiness probe
+      security: []
+      responses:
+        '200':
+          description: Service is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok, degraded]
+
+  /auth/discogs/start:
+    get:
+      tags: [Auth]
+      operationId: startDiscogsLogin
+      summary: Begin the Discogs OAuth 1.0a flow
+      description: Redirects the browser to Discogs' authorization page.
+      security: []
+      responses:
+        '302':
+          description: Redirect to Discogs.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+
+  /auth/discogs/callback:
+    get:
+      tags: [Auth]
+      operationId: finishDiscogsLogin
+      summary: OAuth callback; establishes a session
+      security: []
+      parameters:
+        - name: oauth_token
+          in: query
+          required: true
+          schema: { type: string }
+        - name: oauth_verifier
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '302':
+          description: Session cookie set; redirect to the app.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+        '400':
+          $ref: '#/components/responses/Problem'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: End the session
+      responses:
+        '204':
+          description: Session ended.
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      summary: Current user
+      responses:
+        '200':
+          description: The signed-in user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /collection/imports:
+    post:
+      tags: [Collection]
+      operationId: startCollectionImport
+      summary: Start (or resume) importing the user's Discogs collection
+      description: |
+        Idempotent per user: if an import is already queued or running, that job is
+        returned instead of creating a second one. Imports are resumable and
+        checkpointed server-side (see docs/adr/0003-postgres-as-job-queue.md).
+      responses:
+        '202':
+          description: Import accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJob'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /collection/imports/{importId}:
+    get:
+      tags: [Collection]
+      operationId: getCollectionImport
+      summary: Poll an import job
+      parameters:
+        - $ref: '#/components/parameters/ImportId'
+      responses:
+        '200':
+          description: Current job state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJob'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+  /collection/items:
+    get:
+      tags: [Collection]
+      operationId: listCollectionItems
+      summary: List the user's collection (cursor-paginated)
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+          description: Opaque cursor from a previous page.
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [added_desc, added_asc, artist_asc, year_asc, year_desc]
+            default: added_desc
+      responses:
+        '200':
+          description: A page of collection items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionPage'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /releases/{discogsId}:
+    get:
+      tags: [Releases]
+      operationId: getRelease
+      summary: Release detail
+      parameters:
+        - name: discogsId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: The release.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Release'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /search/releases:
+    get:
+      tags: [Releases]
+      operationId: searchReleases
+      summary: Manual search by title, artist, catalogue number or barcode
+      description: Fallback when recognition fails or the pressing is obscure.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 2, maxLength: 200 }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+      responses:
+        '200':
+          description: Search results.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ReleaseSummary'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /listen-sessions:
+    post:
+      tags: [Recognition]
+      operationId: createListenSession
+      summary: Open a listen session
+      description: |
+        A listen session groups recognition attempts for one client. Today it maps 1:1 to
+        a browser tab; it exists so a second device can attach later (phone pairing)
+        without changing the attempt flow. See docs/adr/0002.
+      responses:
+        '201':
+          description: Session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListenSession'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /listen-sessions/{sessionId}/attempts:
+    post:
+      tags: [Recognition]
+      operationId: createRecognitionAttempt
+      summary: Create a recognition attempt
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source]
+              properties:
+                source:
+                  $ref: '#/components/schemas/CaptureSource'
+      responses:
+        '201':
+          description: Attempt created in state `created`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionAttempt'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /recognition-attempts/{attemptId}/audio:
+    put:
+      tags: [Recognition]
+      operationId: uploadAttemptAudio
+      summary: Upload the audio clip for an attempt
+      description: |
+        Short clip only (the recognition vendor analyses roughly the first 12 seconds;
+        the server enforces a 10 MB cap). The clip is processed and discarded; it is
+        never persisted.
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+      requestBody:
+        required: true
+        content:
+          audio/webm: { schema: { type: string, format: binary } }
+          audio/mp4: { schema: { type: string, format: binary } }
+          audio/mpeg: { schema: { type: string, format: binary } }
+          audio/wav: { schema: { type: string, format: binary } }
+      responses:
+        '202':
+          description: Clip accepted; result will arrive on the event stream.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionAttempt'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: Attempt is not in a state that accepts audio.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '413':
+          $ref: '#/components/responses/Problem'
+        '415':
+          $ref: '#/components/responses/Problem'
+
+  /recognition-attempts/{attemptId}:
+    get:
+      tags: [Recognition]
+      operationId: getRecognitionAttempt
+      summary: Current state of an attempt (polling fallback)
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+      responses:
+        '200':
+          description: The attempt.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionAttempt'
+        '404':
+          $ref: '#/components/responses/Problem'
+
+  /recognition-attempts/{attemptId}/events:
+    get:
+      tags: [Recognition]
+      operationId: streamAttemptEvents
+      summary: Server-sent event stream for one attempt
+      description: |
+        Emits an `attempt` event with a full `RecognitionAttempt` payload on every state
+        transition, then closes the stream once the attempt reaches a terminal state.
+        Supports `Last-Event-ID` so a reconnecting client receives the current state
+        immediately.
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+      responses:
+        '200':
+          description: Event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  SSE frames: `event: attempt` and `data: <RecognitionAttempt JSON>`.
+        '404':
+          $ref: '#/components/responses/Problem'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: sid
+
+  parameters:
+    ImportId:
+      name: importId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    AttemptId:
+      name: attemptId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Problem:
+      description: Error (RFC 9457 problem details).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    RateLimited:
+      description: Upstream or local rate limit reached.
+      headers:
+        Retry-After:
+          schema: { type: integer, minimum: 0 }
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code:
+          type: string
+          description: Stable machine-readable error code.
+
+    User:
+      type: object
+      required: [id, discogsUsername]
+      properties:
+        id: { type: string, format: uuid }
+        discogsUsername: { type: string }
+
+    ImportJob:
+      type: object
+      required: [id, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed]
+        progress:
+          type: object
+          properties:
+            fetched: { type: integer, minimum: 0 }
+            total: { type: integer, minimum: 0 }
+        error:
+          $ref: '#/components/schemas/Problem'
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CollectionPage:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionItem'
+        nextCursor:
+          type: [string, 'null']
+
+    CollectionItem:
+      type: object
+      required: [instanceId, release, dateAdded]
+      properties:
+        instanceId:
+          type: integer
+          description: Discogs collection instance id (a user may own several copies).
+        release:
+          $ref: '#/components/schemas/ReleaseSummary'
+        dateAdded: { type: string, format: date-time }
+
+    ReleaseSummary:
+      type: object
+      required: [discogsId, title, artists, discogsUrl, fetchedAt, expiresAt]
+      properties:
+        discogsId: { type: integer }
+        title: { type: string }
+        artists:
+          type: array
+          items: { type: string }
+        year: { type: [integer, 'null'] }
+        coverImageUrl:
+          type: [string, 'null']
+          format: uri
+          description: Hotlinked Discogs image URL. Never stored; subject to `expiresAt`.
+        discogsUrl:
+          type: string
+          format: uri
+          description: Link target for the mandatory "Data provided by Discogs" credit.
+        fetchedAt: { type: string, format: date-time }
+        expiresAt:
+          type: string
+          format: date-time
+          description: Hard display deadline (at most 6 hours after `fetchedAt`).
+
+    Release:
+      allOf:
+        - $ref: '#/components/schemas/ReleaseSummary'
+        - type: object
+          properties:
+            label: { type: [string, 'null'] }
+            catalogNumber: { type: [string, 'null'] }
+            genres:
+              type: array
+              items: { type: string }
+            styles:
+              type: array
+              items: { type: string }
+            formats:
+              type: array
+              items: { type: string }
+            vinylColors:
+              type: array
+              items: { type: string }
+              description: Colourway descriptors parsed from format descriptions, e.g. "Blue, Marbled".
+            tracklist:
+              type: array
+              items:
+                type: object
+                required: [position, title]
+                properties:
+                  position: { type: string }
+                  title: { type: string }
+                  duration: { type: [string, 'null'] }
+
+    CaptureSource:
+      type: string
+      enum: [laptop_mic, file_upload, paired_phone]
+      description: |
+        `paired_phone` is reserved for the deferred phone-pairing feature and is
+        rejected by the server until it ships.
+
+    ListenSession:
+      type: object
+      required: [id, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+
+    AttemptStatus:
+      type: string
+      enum:
+        - created
+        - capturing
+        - uploaded
+        - recognizing
+        - matched
+        - no_match
+        - failed
+        - expired
+
+    RecognitionAttempt:
+      type: object
+      required: [id, sessionId, source, status, createdAt, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        source:
+          $ref: '#/components/schemas/CaptureSource'
+        status:
+          $ref: '#/components/schemas/AttemptStatus'
+        createdAt: { type: string, format: date-time }
+        expiresAt:
+          type: string
+          format: date-time
+          description: Attempts not completed by this time move to `expired`.
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/RecognitionResult'
+            - type: 'null'
+        error:
+          oneOf:
+            - $ref: '#/components/schemas/Problem'
+            - type: 'null'
+
+    RecognitionResult:
+      type: object
+      required: [track, candidateReleases]
+      properties:
+        track:
+          type: object
+          required: [title, artist]
+          properties:
+            title: { type: string }
+            artist: { type: string }
+            album: { type: [string, 'null'] }
+        candidateReleases:
+          type: array
+          description: Vinyl pressings matched on Discogs. May be empty.
+          items:
+            $ref: '#/components/schemas/ReleaseSummary'
