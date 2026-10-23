@@ -21,6 +21,7 @@ const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+    HOST: z.string().trim().min(1).optional(),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
@@ -58,6 +59,8 @@ const envSchema = z
 export interface Config {
   nodeEnv: 'development' | 'test' | 'production';
   port: number;
+  /** Interface to listen on: localhost in development, all interfaces in production. */
+  host: string;
   logLevel: string;
   webOrigin: string;
   databaseUrl: string;
@@ -96,6 +99,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     nodeEnv: e.NODE_ENV,
     port: e.PORT,
+    host: e.HOST ?? (e.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1'),
     logLevel: e.LOG_LEVEL,
     webOrigin: e.WEB_ORIGIN,
     databaseUrl: e.DATABASE_URL,

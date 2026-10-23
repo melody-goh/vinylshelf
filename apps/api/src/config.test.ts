@@ -55,3 +55,11 @@ describe('loadConfig', () => {
     expect(message).not.toContain('not a url');
   });
 });
+
+describe('loadConfig host', () => {
+  it('listens on localhost only outside production unless HOST is set', () => {
+    expect(loadConfig(validEnv).host).toBe('127.0.0.1');
+    expect(loadConfig({ ...validEnv, NODE_ENV: 'production' }).host).toBe('0.0.0.0');
+    expect(loadConfig({ ...validEnv, HOST: '::' }).host).toBe('::');
+  });
+});
