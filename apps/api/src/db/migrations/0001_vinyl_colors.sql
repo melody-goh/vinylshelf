@@ -1,0 +1,1 @@
+ALTER TABLE "discogs_release_cache" ADD COLUMN "vinyl_colors" jsonb DEFAULT '[]'::jsonb NOT NULL;

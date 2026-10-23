@@ -43,6 +43,7 @@ export const collectionReleasesResponse = z.object({
         year: z.number().int().min(0),
         cover_image: z.string().optional(),
         artists: z.array(artist),
+        formats: z.array(z.object({ name: z.string(), text: z.string().optional() })).default([]),
       }),
     }),
   ),

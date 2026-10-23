@@ -39,6 +39,7 @@ export const releaseSummarySchema = z.object({
   title: z.string(),
   artists: z.array(z.string()),
   year: z.number().int().nullable().optional(),
+  vinylColors: z.array(z.string()),
   coverImageUrl: z.url().nullable().optional(),
   discogsUrl: z.url(),
   fetchedAt: z.iso.datetime(),

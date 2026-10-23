@@ -128,6 +128,10 @@ export const discogsReleaseCache = pgTable(
     /** Lower-cased first artist, for the `artist_asc` sort. */
     artistSort: text('artist_sort').notNull(),
     year: integer('year'),
+    vinylColors: jsonb('vinyl_colors')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     /** A Discogs URL we hotlink. The image itself is never stored (ADR 0004 §6). */
     coverImageUrl: text('cover_image_url'),
     discogsUrl: text('discogs_url').notNull(),

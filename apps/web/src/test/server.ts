@@ -31,6 +31,7 @@ export function collectionItem(
       title: `Record ${instanceId}`,
       artists: ['The Paper Moons'],
       year: 2019,
+      vinylColors: [],
       coverImageUrl: null,
       discogsUrl: `https://www.discogs.com/release/${9000000 + instanceId}`,
       fetchedAt: new Date(now - HOUR).toISOString(),

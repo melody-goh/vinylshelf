@@ -84,6 +84,7 @@ async function seed(items: Seed[] = SHELF, owner = userId): Promise<void> {
     title: s.title,
     artists: [s.artist],
     year: s.year,
+    vinylColors: [],
     coverImageUrl: null,
     discogsUrl: `https://www.discogs.com/release/${100 + s.instanceId}`,
   }));

@@ -124,6 +124,7 @@ export class CollectionItemsService {
           title: discogsReleaseCache.title,
           artists: discogsReleaseCache.artists,
           year: discogsReleaseCache.year,
+          vinylColors: discogsReleaseCache.vinylColors,
           coverImageUrl: discogsReleaseCache.coverImageUrl,
           discogsUrl: discogsReleaseCache.discogsUrl,
           fetchedAt: discogsReleaseCache.fetchedAt,

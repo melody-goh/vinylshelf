@@ -24,6 +24,8 @@ export interface ReleaseSummaryData {
   title: string;
   artists: string[];
   year: number | null;
+  /** Colourways named by Discogs; empty means unnamed (shown as black). */
+  vinylColors: string[];
   /** A hotlinked Discogs image URL, never downloaded (ADR 0004 §6). */
   coverImageUrl: string | null;
   discogsUrl: string;

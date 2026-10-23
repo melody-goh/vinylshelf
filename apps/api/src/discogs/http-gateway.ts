@@ -16,6 +16,7 @@ import type {
   TokenPair,
 } from './gateway.js';
 import { authorizationHeader, type ConsumerCredentials } from './oauth1.js';
+import { vinylColorsOf } from './vinyl-colors.js';
 import type { Lane, RateLimiter } from './rate-limiter.js';
 import {
   accessTokenResponse,
@@ -226,6 +227,7 @@ function toCollectionPage(response: CollectionReleasesResponse): CollectionPageR
         artists: info.artists.map((a) => displayArtistName(a.name)),
         // Discogs reports an unknown year as 0.
         year: info.year > 0 ? info.year : null,
+        vinylColors: vinylColorsOf(info.formats),
         coverImageUrl: coverImage(info.cover_image),
         discogsUrl: discogsEndpoints.releasePage(info.id),
       };
