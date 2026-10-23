@@ -1,47 +1,73 @@
-import { discSurface } from '../design/vinyl';
+import type { CSSProperties } from 'react';
+import clearPlate from '../design/disc/clear.webp';
+import marblePlate from '../design/disc/marble.webp';
+import sheenPlate from '../design/disc/sheen.webp';
+import splatterPlate from '../design/disc/splatter.webp';
+import { discSurface, type DiscSurface } from '../design/vinyl';
+
+const EFFECT_PLATES = { marble: marblePlate, splatter: splatterPlate };
+
+const UNLIT: DiscSurface = { base: '#dddcd7', clear: false, effect: null, description: null };
+
+function masked(plate: string): CSSProperties {
+  return { maskImage: `url(${plate})`, maskSize: '100% 100%', WebkitMaskImage: `url(${plate})` };
+}
 
 interface DiscProps {
   vinylColors: readonly string[];
   /** Cover art, cropped round as the centre label. Omitted: a plain paper label. */
   labelImageUrl?: string | null;
-  /** Unlit: a record whose data is refreshing, shown as an outline with no label. */
+  /** Turns the marbling or splatter, so two records in one colourway are not identical. */
+  seed?: number;
+  /** Unlit: a record whose data is refreshing, a plain disc held back in the shadow. */
   unlit?: boolean;
   className?: string;
 }
 
 /**
- * A record out of its sleeve: the vinyl in its named colourway, fine grooves catching
- * light, and the cover as the centre label. Purely visual; the button around it carries
- * the accessible name.
+ * A record out of its sleeve, composited like a product shot: the vinyl in its named
+ * colourway, the pressed-in marbling or splatter, then the raster plate of grooves and
+ * studio light (scripts/disc-plates.ts), and the cover as the centre label. Purely
+ * visual; the button around it carries the accessible name.
  */
-export function Disc({ vinylColors, labelImageUrl, unlit = false, className = '' }: DiscProps) {
-  if (unlit) {
-    return (
-      <div
-        aria-hidden="true"
-        className={`aspect-square rounded-full border border-dashed border-ink-soft/50 bg-rule/40 ${className}`}
-      />
-    );
-  }
-
-  const surface = discSurface(vinylColors);
-  const groove = surface.light ? '20 20 20' : '255 255 255';
+export function Disc({
+  vinylColors,
+  labelImageUrl,
+  seed = 0,
+  unlit = false,
+  className = '',
+}: DiscProps) {
+  // Unlit discs are opaque and pale, so a stack of them still reads as a stack.
+  const surface = unlit ? UNLIT : discSurface(vinylColors);
 
   return (
     <div
       aria-hidden="true"
       className={`relative aspect-square rounded-full shadow-disc ${className}`}
-      style={{ background: surface.background }}
     >
-      {/* Grooves: concentric rings, faint, with a soft highlight like studio light. */}
       <div
         className="absolute inset-0 rounded-full"
-        style={{
-          background: `repeating-radial-gradient(circle, rgb(${groove} / 0.07) 0 1px, transparent 1px 3px), linear-gradient(135deg, rgb(255 255 255 / 0.16), transparent 45%, rgb(0 0 0 / 0.12))`,
-        }}
+        style={{ backgroundColor: surface.base, ...(surface.clear ? masked(clearPlate) : {}) }}
       />
-      <div className="absolute inset-[32%] overflow-hidden rounded-full bg-ground ring-1 ring-black/10">
-        {labelImageUrl && (
+      {surface.effect && (
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            backgroundColor: surface.effect.colour,
+            transform: `rotate(${String((seed * 137) % 360)}deg)`,
+            ...masked(EFFECT_PLATES[surface.effect.kind]),
+          }}
+        />
+      )}
+      <img
+        src={sheenPlate}
+        alt=""
+        className={`absolute inset-0 h-full w-full ${unlit ? 'opacity-40' : ''}`}
+      />
+      <div
+        className={`absolute inset-[32%] overflow-hidden rounded-full ring-1 ring-black/10 ${unlit ? 'bg-ground' : 'bg-rule'}`}
+      >
+        {labelImageUrl && !unlit && (
           <img
             src={labelImageUrl}
             alt=""

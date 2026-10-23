@@ -61,7 +61,7 @@ export function Login() {
             className="relative [&:not(:first-child)]:-mt-[14.5rem]"
             style={{ zIndex: i }}
           >
-            <Disc vinylColors={colours} className="w-[18rem]" />
+            <Disc vinylColors={colours} seed={i} className="w-[18rem]" />
           </div>
         ))}
       </div>
