@@ -11,13 +11,15 @@ const OUT = '.impeccable/review';
 type State = 'signed-out' | 'shelf' | 'empty' | 'refreshing';
 
 async function mockApi(page: Page, state: State): Promise<void> {
-  await page.route('https://i.discogs.com/**', (route) => {
+  await page.route('https://i.discogs.com/**', async (route) => {
+    // Like i.discogs.com (checked 2026-10-23, with and without Origin): no CORS header.
+    // A fulfilled route would slip past the browser's CORS check, so fail CORS-mode
+    // loads (the only image requests that send Origin) outright; the gatefold board then
+    // falls back to carbon, as it does live.
+    const headers = await route.request().allHeaders();
+    if (headers.origin) return route.abort();
     const index = Number(/cover-(\d+)/.exec(route.request().url())?.[1] ?? 0);
-    return route.fulfill({
-      contentType: 'image/svg+xml',
-      headers: { 'Access-Control-Allow-Origin': '*' },
-      body: coverSvg(index),
-    });
+    return route.fulfill({ contentType: 'image/svg+xml', body: coverSvg(index) });
   });
   await page.route('**/api/v1/me', (route) =>
     state === 'signed-out'
@@ -92,6 +94,8 @@ test('desktop captures', async ({ page }) => {
   await page.screenshot({ path: `${OUT}/desktop-hover.png` });
 
   await disc.click({ position: crescent });
+  await page.waitForTimeout(160);
+  await page.screenshot({ path: `${OUT}/desktop-folding.png` });
   await settle(page);
   await page.screenshot({ path: `${OUT}/desktop-chosen.png` });
 
@@ -121,4 +125,9 @@ test('phone captures', async ({ page }) => {
   await page.goto('/');
   await settle(page);
   await page.screenshot({ path: `${OUT}/mobile.png`, fullPage: true });
+
+  // Keyboard focus leans a disc out and names it under the row.
+  await page.getByRole('button', { name: /^Orchard Weather/ }).focus();
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: `${OUT}/mobile-leaning.png` });
 });
