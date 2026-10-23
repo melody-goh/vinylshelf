@@ -7,7 +7,8 @@
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate --name",
-    "db:migrate": "tsx scripts/migrate.ts"
+    "db:migrate": "tsx scripts/migrate.ts",
+    "fixtures:check": "tsx scripts/check-fixtures.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

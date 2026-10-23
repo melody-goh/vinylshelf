@@ -12,5 +12,6 @@ prove unknown fields are tolerated, and edge cases the gateway must handle:
 - a release with an empty `cover_image`
 
 Hand-built fixtures can drift from reality. Once real credentials are available,
-compare their shape against a live response (see the fixture-check script) and update
+compare their shape against a live response with `pnpm --filter @vinylshelf/api
+fixtures:check` (field paths only, never values) and update
 them here.
