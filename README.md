@@ -4,8 +4,9 @@ A web app for vinyl collectors: browse your Discogs collection in a polished, ta
 identify what's playing and add the pressing to your shelf, and discover music you're
 likely to love but wouldn't have found yourself.
 
-> **Status:** design phase. The API contract and architecture decisions come first;
-> implementation follows in thin vertical slices.
+> **Status:** first vertical slice complete: Discogs login, a resumable collection
+> import and a functional shelf view, verified against a real Discogs account. Visual
+> polish, recognition and the taste engine are next (see Roadmap).
 
 ## Goals
 
@@ -56,7 +57,31 @@ Key ideas:
 - **Results by event stream**: recognition outcomes arrive over SSE so that a future
   phone-pairing feature needs no redesign.
 
-## Repository layout (planned)
+## Getting started
+
+Requirements: Node 22.12+, pnpm (version pinned in `package.json`; `corepack enable`
+provides it), Docker, and a Discogs app from
+[discogs.com/settings/developers](https://www.discogs.com/settings/developers) with its
+callback URL set to `http://localhost:3000/api/v1/auth/discogs/callback`.
+
+```sh
+cp .env.example .env      # fill in the Discogs keys and TOKEN_ENCRYPTION_KEY
+docker compose up -d      # Postgres with pgvector
+pnpm install
+pnpm --filter @vinylshelf/api db:migrate
+pnpm dev                  # API on :3000, web app on http://localhost:5173
+```
+
+| Command | What it does |
+|---|---|
+| `pnpm check` | Contract staleness check, lint, format check, typecheck and all tests (what CI runs) |
+| `pnpm --filter @vinylshelf/contract generate` | Regenerate types after editing `openapi.yaml` |
+| `pnpm --filter @vinylshelf/api fixtures:check` | Compare the Discogs test fixtures with the live API (shapes only, never values) |
+
+Tests never call live third-party APIs: Discogs is served from fixtures through MSW, and
+any unmocked request fails the test.
+
+## Repository layout
 
 ```
 apps/web            Frontend
@@ -83,8 +108,8 @@ docs/domain-model.md
 
 ## Roadmap
 
-1. Discogs login, collection import, shelf view (first vertical slice)
-2. Backend hardening: TTL cache, rate limiting, resumable imports
+1. ~~Discogs login, collection import, shelf view (first vertical slice)~~ Done
+2. ~~Backend hardening: TTL cache, rate limiting, resumable imports~~ Done in the first slice
 3. UI polish: shared-element transitions, metallic design system
 4. Recognition: laptop mic, file drop, manual search fallback
 5. Taste engine: embeddings in pgvector, offline evaluation in CI, LLM-assisted search and explanations (ADR 0008, proposed)
