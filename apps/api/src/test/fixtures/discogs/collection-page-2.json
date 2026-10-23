@@ -26,7 +26,16 @@
         "title": "Alpine Suites",
         "year": 1974,
         "formats": [{ "name": "Vinyl", "qty": "2", "descriptions": ["LP", "Reissue"] }],
-        "labels": [{ "name": "Fixture Classics", "catno": "FXC-74", "id": 50003 }],
+        "labels": [
+          {
+            "name": "Fixture Classics",
+            "catno": "FXC-74",
+            "entity_type": "1",
+            "entity_type_name": "Label",
+            "id": 50003,
+            "resource_url": "https://api.discogs.com/labels/50003"
+          }
+        ],
         "artists": [
           {
             "name": "Ensemble Lumière",
