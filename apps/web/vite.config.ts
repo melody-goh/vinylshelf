@@ -9,6 +9,8 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    proxy: { '/api': 'http://localhost:3000' },
+    // 127.0.0.1, not localhost: the API binds IPv4 loopback only, and `localhost` may
+    // resolve to ::1 first.
+    proxy: { '/api': 'http://127.0.0.1:3000' },
   },
 });
