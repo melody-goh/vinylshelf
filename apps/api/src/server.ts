@@ -5,13 +5,15 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from './app.js';
+import { UserRepository } from './auth/users.js';
+import { runImport } from './collection/import-worker.js';
 import { loadConfig } from './config.js';
 import { TokenCipher } from './crypto/token-cipher.js';
 import { createDatabase } from './db/client.js';
 import { DiscogsReleaseCache } from './discogs/cache.js';
 import { createDiscogsGateway } from './discogs/index.js';
 import { scheduleCachePurge } from './jobs/cache-purge.js';
-import { PgBossQueue } from './jobs/queue.js';
+import { PgBossQueue, QUEUES } from './jobs/queue.js';
 import { systemClock } from './lib/clock.js';
 
 // Local development reads the repo-root .env; deployed environments set real variables.
@@ -25,6 +27,7 @@ const gateway = createDiscogsGateway({
   consumer: { key: config.discogs.consumerKey, secret: config.discogs.consumerSecret },
   userAgent: config.discogs.userAgent,
 });
+const cipher = new TokenCipher(config.tokenEncryptionKey);
 const releaseCache = new DiscogsReleaseCache(config.discogs.cacheTtlSeconds, clock);
 const queue = new PgBossQueue({
   connectionString: config.databaseUrl,
@@ -38,7 +41,7 @@ const app = await buildApp({
   config,
   database,
   gateway,
-  cipher: new TokenCipher(config.tokenEncryptionKey),
+  cipher,
   queue,
   releaseCache,
   clock,
@@ -53,6 +56,16 @@ await scheduleCachePurge({
   cron: config.queue.cachePurgeCron,
   log: app.log,
 });
+await queue.work(QUEUES.collectionImport.name, (job) =>
+  runImport(job, {
+    database,
+    gateway,
+    users: new UserRepository(database.db, cipher),
+    releaseCache,
+    clock,
+    log: app.log,
+  }),
+);
 
 const shutdown = async (signal: string): Promise<void> => {
   app.log.info({ signal }, 'Shutting down');

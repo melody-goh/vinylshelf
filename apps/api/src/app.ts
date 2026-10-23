@@ -9,6 +9,8 @@ import { originGuard } from './auth/guard.js';
 import { authRoutes } from './auth/routes.js';
 import { SessionStore } from './auth/sessions.js';
 import { UserRepository } from './auth/users.js';
+import { ImportService } from './collection/imports.js';
+import { collectionRoutes } from './collection/routes.js';
 import type { Config } from './config.js';
 import type { TokenCipher } from './crypto/token-cipher.js';
 import type { DatabaseHandle } from './db/client.js';
@@ -59,6 +61,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
 
   const sessions = new SessionStore(database.db, clock);
   const users = new UserRepository(database.db, deps.cipher);
+  const imports = new ImportService(database, deps.queue, clock);
 
   await app.register(
     async (api) => {
@@ -66,6 +69,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
       await api.register(
         authRoutes({ config, gateway: deps.gateway, cipher: deps.cipher, users, sessions, clock }),
       );
+      await api.register(collectionRoutes({ sessions, imports }));
     },
     { prefix: API_PREFIX },
   );

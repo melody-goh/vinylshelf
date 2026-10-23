@@ -15,6 +15,10 @@ export type ProblemCode =
   | 'not_found'
   | 'import_not_found'
   | 'discogs_unavailable'
+  | 'discogs_auth_revoked'
+  | 'discogs_unexpected_response'
+  | 'import_stalled'
+  | 'import_failed'
   | 'rate_limited'
   | 'internal_error';
 
