@@ -3,15 +3,17 @@ import { z } from 'zod';
 import { currentUserId, requireUser } from '../auth/guard.js';
 import type { SessionStore } from '../auth/sessions.js';
 import { ProblemError } from '../http/problem.js';
-import { importJobSchema } from '../http/schemas.js';
+import { collectionItemsQuery, collectionPageSchema, importJobSchema } from '../http/schemas.js';
 import { toImportJobDto, type ImportService } from './imports.js';
+import type { CollectionItemsService } from './items.js';
 
 export interface CollectionRouteDependencies {
   sessions: SessionStore;
   imports: ImportService;
+  items: CollectionItemsService;
 }
 
-/** Collection import endpoints (openapi.yaml, tag Collection). */
+/** Collection import and listing endpoints (openapi.yaml, tag Collection). */
 export const collectionRoutes =
   (deps: CollectionRouteDependencies): FastifyPluginAsyncZod =>
   (app) => {
@@ -51,6 +53,15 @@ export const collectionRoutes =
         }
         return toImportJobDto(await deps.imports.get(currentUserId(request), importId));
       },
+    );
+
+    app.get(
+      '/collection/items',
+      {
+        ...auth,
+        schema: { querystring: collectionItemsQuery, response: { 200: collectionPageSchema } },
+      },
+      async (request) => deps.items.list({ userId: currentUserId(request), ...request.query }),
     );
 
     return Promise.resolve();

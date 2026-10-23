@@ -10,6 +10,7 @@ import { authRoutes } from './auth/routes.js';
 import { SessionStore } from './auth/sessions.js';
 import { UserRepository } from './auth/users.js';
 import { ImportService } from './collection/imports.js';
+import { CollectionItemsService } from './collection/items.js';
 import { collectionRoutes } from './collection/routes.js';
 import type { Config } from './config.js';
 import type { TokenCipher } from './crypto/token-cipher.js';
@@ -62,6 +63,10 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   const sessions = new SessionStore(database.db, clock);
   const users = new UserRepository(database.db, deps.cipher);
   const imports = new ImportService(database, deps.queue, clock);
+  const items = new CollectionItemsService(database, imports, clock, {
+    refreshAfterMs: config.discogs.refreshAfterSeconds * 1000,
+    cooldownMs: config.refreshCooldownMinutes * 60 * 1000,
+  });
 
   await app.register(
     async (api) => {
@@ -69,7 +74,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
       await api.register(
         authRoutes({ config, gateway: deps.gateway, cipher: deps.cipher, users, sessions, clock }),
       );
-      await api.register(collectionRoutes({ sessions, imports }));
+      await api.register(collectionRoutes({ sessions, imports, items }));
     },
     { prefix: API_PREFIX },
   );
