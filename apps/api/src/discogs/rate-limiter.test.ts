@@ -1,20 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RateLimiter, type Clock } from './rate-limiter.js';
-
-/** A clock whose sleeps advance virtual time immediately and are recorded. */
-function fakeClock(): Clock & { sleeps: number[]; time: number } {
-  const clock = {
-    time: 0,
-    sleeps: [] as number[],
-    now: () => clock.time,
-    sleep: (ms: number) => {
-      clock.sleeps.push(ms);
-      clock.time += ms;
-      return Promise.resolve();
-    },
-  };
-  return clock;
-}
+import { fakeClock } from '../test/fake-clock.js';
+import { RateLimiter } from './rate-limiter.js';
 
 describe('RateLimiter', () => {
   it('allows a full window of requests without waiting', async () => {

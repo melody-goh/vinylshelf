@@ -1,0 +1,46 @@
+{
+  "pagination": {
+    "page": 2,
+    "pages": 2,
+    "per_page": 2,
+    "items": 3,
+    "urls": {
+      "first": "https://api.discogs.com/users/fixture_collector/collection/folders/0/releases?page=1&per_page=2",
+      "prev": "https://api.discogs.com/users/fixture_collector/collection/folders/0/releases?page=1&per_page=2"
+    }
+  },
+  "releases": [
+    {
+      "id": 9000003,
+      "instance_id": 2100000003,
+      "date_added": "2025-12-24T18:30:00Z",
+      "rating": 4,
+      "folder_id": 1,
+      "basic_information": {
+        "id": 9000003,
+        "master_id": 800003,
+        "master_url": "https://api.discogs.com/masters/800003",
+        "resource_url": "https://api.discogs.com/releases/9000003",
+        "thumb": "https://i.discogs.com/fixture/thumb-9000003.jpg",
+        "cover_image": "https://i.discogs.com/fixture/cover-9000003.jpg",
+        "title": "Alpine Suites",
+        "year": 1974,
+        "formats": [{ "name": "Vinyl", "qty": "2", "descriptions": ["LP", "Reissue"] }],
+        "labels": [{ "name": "Fixture Classics", "catno": "FXC-74", "id": 50003 }],
+        "artists": [
+          {
+            "name": "Ensemble Lumière",
+            "anv": "",
+            "join": "",
+            "role": "",
+            "tracks": "",
+            "id": 700004,
+            "resource_url": "https://api.discogs.com/artists/700004"
+          }
+        ],
+        "genres": ["Classical"],
+        "styles": ["Contemporary"]
+      }
+    }
+  ]
+}

@@ -17,15 +17,7 @@
  * instances will together exceed the budget.
  */
 
-export interface Clock {
-  now(): number;
-  sleep(ms: number): Promise<void>;
-}
-
-export const systemClock: Clock = {
-  now: () => Date.now(),
-  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-};
+import { systemClock, type Clock } from '../lib/clock.js';
 
 export interface RateLimiterOptions {
   /** Requests allowed per window. */
