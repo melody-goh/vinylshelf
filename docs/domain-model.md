@@ -5,8 +5,9 @@
 | Entity | Persisted? | Notes |
 |---|---|---|
 | **User** | Yes | Our account, keyed to a Discogs username. OAuth tokens stored encrypted at rest. |
+| **Session** | Yes (short-lived) | A signed-in browser. Only a hash of the cookie value is stored, so logout revokes it (ADR 0006). |
 | **ImportJob** | Yes | One per collection import; holds status and a checkpoint cursor so it can resume. |
-| **CollectionItem** | Reference only | Discogs release ID + instance ID on a user's shelf. Contents are refreshed, not kept past the TTL (ADR 0004). |
+| **CollectionItem** | Reference only | Shelf reference: Discogs instance ID, release ID and date added. Release contents are refreshed, not kept past the TTL (ADR 0004); items gone from Discogs are deleted on each import (ADR 0006). |
 | **Release** | Cache only | Discogs metadata with classification, `fetched_at`, `expires_at`. |
 | **ListenSession** | Yes (short-lived) | Groups attempts for one client; reserved attach point for phone pairing. |
 | **RecognitionAttempt** | Yes | State machine below. Audio itself is never stored. |
@@ -14,6 +15,7 @@
 
 ```mermaid
 erDiagram
+    USER ||--o{ SESSION : "signs in with"
     USER ||--o{ IMPORT_JOB : starts
     USER ||--o{ COLLECTION_ITEM : owns
     USER ||--o{ LISTEN_SESSION : opens

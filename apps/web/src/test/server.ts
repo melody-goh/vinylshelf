@@ -1,0 +1,80 @@
+/**
+ * The API as the web tests see it: MSW handlers whose bodies are typed with the
+ * contract types, so the UI is built against the spec, not against whatever the
+ * server happens to return (ADR 0001).
+ */
+import type { CollectionItem, CollectionPage, ImportJob, User } from '@vinylshelf/contract';
+import { http, HttpResponse, type HttpHandler } from 'msw';
+import { setupServer } from 'msw/node';
+
+export const server = setupServer();
+
+export const API = '*/api/v1';
+
+export const fixtureUser: User = {
+  id: '6f1c5f53-6e47-4a6b-9a55-2c1f1c0b7a10',
+  discogsUsername: 'fixture_collector',
+};
+
+const HOUR = 60 * 60 * 1000;
+
+export function collectionItem(
+  instanceId: number,
+  overrides: Partial<CollectionItem['release']> = {},
+): CollectionItem {
+  const now = Date.now();
+  return {
+    instanceId,
+    dateAdded: '2026-09-14T15:09:33.000Z',
+    release: {
+      discogsId: 9000000 + instanceId,
+      title: `Record ${instanceId}`,
+      artists: ['The Paper Moons'],
+      year: 2019,
+      coverImageUrl: null,
+      discogsUrl: `https://www.discogs.com/release/${9000000 + instanceId}`,
+      fetchedAt: new Date(now - HOUR).toISOString(),
+      expiresAt: new Date(now + 5 * HOUR).toISOString(),
+      ...overrides,
+    },
+  };
+}
+
+export function page(overrides: Partial<CollectionPage> = {}): CollectionPage {
+  return {
+    items: [],
+    nextCursor: null,
+    refresh: { status: 'idle', importId: null, hiddenCount: 0, retryAt: null },
+    ...overrides,
+  };
+}
+
+export function importJob(overrides: Partial<ImportJob> = {}): ImportJob {
+  return {
+    id: '0b6c2e9e-5d0f-4d4f-8a52-7f5e2f5f1c11',
+    status: 'running',
+    progress: { fetched: 100, total: 250 },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+/** Signed in as the fixture user, with logout working. */
+export function signedIn(): HttpHandler[] {
+  return [
+    http.get(`${API}/me`, () => HttpResponse.json(fixtureUser)),
+    http.post(`${API}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
+  ];
+}
+
+export function signedOut(): HttpHandler[] {
+  return [
+    http.get(`${API}/me`, () =>
+      HttpResponse.json(
+        { type: '/problems/unauthenticated', title: 'Sign in required', status: 401 },
+        { status: 401, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    ),
+  ];
+}

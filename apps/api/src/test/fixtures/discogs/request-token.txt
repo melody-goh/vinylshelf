@@ -1,0 +1,1 @@
+oauth_token=RqTkn0000000000000000000000000000000000&oauth_token_secret=RqScrt000000000000000000000000000000000&oauth_callback_confirmed=true

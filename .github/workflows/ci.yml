@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: vinylshelf
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: vinylshelf_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vinylshelf -d vinylshelf_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      TEST_DATABASE_URL: postgres://vinylshelf:ci-only-password@localhost:5432/vinylshelf_test
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Version comes from the packageManager field in package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm check

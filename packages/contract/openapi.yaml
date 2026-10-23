@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.1.0
+  version: 0.2.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -55,7 +55,10 @@ paths:
       tags: [Auth]
       operationId: startDiscogsLogin
       summary: Begin the Discogs OAuth 1.0a flow
-      description: Redirects the browser to Discogs' authorization page.
+      description: |
+        Redirects the browser to Discogs' authorization page. The request-token secret is
+        kept in a short-lived encrypted cookie until the callback (see
+        docs/adr/0006-sessions-tokens-and-shelf-references.md).
       security: []
       responses:
         '302':
@@ -65,26 +68,50 @@ paths:
               schema:
                 type: string
                 format: uri
+            Set-Cookie:
+              description: Short-lived encrypted request-token cookie.
+              schema: { type: string }
+        '429':
+          description: |
+            Too many login attempts from this client. Each attempt spends one request of
+            the Discogs budget shared by every user, so it is limited per client.
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Problem'
 
   /auth/discogs/callback:
     get:
       tags: [Auth]
       operationId: finishDiscogsLogin
       summary: OAuth callback; establishes a session
+      description: |
+        The browser navigates here directly, so failures redirect back to the web app
+        with a `loginError` query parameter instead of returning a JSON body the user
+        would be stranded on. Only a request that is not an OAuth callback at all
+        (neither `oauth_token` nor `denied` present) gets a 400 problem response.
       security: []
       parameters:
         - name: oauth_token
           in: query
-          required: true
           schema: { type: string }
         - name: oauth_verifier
           in: query
-          required: true
+          schema: { type: string }
+        - name: denied
+          in: query
+          description: Sent by the provider instead of a verifier when the user declines.
           schema: { type: string }
       responses:
         '302':
-          description: Session cookie set; redirect to the app.
+          description: |
+            On success, the session cookie is set and the browser is redirected to the
+            app. On failure, the browser is redirected to the app with
+            `?loginError=<LoginErrorCode>` and no session is created.
           headers:
+            Location:
+              schema:
+                type: string
+                format: uri
             Set-Cookie:
               schema: { type: string }
         '400':
@@ -100,6 +127,8 @@ paths:
           description: Session ended.
         '401':
           $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
 
   /me:
     get:
@@ -125,6 +154,8 @@ paths:
         Idempotent per user: if an import is already queued or running, that job is
         returned instead of creating a second one. Imports are resumable and
         checkpointed server-side (see docs/adr/0003-postgres-as-job-queue.md).
+        An explicit request is not subject to the automatic-refresh cooldown described
+        on `CollectionRefresh`.
       responses:
         '202':
           description: Import accepted.
@@ -133,6 +164,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/ImportJob'
         '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+
+  /collection/imports/latest:
+    get:
+      tags: [Collection]
+      operationId: getLatestCollectionImport
+      summary: The user's most recent import job
+      description: |
+        Lets a client that has lost the job id (for example after a reload) find a
+        running import, including one started automatically by a refresh.
+      responses:
+        '200':
+          description: The most recently created import job.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJob'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '404':
           $ref: '#/components/responses/Problem'
 
   /collection/imports/{importId}:
@@ -149,6 +202,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ImportJob'
+        '401':
+          $ref: '#/components/responses/Problem'
         '404':
           $ref: '#/components/responses/Problem'
 
@@ -157,6 +212,12 @@ paths:
       tags: [Collection]
       operationId: listCollectionItems
       summary: List the user's collection (cursor-paginated)
+      description: |
+        Stale-while-revalidate with a cutoff (docs/adr/0004-discogs-data-lifecycle.md):
+        items whose Discogs data is past `expiresAt` are never returned. They are
+        counted in `refresh.hiddenCount`, and the server starts a background refresh
+        import when needed. The `refresh` object tells the client which of these states
+        it is in, so an expired shelf renders as "refreshing", not as empty.
       parameters:
         - name: cursor
           in: query
@@ -178,6 +239,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CollectionPage'
+        '400':
+          $ref: '#/components/responses/Problem'
         '401':
           $ref: '#/components/responses/Problem'
 
@@ -391,6 +454,14 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+    ForbiddenOrigin:
+      description: |
+        The request's `Origin` does not match the web app (CSRF protection for
+        cookie-authenticated unsafe methods).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
     RateLimited:
       description: Upstream or local rate limit reached.
       headers:
@@ -440,9 +511,18 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
+    LoginErrorCode:
+      type: string
+      enum: [access_denied, invalid_request_token, discogs_unavailable]
+      description: |
+        Value of the `loginError` query parameter the callback redirects with.
+        `access_denied`: the user declined on Discogs. `invalid_request_token`: the
+        request token is missing, expired or does not match. `discogs_unavailable`:
+        Discogs failed or could not be reached.
+
     CollectionPage:
       type: object
-      required: [items]
+      required: [items, refresh]
       properties:
         items:
           type: array
@@ -450,6 +530,40 @@ components:
             $ref: '#/components/schemas/CollectionItem'
         nextCursor:
           type: [string, 'null']
+        refresh:
+          $ref: '#/components/schemas/CollectionRefresh'
+
+    CollectionRefresh:
+      type: object
+      required: [status, importId, hiddenCount, retryAt]
+      description: |
+        Freshness of the user's shelf. Describes the whole shelf, not just this page.
+
+        - `idle`: no refresh in progress. If `items` is empty and `hiddenCount` is 0,
+          the shelf really is empty.
+        - `refreshing`: a refresh import (`importId`) is queued or running. Clients
+          SHOULD render `hiddenCount` placeholders rather than an empty list, and poll
+          the import.
+        - `backoff`: the latest import failed recently, so the server is not starting
+          another one until `retryAt` (a cooldown that protects the Discogs rate
+          limit). Clients SHOULD say the shelf could not be refreshed and when it will
+          retry. `POST /collection/imports` remains available for an explicit retry.
+      properties:
+        status:
+          type: string
+          enum: [idle, refreshing, backoff]
+        importId:
+          type: [string, 'null']
+          format: uuid
+          description: The refreshing import, or the failed one in `backoff`.
+        hiddenCount:
+          type: integer
+          minimum: 0
+          description: Shelf items withheld because their Discogs data is past `expiresAt`.
+        retryAt:
+          type: [string, 'null']
+          format: date-time
+          description: Set only in `backoff`; earliest time an automatic refresh starts.
 
     CollectionItem:
       type: object

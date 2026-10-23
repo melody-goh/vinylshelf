@@ -1,0 +1,107 @@
+{
+  "pagination": {
+    "page": 1,
+    "pages": 2,
+    "per_page": 2,
+    "items": 3,
+    "urls": {
+      "last": "https://api.discogs.com/users/fixture_collector/collection/folders/0/releases?page=2&per_page=2",
+      "next": "https://api.discogs.com/users/fixture_collector/collection/folders/0/releases?page=2&per_page=2"
+    }
+  },
+  "releases": [
+    {
+      "id": 9000001,
+      "instance_id": 2100000001,
+      "date_added": "2026-09-14T08:09:33-07:00",
+      "rating": 5,
+      "folder_id": 1,
+      "basic_information": {
+        "id": 9000001,
+        "master_id": 800001,
+        "master_url": "https://api.discogs.com/masters/800001",
+        "resource_url": "https://api.discogs.com/releases/9000001",
+        "thumb": "https://i.discogs.com/fixture/thumb-9000001.jpg",
+        "cover_image": "https://i.discogs.com/fixture/cover-9000001.jpg",
+        "title": "Tidal Lines",
+        "year": 2019,
+        "formats": [
+          { "name": "Vinyl", "qty": "1", "descriptions": ["LP", "Album"], "text": "Blue Marbled" }
+        ],
+        "labels": [
+          {
+            "name": "Fixture Records",
+            "catno": "FX-001",
+            "entity_type": "1",
+            "entity_type_name": "Label",
+            "id": 50001,
+            "resource_url": "https://api.discogs.com/labels/50001"
+          }
+        ],
+        "artists": [
+          {
+            "name": "The Paper Moons",
+            "anv": "",
+            "join": "",
+            "role": "",
+            "tracks": "",
+            "id": 700001,
+            "resource_url": "https://api.discogs.com/artists/700001"
+          }
+        ],
+        "genres": ["Rock"],
+        "styles": ["Indie Rock"]
+      }
+    },
+    {
+      "id": 9000002,
+      "instance_id": 2100000002,
+      "date_added": "2026-08-01T12:00:00+01:00",
+      "rating": 0,
+      "folder_id": 1,
+      "basic_information": {
+        "id": 9000002,
+        "master_id": 0,
+        "master_url": null,
+        "resource_url": "https://api.discogs.com/releases/9000002",
+        "thumb": "",
+        "cover_image": "",
+        "title": "Night Bus Recordings",
+        "year": 0,
+        "formats": [{ "name": "Vinyl", "qty": "1", "descriptions": ["12\"", "EP"] }],
+        "labels": [
+          {
+            "name": "Not On Label",
+            "catno": "none",
+            "entity_type": "1",
+            "entity_type_name": "Label",
+            "id": 50002,
+            "resource_url": "https://api.discogs.com/labels/50002"
+          }
+        ],
+        "artists": [
+          {
+            "name": "Nightshade (2)",
+            "anv": "",
+            "join": "&",
+            "role": "",
+            "tracks": "",
+            "id": 700002,
+            "resource_url": "https://api.discogs.com/artists/700002"
+          },
+          {
+            "name": "Ana Ferreira",
+            "anv": "",
+            "join": "",
+            "role": "",
+            "tracks": "",
+            "id": 700003,
+            "resource_url": "https://api.discogs.com/artists/700003"
+          }
+        ],
+        "genres": ["Electronic"],
+        "styles": ["Ambient"]
+      }
+    }
+  ]
+}
