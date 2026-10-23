@@ -51,3 +51,24 @@ design story shows legal constraints turned into architecture.
 
 **Costs:** more refetching, so the 60 requests/minute budget matters more; needs a skeleton
 state in the UI when data is past its deadline.
+
+## Notes
+
+### 2026-10-23: the refresh is started by a read
+
+Implementing §4, `GET /collection/items` starts a background refresh import when the
+shelf's data is stale or expired. A GET with a side effect breaks HTTP's "safe method"
+expectation: link prefetchers, crawlers or a top-level navigation from another site
+(which carries our `SameSite=Lax` cookie) can trigger it.
+
+We accept this because the effect is bounded:
+
+- starting an import is idempotent (one active import per user, enforced by the
+  database);
+- it is rate-limited by the cooldown after a failure, and by the shared Discogs limiter;
+- it only re-fetches the user's own collection, which the user asked to see.
+
+The alternative is for the server to report `stale` and let the client send
+`POST /collection/imports`. That is cleaner HTTP, but every client then has to
+implement the refresh logic. Revisit this if the API gains other clients or if
+prefetch-triggered imports show up in the logs.

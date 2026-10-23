@@ -42,4 +42,7 @@ status, before the first deployment.
 
 Whatever is chosen, the API must keep working behind a proxy: it reads `WEB_ORIGIN`
 from configuration for the `Origin` check and redirects, and must trust the proxy's
-forwarded headers only when configured to.
+forwarded headers only when configured to. Per-client rate limits (for example on
+`/auth/discogs/start`) key on the client IP, so behind a proxy the API must read the
+client IP from the proxy's forwarded header (Fastify `trustProxy`), or every visitor
+shares one limit.

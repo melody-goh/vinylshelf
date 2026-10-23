@@ -71,6 +71,11 @@ paths:
             Set-Cookie:
               description: Short-lived encrypted request-token cookie.
               schema: { type: string }
+        '429':
+          description: |
+            Too many login attempts from this client. Each attempt spends one request of
+            the Discogs budget shared by every user, so it is limited per client.
+          $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Problem'
 

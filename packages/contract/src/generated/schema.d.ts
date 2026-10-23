@@ -579,6 +579,11 @@ export interface operations {
                 };
                 content?: never;
             };
+            /**
+             * @description Too many login attempts from this client. Each attempt spends one request of
+             *     the Discogs budget shared by every user, so it is limited per client.
+             */
+            429: components["responses"]["RateLimited"];
             503: components["responses"]["Problem"];
         };
     };
