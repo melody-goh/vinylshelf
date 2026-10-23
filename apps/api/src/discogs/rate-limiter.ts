@@ -12,6 +12,8 @@
  * local budget, because Discogs throttles by source IP and sees requests we did not
  * count, and a 429 pauses everything for `Retry-After`.
  *
+ * Two lanes keep imports from starving logins; see `Lane`.
+ *
  * Limitation: the state lives in this process. If the API ever runs as more than one
  * instance, the window must move somewhere shared (for example Postgres), or the
  * instances will together exceed the budget.
@@ -25,31 +27,53 @@ export interface RateLimiterOptions {
   windowMs?: number;
   /** Pause after a 429 that carries no usable Retry-After. */
   defaultBackoffMs?: number;
+  /** Requests per window kept for interactive calls. Default: a sixth of the limit. */
+  reservedForInteractive?: number;
   clock?: Clock;
 }
+
+/**
+ * Who is waiting. `interactive` calls have a user waiting on a page (login); they may
+ * use the whole budget. `background` calls (imports) may not use the part reserved for
+ * interactive calls, so a large import can never make a login wait a minute.
+ */
+export type Lane = 'interactive' | 'background';
 
 export class RateLimiter {
   private readonly limit: number;
   private readonly windowMs: number;
   private readonly defaultBackoffMs: number;
   private readonly clock: Clock;
-  /** Grant times within the current window, oldest first. */
+  /** Per-window capacity of each lane. */
+  private readonly capacity: Record<Lane, number>;
+  /** Grant times within the current window, oldest first, shared by both lanes. */
   private grants: number[] = [];
   private pausedUntil = 0;
-  /** Serialises waiters so requests are granted in arrival order. */
-  private queue: Promise<void> = Promise.resolve();
+  /**
+   * One queue per lane, so requests are granted in arrival order within a lane, but an
+   * interactive request never queues behind a waiting background one.
+   */
+  private queues: Record<Lane, Promise<void>> = {
+    interactive: Promise.resolve(),
+    background: Promise.resolve(),
+  };
 
   constructor(options: RateLimiterOptions = {}) {
     this.limit = options.limit ?? 60;
     this.windowMs = options.windowMs ?? 60_000;
     this.defaultBackoffMs = options.defaultBackoffMs ?? this.windowMs;
     this.clock = options.clock ?? systemClock;
+    const reserved = options.reservedForInteractive ?? Math.floor(this.limit / 6);
+    if (reserved < 0 || reserved >= this.limit) {
+      throw new RangeError('reservedForInteractive must be at least 0 and below the limit');
+    }
+    this.capacity = { interactive: this.limit, background: this.limit - reserved };
   }
 
   /** Resolves when the caller may send one request. */
-  acquire(): Promise<void> {
-    const turn = this.queue.then(() => this.waitForSlot());
-    this.queue = turn.catch(() => undefined);
+  acquire(lane: Lane = 'interactive'): Promise<void> {
+    const turn = this.queues[lane].then(() => this.waitForSlot(lane));
+    this.queues[lane] = turn.catch(() => undefined);
     return turn;
   }
 
@@ -79,7 +103,8 @@ export class RateLimiter {
     }
   }
 
-  private async waitForSlot(): Promise<void> {
+  private async waitForSlot(lane: Lane): Promise<void> {
+    const capacity = this.capacity[lane];
     for (;;) {
       const now = this.clock.now();
       if (now < this.pausedUntil) {
@@ -87,13 +112,13 @@ export class RateLimiter {
         continue;
       }
       this.evict(now);
-      if (this.grants.length < this.limit) {
+      if (this.grants.length < capacity) {
         this.grants.push(now);
         return;
       }
-      // The window is full: wait until its oldest grant ages out.
-      const oldest = this.grants[0] ?? now;
-      await this.clock.sleep(Math.max(1, oldest + this.windowMs - now));
+      // This lane's share is used up: wait until enough grants age out to free one.
+      const freesSlot = this.grants[this.grants.length - capacity] ?? now;
+      await this.clock.sleep(Math.max(1, freesSlot + this.windowMs - now));
     }
   }
 

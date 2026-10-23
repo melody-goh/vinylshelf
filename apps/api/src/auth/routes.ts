@@ -15,6 +15,11 @@ import type { UserRepository } from './users.js';
 
 const REQUEST_COOKIE = 'oauth_req';
 const REQUEST_TOKEN_TTL_SECONDS = 10 * 60;
+/**
+ * Each login attempt spends one request of the Discogs budget every user shares, so an
+ * anonymous client must not be able to drain it. Ten a minute is plenty for a person.
+ */
+export const LOGIN_STARTS_PER_MINUTE = 10;
 
 export interface AuthRouteDependencies {
   config: Pick<Config, 'nodeEnv' | 'webOrigin'> & {
@@ -46,30 +51,40 @@ export const authRoutes =
     const backToApp = (error?: LoginErrorCode): string =>
       error ? `${config.webOrigin}/?loginError=${error}` : `${config.webOrigin}/`;
 
-    app.get('/auth/discogs/start', async (_request, reply) => {
-      let requestToken;
-      try {
-        requestToken = await gateway.getRequestToken(config.discogs.callbackUrl);
-      } catch (error) {
-        if (error instanceof DiscogsError) {
-          throw new ProblemError(503, 'discogs_unavailable', 'Discogs is unavailable', undefined, {
-            'retry-after': '30',
-          });
+    app.get(
+      '/auth/discogs/start',
+      { config: { rateLimit: { max: LOGIN_STARTS_PER_MINUTE, timeWindow: 60_000 } } },
+      async (_request, reply) => {
+        let requestToken;
+        try {
+          requestToken = await gateway.getRequestToken(config.discogs.callbackUrl);
+        } catch (error) {
+          if (error instanceof DiscogsError) {
+            throw new ProblemError(
+              503,
+              'discogs_unavailable',
+              'Discogs is unavailable',
+              undefined,
+              {
+                'retry-after': '30',
+              },
+            );
+          }
+          throw error;
         }
-        throw error;
-      }
-      const payload = JSON.stringify({
-        token: requestToken.token.token,
-        secret: requestToken.token.secret,
-        exp: clock.now() + REQUEST_TOKEN_TTL_SECONDS * 1000,
-      });
-      return reply
-        .setCookie(REQUEST_COOKIE, cipher.encrypt(payload, 'oauth_request'), {
-          ...requestCookieOptions,
-          maxAge: REQUEST_TOKEN_TTL_SECONDS,
-        })
-        .redirect(requestToken.authorizeUrl, 302);
-    });
+        const payload = JSON.stringify({
+          token: requestToken.token.token,
+          secret: requestToken.token.secret,
+          exp: clock.now() + REQUEST_TOKEN_TTL_SECONDS * 1000,
+        });
+        return reply
+          .setCookie(REQUEST_COOKIE, cipher.encrypt(payload, 'oauth_request'), {
+            ...requestCookieOptions,
+            maxAge: REQUEST_TOKEN_TTL_SECONDS,
+          })
+          .redirect(requestToken.authorizeUrl, 302);
+      },
+    );
 
     app.get(
       '/auth/discogs/callback',

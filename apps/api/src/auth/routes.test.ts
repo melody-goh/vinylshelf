@@ -7,6 +7,7 @@ import { useTestDatabase } from '../test/database.js';
 import { discogsHandlers, discogsUrls } from '../test/discogs-handlers.js';
 import { buildTestApp, testConfig } from '../test/app.js';
 import { mswServer } from '../test/msw.js';
+import { LOGIN_STARTS_PER_MINUTE } from './routes.js';
 import type { Clock } from '../lib/clock.js';
 
 const { db, handle } = useTestDatabase();
@@ -69,6 +70,27 @@ describe('GET /auth/discogs/start', () => {
       maxAge: 600,
     });
     expect(requestCookie?.value).not.toContain('RqScrt');
+  });
+
+  it('limits login attempts per client, since each one spends the shared Discogs budget', async () => {
+    let requestTokenCalls = 0;
+    mswServer.use(
+      http.get(discogsUrls.requestToken, () => {
+        requestTokenCalls++;
+        return undefined;
+      }),
+      ...discogsHandlers(),
+    );
+    for (let i = 0; i < LOGIN_STARTS_PER_MINUTE; i++) {
+      expect((await app.inject(`${API_PREFIX}/auth/discogs/start`)).statusCode).toBe(302);
+    }
+
+    const limited = await app.inject(`${API_PREFIX}/auth/discogs/start`);
+
+    expect(limited.statusCode).toBe(429);
+    expect(limited.headers['retry-after']).toBeDefined();
+    expect(limited.json()).toMatchObject({ code: 'rate_limited' });
+    expect(requestTokenCalls).toBe(LOGIN_STARTS_PER_MINUTE); // no Discogs call was spent
   });
 
   it('answers 503 with Retry-After when Discogs is down', async () => {

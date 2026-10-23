@@ -1,4 +1,5 @@
 import cookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
 import {
   serializerCompiler,
@@ -17,7 +18,7 @@ import type { TokenCipher } from './crypto/token-cipher.js';
 import type { DatabaseHandle } from './db/client.js';
 import type { DiscogsReleaseCache } from './discogs/cache.js';
 import type { DiscogsGateway } from './discogs/gateway.js';
-import { registerProblemHandlers } from './http/problem.js';
+import { ProblemError, registerProblemHandlers } from './http/problem.js';
 import type { JobQueue } from './jobs/queue.js';
 import type { Clock } from './lib/clock.js';
 import { healthRoutes, type HealthProbe } from './meta/health.js';
@@ -71,6 +72,12 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   app.setSerializerCompiler(serializerCompiler);
   registerProblemHandlers(app);
   await app.register(cookie);
+  // Opt-in per route (config.rateLimit); limits are per client IP, kept in memory.
+  await app.register(rateLimit, {
+    global: false,
+    errorResponseBuilder: (_request, context) =>
+      new ProblemError(429, 'rate_limited', 'Too many requests', `Try again in ${context.after}`),
+  });
   app.addHook('onRequest', originGuard(config.webOrigin));
 
   const sessions = new SessionStore(database.db, clock);

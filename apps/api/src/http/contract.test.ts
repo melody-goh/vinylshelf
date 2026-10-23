@@ -26,6 +26,7 @@ import { useTestDatabase } from '../test/database.js';
 import { discogsHandlers, discogsUrls } from '../test/discogs-handlers.js';
 import { createUser, sessionFor } from '../test/factories.js';
 import { mswServer } from '../test/msw.js';
+import { LOGIN_STARTS_PER_MINUTE } from '../auth/routes.js';
 import type {
   collectionPageSchema,
   collectionRefreshSchema,
@@ -98,12 +99,16 @@ describe('contract: responses validate against openapi.yaml', () => {
     expect((await call('get', '/health', { signedIn: false })).statusCode).toBe(200);
   });
 
-  it('GET /auth/discogs/start: 302 and 503', async () => {
+  it('GET /auth/discogs/start: 302, 503 and 429', async () => {
     expect((await call('get', '/auth/discogs/start', { signedIn: false })).statusCode).toBe(302);
     mswServer.use(
       http.get(discogsUrls.requestToken, () => new HttpResponse(null, { status: 500 })),
     );
     expect((await call('get', '/auth/discogs/start', { signedIn: false })).statusCode).toBe(503);
+    for (let i = 2; i < LOGIN_STARTS_PER_MINUTE; i++) {
+      await app.inject(`${API_PREFIX}/auth/discogs/start`);
+    }
+    expect((await call('get', '/auth/discogs/start', { signedIn: false })).statusCode).toBe(429);
   });
 
   it('GET /auth/discogs/callback: 302 and 400', async () => {

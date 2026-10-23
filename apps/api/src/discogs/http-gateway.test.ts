@@ -10,7 +10,7 @@ import {
   DiscogsUnavailableError,
 } from './errors.js';
 import { COLLECTION_PAGE_SIZE, HttpDiscogsGateway, displayArtistName } from './http-gateway.js';
-import { RateLimiter } from './rate-limiter.js';
+import { RateLimiter, type Lane } from './rate-limiter.js';
 
 const accessToken = { token: 'acc-token', secret: 'acc-secret' };
 
@@ -219,5 +219,29 @@ describe('displayArtistName', () => {
     expect(displayArtistName('Nightshade (2)')).toBe('Nightshade');
     expect(displayArtistName('Sunn O)))')).toBe('Sunn O)))');
     expect(displayArtistName('Love (Band)')).toBe('Love (Band)');
+  });
+});
+
+describe('HttpDiscogsGateway: rate-limit lanes', () => {
+  it('runs collection pages in the background lane and login calls in the interactive lane', async () => {
+    mswServer.use(...discogsHandlers());
+    const lanes: string[] = [];
+    class RecordingLimiter extends RateLimiter {
+      override acquire(lane: Lane = 'interactive'): Promise<void> {
+        lanes.push(lane);
+        return super.acquire(lane);
+      }
+    }
+    const gateway = new HttpDiscogsGateway({
+      consumer: { key: 'ckey', secret: 'csecret' },
+      userAgent: 'VinylShelfTest/0.0',
+      limiter: new RecordingLimiter({ clock: fakeClock() }),
+    });
+
+    await gateway.getRequestToken('http://localhost:3000/cb');
+    await gateway.getIdentity(accessToken);
+    await gateway.getCollectionPage(accessToken, 'fixture_collector', 1);
+
+    expect(lanes).toEqual(['interactive', 'interactive', 'background']);
   });
 });

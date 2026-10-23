@@ -16,7 +16,7 @@ import type {
   TokenPair,
 } from './gateway.js';
 import { authorizationHeader, type ConsumerCredentials } from './oauth1.js';
-import type { RateLimiter } from './rate-limiter.js';
+import type { Lane, RateLimiter } from './rate-limiter.js';
 import {
   accessTokenResponse,
   collectionReleasesResponse,
@@ -46,6 +46,8 @@ interface SignedRequest {
   callback?: string;
   verifier?: string;
   form?: boolean;
+  /** Imports run in the background lane so they cannot starve logins. */
+  lane?: Lane;
 }
 
 /**
@@ -123,13 +125,14 @@ export class HttpDiscogsGateway implements DiscogsGateway {
       url: url.toString(),
       endpoint,
       token: accessToken,
+      lane: 'background',
     });
     return toCollectionPage(parse(collectionReleasesResponse, parseJson(body, endpoint), endpoint));
   }
 
   private async send(request: SignedRequest, attempt = 0): Promise<string> {
     const { limiter, consumer, userAgent } = this.options;
-    await limiter.acquire();
+    await limiter.acquire(request.lane ?? 'interactive');
 
     let response: Response;
     try {
