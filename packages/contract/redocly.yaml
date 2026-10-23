@@ -1,0 +1,14 @@
+# Spec lint rules for openapi.yaml. Deviations from the recommended set are deliberate:
+extends:
+  - recommended
+rules:
+  # Redirect-only endpoints (/auth/discogs/*) legitimately have no 2xx response.
+  operation-2xx-response: off
+  # /health is public and cannot fail with a 4xx.
+  operation-4xx-response: off
+  # Local development server is the only server until deployment (ADR 0007).
+  no-server-example.com: off
+  # Private project; no license is published.
+  info-license: off
+  # LoginErrorCode documents the callback's query-string values for generated clients.
+  no-unused-components: off
