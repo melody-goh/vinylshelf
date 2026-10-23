@@ -1,1 +1,62 @@
+@import '@fontsource-variable/archivo/wdth.css';
 @import 'tailwindcss';
+
+/*
+ * The Gatefold world (see the shelf's surface brief): a studio-white seamless ground with
+ * photographic shadows, one printed ink per open gatefold, records in their real
+ * colourways, and Archivo set like liner notes.
+ */
+@theme {
+  --font-sans: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --color-ground: #f3f3f0;
+  --color-ink: #141414;
+  /* Secondary text on the ground: the ink, lifted, never a neutral grey. */
+  --color-ink-soft: #4a4844;
+  --color-rule: #d9d8d3;
+  --color-carbon: #1b1b1b;
+  --color-lacquer: #121212;
+  /* The one signal colour: hype stickers and the focus ring. */
+  --color-sticker: #e8452c;
+  --color-sticker-ink: #fff8f0;
+
+  --shadow-photo: 0 18px 32px -14px rgb(20 20 20 / 0.35), 0 4px 10px -4px rgb(20 20 20 / 0.2);
+  --shadow-disc: 0 10px 18px -8px rgb(20 20 20 / 0.45);
+}
+
+@layer base {
+  html {
+    background: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-variation-settings: 'wdth' 100;
+    -webkit-font-smoothing: antialiased;
+    caret-color: var(--color-sticker);
+    scrollbar-color: var(--color-ink-soft) transparent;
+    scrollbar-width: thin;
+  }
+
+  ::selection {
+    background: var(--color-ink);
+    color: var(--color-ground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-sticker);
+    outline-offset: 3px;
+  }
+
+  a {
+    text-underline-offset: 0.2em;
+  }
+}
+
+@utility condensed {
+  font-stretch: 72%;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+@utility numerals {
+  font-variant-numeric: tabular-nums;
+}

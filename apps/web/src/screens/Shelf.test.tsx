@@ -5,13 +5,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../App';
 import { timings } from '../api/collection';
 import { renderWithQueries } from '../test/render';
-import { API, collectionItem, importJob, page, server, signedIn } from '../test/server';
+import { API, collectionItem, importJob, page, releases, server, signedIn } from '../test/server';
 
 const IMPORT_ID = importJob().id;
 
 beforeEach(() => {
   timings.importPollMs = 10;
-  server.use(...signedIn());
+  server.use(...signedIn(), ...releases());
 });
 
 /** Serves each response in turn, repeating the last one. */
@@ -35,33 +35,93 @@ function serveImport(next: () => ImportJob) {
 }
 
 const records = () => screen.findByRole('list', { name: 'Records' });
+const gatefold = () => screen.findByRole('article');
 
-describe('Shelf: listing', () => {
-  it('lists records with artists and year, each with its own Discogs credit', async () => {
+describe('Shelf: the open gatefold and the disc stack', () => {
+  it('opens the newest record in the gatefold and fans the rest as named discs', async () => {
     serveItems(() =>
       page({
+        totalItems: 2,
         items: [collectionItem(1, { title: 'Tidal Lines' }), collectionItem(2, { year: null })],
       }),
     );
     renderWithQueries(<App />);
 
-    const list = await records();
-    const rows = within(list).getAllByRole('listitem');
-    expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveTextContent('Tidal Lines');
-    expect(rows[0]).toHaveTextContent('The Paper Moons · 2019');
-    expect(rows[1]).toHaveTextContent('Unknown year');
-    for (const [i, row] of rows.entries()) {
-      expect(within(row).getByRole('link', { name: 'Discogs' })).toHaveAttribute(
-        'href',
-        `https://www.discogs.com/release/${9000001 + i}`,
-      );
-    }
+    const open = await gatefold();
+    expect(within(open).getByRole('heading', { name: 'Tidal Lines' })).toBeInTheDocument();
+    expect(within(open).getByRole('link', { name: 'Discogs' })).toHaveAttribute(
+      'href',
+      'https://www.discogs.com/release/9000001',
+    );
+
+    const discs = within(await records()).getAllByRole('button');
+    expect(discs.map((d) => d.getAttribute('aria-label'))).toEqual([
+      'Tidal Lines, The Paper Moons, 2019',
+      'Record 2, The Paper Moons, year unknown',
+    ]);
+    expect(discs[0]).toHaveAttribute('aria-current', 'true');
+    expect(screen.getByText('2 records')).toBeInTheDocument();
+  });
+
+  it('reads the liner notes into the gatefold once the release detail arrives', async () => {
+    serveItems(() => page({ totalItems: 1, items: [collectionItem(1)] }));
+    renderWithQueries(<App />);
+
+    const open = await gatefold();
+    expect(within(open).getByText('Reading the liner notes…')).toBeInTheDocument();
+    expect(await within(open).findByText('Shoreline')).toBeInTheDocument();
+    expect(within(open).getByText('Producer')).toBeInTheDocument();
+    expect(within(open).getByText(/FX-001 · Fixture Records · Added/)).toBeInTheDocument();
+  });
+
+  it('opens a different record when its disc is chosen', async () => {
+    serveItems(() =>
+      page({
+        totalItems: 2,
+        items: [collectionItem(1), collectionItem(2, { title: 'Alpine Suites' })],
+      }),
+    );
+    const { user } = renderWithQueries(<App />);
+
+    await user.click(await screen.findByRole('button', { name: /^Alpine Suites/ }));
+
+    await waitFor(async () => {
+      expect(
+        within(await gatefold()).getByRole('heading', { name: 'Alpine Suites' }),
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /^Alpine Suites/ })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+  });
+
+  it('explains when Discogs cannot supply the liner notes', async () => {
+    serveItems(() => page({ totalItems: 1, items: [collectionItem(1)] }));
+    server.use(
+      http.get(`${API}/releases/:discogsId`, () =>
+        HttpResponse.json(
+          {
+            type: '/problems/discogs-unavailable',
+            title: 'Down',
+            status: 503,
+            code: 'discogs_unavailable',
+          },
+          { status: 503 },
+        ),
+      ),
+    );
+    renderWithQueries(<App />);
+
+    expect(await within(await gatefold()).findByRole('alert')).toHaveTextContent(
+      'Discogs isn’t answering',
+    );
   });
 
   it('never shows a record past its expiresAt, even if one arrives (ADR 0004)', async () => {
     serveItems(() =>
       page({
+        totalItems: 2,
         items: [
           collectionItem(1, { title: 'Fresh' }),
           collectionItem(2, {
@@ -73,24 +133,27 @@ describe('Shelf: listing', () => {
     );
     renderWithQueries(<App />);
 
-    expect(await records()).toHaveTextContent('Fresh');
+    expect(within(await records()).getAllByRole('button')).toHaveLength(1);
     expect(screen.queryByText('Expired')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Expired/ })).not.toBeInTheDocument();
   });
 
-  it('asks for the chosen sort, and loads further pages through the cursor', async () => {
+  it('asks for the chosen sort, and loads further records through the cursor', async () => {
     const seen = serveItems(
       sequence([
-        page({ items: [collectionItem(1)], nextCursor: 'cursor-2' }),
-        page({ items: [collectionItem(2)] }),
-        page({ items: [collectionItem(3)] }),
+        page({ totalItems: 3, items: [collectionItem(1)], nextCursor: 'cursor-2' }),
+        page({ totalItems: 3, items: [collectionItem(2)] }),
+        page({ totalItems: 3, items: [collectionItem(3)] }),
       ]),
     );
     const { user } = renderWithQueries(<App />);
 
     await records();
-    await user.click(screen.getByRole('button', { name: 'Load more' }));
+    await user.click(screen.getByRole('button', { name: 'Load more records' }));
     await waitFor(() => {
-      expect(screen.getAllByRole('listitem')).toHaveLength(2);
+      expect(
+        within(screen.getByRole('list', { name: 'Records' })).getAllByRole('button'),
+      ).toHaveLength(2);
     });
     expect(seen[1]?.searchParams.get('cursor')).toBe('cursor-2');
 
@@ -102,9 +165,10 @@ describe('Shelf: listing', () => {
 });
 
 describe('Shelf: refresh states', () => {
-  it('shows placeholders, not an empty shelf, while expired records are refreshed', async () => {
+  it('shows a closed sleeve and unlit discs, not an empty shelf, while records refresh', async () => {
     serveItems(() =>
       page({
+        totalItems: 5,
         refresh: { status: 'refreshing', importId: IMPORT_ID, hiddenCount: 5, retryAt: null },
       }),
     );
@@ -135,15 +199,18 @@ describe('Shelf: refresh states', () => {
     serveItems(
       sequence([
         page({
+          totalItems: 1,
           refresh: { status: 'refreshing', importId: IMPORT_ID, hiddenCount: 1, retryAt: null },
         }),
-        page({ items: [collectionItem(1, { title: 'Back again' })] }),
+        page({ totalItems: 1, items: [collectionItem(1, { title: 'Back again' })] }),
       ]),
     );
     serveImport(sequence([importJob({ status: 'running' }), importJob({ status: 'succeeded' })]));
     renderWithQueries(<App />);
 
-    expect(await records()).toHaveTextContent('Back again');
+    expect(
+      within(await gatefold()).getByRole('heading', { name: 'Back again' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Refreshing/)).not.toBeInTheDocument();
   });
 
@@ -151,6 +218,7 @@ describe('Shelf: refresh states', () => {
     const retryAt = new Date(Date.now() + 10 * 60 * 1000);
     serveItems(() =>
       page({
+        totalItems: 3,
         refresh: {
           status: 'backoff',
           importId: IMPORT_ID,
@@ -184,8 +252,13 @@ describe('Shelf: refresh states', () => {
 });
 
 describe('Shelf: first import', () => {
-  it('imports an empty shelf on request and shows the records when done', async () => {
-    serveItems(sequence([page(), page({ items: [collectionItem(1, { title: 'First record' })] })]));
+  it('imports an empty shelf on request and opens the first record when done', async () => {
+    serveItems(
+      sequence([
+        page(),
+        page({ totalItems: 1, items: [collectionItem(1, { title: 'First record' })] }),
+      ]),
+    );
     server.use(
       http.post(`${API}/collection/imports`, () =>
         HttpResponse.json(importJob({ status: 'queued', progress: { fetched: 0 } }), {
@@ -198,7 +271,9 @@ describe('Shelf: first import', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Import my collection' }));
 
-    expect(await records()).toHaveTextContent('First record');
+    expect(
+      within(await gatefold()).getByRole('heading', { name: 'First record' }),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Your shelf is empty/)).not.toBeInTheDocument();
   });
 

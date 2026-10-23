@@ -3,7 +3,13 @@
  * contract types, so the UI is built against the spec, not against whatever the
  * server happens to return (ADR 0001).
  */
-import type { CollectionItem, CollectionPage, ImportJob, User } from '@vinylshelf/contract';
+import type {
+  CollectionItem,
+  CollectionPage,
+  ImportJob,
+  Release,
+  User,
+} from '@vinylshelf/contract';
 import { http, HttpResponse, type HttpHandler } from 'msw';
 import { setupServer } from 'msw/node';
 
@@ -77,6 +83,41 @@ export function signedOut(): HttpHandler[] {
         { type: '/problems/unauthenticated', title: 'Sign in required', status: 401 },
         { status: 401, headers: { 'Content-Type': 'application/problem+json' } },
       ),
+    ),
+  ];
+}
+
+export function releaseDetail(discogsId: number, overrides: Partial<Release> = {}): Release {
+  const now = Date.now();
+  return {
+    discogsId,
+    title: `Record ${String(discogsId - 9000000)}`,
+    artists: ['The Paper Moons'],
+    year: 2019,
+    vinylColors: [],
+    coverImageUrl: null,
+    discogsUrl: `https://www.discogs.com/release/${String(discogsId)}`,
+    label: 'Fixture Records',
+    catalogNumber: 'FX-001',
+    genres: ['Rock'],
+    styles: ['Indie Rock'],
+    formats: ['Vinyl, LP, Album'],
+    credits: [{ name: 'Ana Ferreira', role: 'Producer' }],
+    tracklist: [
+      { position: 'A1', title: 'Shoreline', duration: '4:12' },
+      { position: 'A2', title: 'Undertow', duration: null },
+    ],
+    fetchedAt: new Date(now - HOUR).toISOString(),
+    expiresAt: new Date(now + 5 * HOUR).toISOString(),
+    ...overrides,
+  };
+}
+
+/** Release detail for any id, as the API would answer it. */
+export function releases(): HttpHandler[] {
+  return [
+    http.get(`${API}/releases/:discogsId`, ({ params }) =>
+      HttpResponse.json(releaseDetail(Number(params.discogsId))),
     ),
   ];
 }
