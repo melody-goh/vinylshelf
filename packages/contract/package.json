@@ -8,7 +8,7 @@
   },
   "scripts": {
     "generate": "tsx scripts/generate-types.ts",
-    "check": "tsx scripts/generate-types.ts --check && redocly lint openapi.yaml",
+    "check": "tsx scripts/generate-types.ts --check && REDOCLY_TELEMETRY=off REDOCLY_SUPPRESS_UPDATE_NOTICE=true redocly lint openapi.yaml",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
