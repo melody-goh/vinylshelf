@@ -6,17 +6,20 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
+import { createDatabase } from './db/client.js';
 
 // Local development reads the repo-root .env; deployed environments set real variables.
 const envFile = fileURLToPath(new URL('../../../.env', import.meta.url));
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const config = loadConfig();
-const app = await buildApp({ config });
+const database = createDatabase(config.databaseUrl);
+const app = await buildApp({ config, healthProbes: [database.ping] });
 
 const shutdown = async (signal: string): Promise<void> => {
   app.log.info({ signal }, 'Shutting down');
   await app.close();
+  await database.close();
   process.exit(0);
 };
 process.once('SIGINT', () => void shutdown('SIGINT'));

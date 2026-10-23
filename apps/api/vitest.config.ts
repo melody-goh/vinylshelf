@@ -5,5 +5,8 @@ export default defineProject({
     name: 'api',
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    globalSetup: ['src/test/global-setup.ts'],
+    // Integration tests share one Postgres database and truncate it between tests.
+    fileParallelism: false,
   },
 });
