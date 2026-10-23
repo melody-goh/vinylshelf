@@ -1,0 +1,379 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-23T00:00:00Z",
+  "title": "Design System: Vinyl Shelf",
+  "extensions": {
+    "colorMeta": {
+      "sticker": {
+        "role": "primary",
+        "displayName": "Hype Sticker Red",
+        "canonical": "#cc3620",
+        "tonalRamp": [
+          "#1f0000",
+          "#490601",
+          "#761607",
+          "#a82714",
+          "#d24833",
+          "#e97965",
+          "#ffab9a",
+          "#ffe0d5"
+        ]
+      },
+      "sticker-ink": {
+        "role": "primary",
+        "displayName": "Sticker Ink",
+        "canonical": "#fff8f0",
+        "tonalRamp": [
+          "#0f0a06",
+          "#28231d",
+          "#443f38",
+          "#625d56",
+          "#827c75",
+          "#a49d96",
+          "#cac3bb",
+          "#f4ede5"
+        ]
+      },
+      "carbon": {
+        "role": "secondary",
+        "displayName": "Carbon Board",
+        "canonical": "#1b1b1b",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "lacquer": {
+        "role": "secondary",
+        "displayName": "Lacquer Black",
+        "canonical": "#121212",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Studio White",
+        "canonical": "#f3f3f0",
+        "tonalRamp": [
+          "#0b0b09",
+          "#242422",
+          "#40403d",
+          "#5e5e5b",
+          "#7d7d7b",
+          "#9e9e9c",
+          "#c4c4c1",
+          "#efefec"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Press Ink",
+        "canonical": "#141414",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#7d7d7d",
+          "#9e9e9e",
+          "#c4c4c4",
+          "#eeeeee"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Soft Ink",
+        "canonical": "#4a4844",
+        "tonalRamp": [
+          "#0d0b08",
+          "#262420",
+          "#413f3c",
+          "#5f5d59",
+          "#7f7d79",
+          "#a09e99",
+          "#c6c4bf",
+          "#f1eee9"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Hairline Rule",
+        "canonical": "#d9d8d3",
+        "tonalRamp": [
+          "#0c0b08",
+          "#252420",
+          "#41403c",
+          "#5e5e59",
+          "#7e7d79",
+          "#9f9e9a",
+          "#c5c4bf",
+          "#f0efe9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Sleeve Title",
+        "purpose": "Compressed caps printed on a closed sleeve (sign-in, empty shelf, waiting) and on a missing cover."
+      },
+      "headline": {
+        "displayName": "Record Title",
+        "purpose": "The record title on the liner board; title case, balanced wrap."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "\"Vinyl Shelf\" in the header strip only."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Artist line under the record title; the sign-in lead sentence."
+      },
+      "body-sm": {
+        "displayName": "Body Small",
+        "purpose": "Header controls, notices, sleeve copy, the leaned readout, liner notes (0.8125rem from 64rem)."
+      },
+      "label": {
+        "displayName": "Credit Label",
+        "purpose": "Condensed caps for track positions, credit roles, the catalogue line and the More below cue; beside what they name, never as a kicker."
+      },
+      "sticker": {
+        "displayName": "Sticker",
+        "purpose": "Bold condensed caps on a hype sticker."
+      },
+      "fine-print": {
+        "displayName": "Fine Print",
+        "purpose": "The Discogs non-affiliation footer."
+      }
+    },
+    "shadows": [
+      {
+        "name": "photo",
+        "value": "0 18px 32px -14px rgb(20 20 20 / 0.35), 0 4px 10px -4px rgb(20 20 20 / 0.2)",
+        "purpose": "Sleeve-sized objects on the studio ground: the open gatefold, the closed sleeve, the hype sticker."
+      },
+      {
+        "name": "disc",
+        "value": "0 10px 18px -8px rgb(20 20 20 / 0.45)",
+        "purpose": "Every disc; separates each crescent in the stack."
+      },
+      {
+        "name": "crease",
+        "value": "linear-gradient(to right, rgb(0 0 0 / 0.3), transparent) over 1.5rem",
+        "purpose": "The fold where the liner board meets the cover panel (wide screens only)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "lean",
+        "value": "spring stiffness 420, damping 34",
+        "purpose": "A disc sliding out of the stack on hover or focus (x -36% wide, y 28% phones); the open record sits at x -10% / y 8%."
+      },
+      {
+        "name": "fold",
+        "value": "spring stiffness 210, damping 29",
+        "purpose": "The liner board folding shut on its crease and reopening (rotateY 0 to -180deg from the left edge wide; rotateX 0 to 180deg from the top edge on phones); crossfade under reduced motion."
+      },
+      {
+        "name": "press",
+        "value": "spring stiffness 500, damping 28",
+        "purpose": "Hype sticker hover (scale 1.05, rotate -4deg from -8deg) and press (scale 0.97)."
+      },
+      {
+        "name": "tick",
+        "value": "spring stiffness 120, damping 24",
+        "purpose": "The import count springing up to each new value; real number shown directly under reduced motion."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "MotionConfig reducedMotion=\"user\"",
+        "purpose": "Transform animations jump to their end state; opacity still animates; the gatefold crossfades instead of folding."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "md",
+        "value": "48rem",
+        "purpose": "Stack stands beside the gatefold as a column; app becomes viewport height."
+      },
+      {
+        "name": "lg",
+        "value": "64rem",
+        "purpose": "Liner notes split into tracklist and credits columns; sign-in shows the fanned discs."
+      }
+    ],
+    "rasterProvenance": {
+      "files": "apps/web/src/design/disc/{sheen,marble,splatter,clear}.webp",
+      "source": "apps/web/scripts/disc-plates.ts",
+      "method": "Procedural, seeded (mulberry32, seed 0x5eedd15c), rendered in Playwright Chrome; no image model, nothing traced."
+    },
+    "openDecisions": [
+      "Board colour sourcing: client sampling is blocked by Discogs CORS, so carbon is the effective board; server-side sampling would need a contract change.",
+      "Discogs attribution placement count: currently one credit on the board and one over the stack."
+    ]
+  },
+  "components": [
+    {
+      "name": "Hype Sticker",
+      "kind": "button",
+      "refersTo": "hype-sticker",
+      "description": "The round sticker on a sleeve's shrink-wrap; the only filled control, for the few primary actions (sign in, import).",
+      "html": "<button class=\"ds-sticker\" type=\"button\">Sign in with Discogs</button>",
+      "css": ".ds-sticker { display: grid; place-items: center; width: 8rem; height: 8rem; padding: 1rem; border: 0; border-radius: 9999px; background: var(--color-sticker, #cc3620); color: var(--color-sticker-ink, #fff8f0); font-family: var(--font-sans, 'Archivo Variable', ui-sans-serif, system-ui, sans-serif); font-size: 0.875rem; font-weight: 700; line-height: 1.25; font-stretch: 72%; text-transform: uppercase; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; text-align: center; box-shadow: 0 18px 32px -14px rgb(20 20 20 / 0.35), 0 4px 10px -4px rgb(20 20 20 / 0.2); transform: rotate(-8deg); transition: transform 0.35s cubic-bezier(0.34, 1.4, 0.64, 1); cursor: pointer; } .ds-sticker:hover { transform: rotate(-4deg) scale(1.05); } .ds-sticker:active { transform: rotate(-4deg) scale(0.97); } .ds-sticker:focus-visible { outline: 2px solid var(--color-sticker, #cc3620); outline-offset: 3px; } .ds-sticker:disabled { opacity: 0.7; transform: rotate(-8deg); cursor: default; } @media (prefers-reduced-motion: reduce) { .ds-sticker { transition: none; } }"
+    },
+    {
+      "name": "Text Action",
+      "kind": "button",
+      "refersTo": "text-action",
+      "description": "Every non-primary action: underlined text in the current colour, no container.",
+      "html": "<button class=\"ds-text-action\" type=\"button\">Sign out</button>",
+      "css": ".ds-text-action { background: none; border: 0; padding: 0; color: inherit; font-family: var(--font-sans, 'Archivo Variable', ui-sans-serif, system-ui, sans-serif); font-size: 0.875rem; text-decoration: underline; text-underline-offset: 0.2em; cursor: pointer; } .ds-text-action:focus-visible { outline: 2px solid var(--color-sticker, #cc3620); outline-offset: 3px; } .ds-text-action:disabled { opacity: 0.6; text-decoration: none; }"
+    },
+    {
+      "name": "Header Strip",
+      "kind": "nav",
+      "refersTo": "header-strip",
+      "description": "Wordmark left; count, sort and sign out right, on a hairline rule.",
+      "html": "<header class=\"ds-header\"><p class=\"ds-wordmark\">Vinyl Shelf</p><div class=\"ds-header-tools\"><span class=\"ds-soft\">12 records</span><label class=\"ds-sort\"><span class=\"ds-soft\">Sort by</span><select><option>Recently added</option><option>Artist A to Z</option></select><svg aria-hidden=\"true\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m6 9 6 6 6-6\"/></svg></label><button class=\"ds-header-out\" type=\"button\">Sign out</button></div></header>",
+      "css": ".ds-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1.5rem; padding: 0.75rem 2rem; border-bottom: 1px solid var(--color-rule, #d9d8d3); background: var(--color-ground, #f3f3f0); color: var(--color-ink, #141414); font-family: var(--font-sans, 'Archivo Variable', ui-sans-serif, system-ui, sans-serif); font-size: 0.875rem; } .ds-wordmark { margin: 0; font-weight: 800; font-stretch: 62%; text-transform: uppercase; letter-spacing: 0.06em; } .ds-header-tools { display: flex; align-items: center; gap: 1.5rem; } .ds-soft { color: var(--color-ink-soft, #4a4844); font-variant-numeric: tabular-nums; } .ds-sort { position: relative; display: flex; align-items: center; gap: 0.5rem; } .ds-sort select { appearance: none; background: transparent; border: 0; padding: 0 1.25rem 0 0; font: inherit; font-weight: 500; color: inherit; } .ds-sort svg { position: absolute; right: 0; pointer-events: none; } .ds-sort select:focus-visible, .ds-header-out:focus-visible { outline: 2px solid var(--color-sticker, #cc3620); outline-offset: 3px; } .ds-header-out { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-decoration: underline; text-underline-offset: 0.2em; cursor: pointer; }"
+    },
+    {
+      "name": "Disc",
+      "kind": "custom",
+      "refersTo": "disc",
+      "description": "A record in its named colourway with the cover as centre label. Preview only: the shipped disc is composited from the seeded raster plates (sheen, marble, splatter, clear) from scripts/disc-plates.ts, which this snippet omits.",
+      "html": "<button class=\"ds-disc\" type=\"button\" aria-label=\"Tidal Lines, The Paper Moons, 2019\"><span class=\"ds-disc-label\"></span><span class=\"ds-disc-hole\"></span></button>",
+      "css": ".ds-disc { position: relative; display: block; width: 15rem; aspect-ratio: 1; padding: 0; border: 0; border-radius: 9999px; background: var(--color-lacquer, #121212); box-shadow: 0 10px 18px -8px rgb(20 20 20 / 0.45); cursor: pointer; transition: transform 0.4s cubic-bezier(0.34, 1.3, 0.64, 1); } .ds-disc:hover, .ds-disc:focus-visible { transform: translateX(-36%); } .ds-disc:focus-visible { outline: 2px solid var(--color-sticker, #cc3620); outline-offset: 3px; } .ds-disc-label { position: absolute; inset: 32%; border-radius: 9999px; background: var(--color-rule, #d9d8d3); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.1); } .ds-disc-hole { position: absolute; left: 50%; top: 50%; width: 3%; height: 3%; transform: translate(-50%, -50%); border-radius: 9999px; background: var(--color-ground, #f3f3f0); box-shadow: 0 0 0 1px rgb(0 0 0 / 0.3); } @media (prefers-reduced-motion: reduce) { .ds-disc { transition: none; } }"
+    },
+    {
+      "name": "Closed Sleeve",
+      "kind": "card",
+      "refersTo": "closed-sleeve",
+      "description": "The front of the gatefold before anything is open: sign-in, empty shelf, waiting.",
+      "html": "<div class=\"ds-sleeve-wrap\"><div class=\"ds-sleeve\"><h2 class=\"ds-sleeve-title\">Your shelf is empty</h2><p class=\"ds-sleeve-copy\">Bring your collection in from Discogs. It takes a minute for a large one.</p></div><button class=\"ds-sleeve-sticker\" type=\"button\">Import my collection</button></div>",
+      "css": ".ds-sleeve-wrap { position: relative; max-width: 34rem; } .ds-sleeve { display: flex; flex-direction: column; justify-content: space-between; aspect-ratio: 1; padding: 2.5rem; background: var(--color-carbon, #1b1b1b); color: var(--color-ground, #f3f3f0); box-shadow: 0 18px 32px -14px rgb(20 20 20 / 0.35), 0 4px 10px -4px rgb(20 20 20 / 0.2); font-family: var(--font-sans, 'Archivo Variable', ui-sans-serif, system-ui, sans-serif); } .ds-sleeve-title { margin: 0; font-size: clamp(3rem, 9vw, 6rem); font-weight: 800; line-height: 0.85; font-stretch: 62%; text-transform: uppercase; letter-spacing: 0.06em; } .ds-sleeve-copy { margin: 0; max-width: 24rem; font-size: 0.875rem; line-height: 1.625; color: rgb(243 243 240 / 0.8); } .ds-sleeve-sticker { position: absolute; top: -2.5rem; right: -2.5rem; display: grid; place-items: center; width: 8rem; height: 8rem; padding: 1rem; border: 0; border-radius: 9999px; background: var(--color-sticker, #cc3620); color: var(--color-sticker-ink, #fff8f0); font-family: var(--font-sans, 'Archivo Variable', ui-sans-serif, system-ui, sans-serif); font-size: 0.875rem; font-weight: 700; line-height: 1.25; font-stretch: 72%; text-transform: uppercase; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; box-shadow: 0 18px 32px -14px rgb(20 20 20 / 0.35), 0 4px 10px -4px rgb(20 20 20 / 0.2); transform: rotate(-8deg); cursor: pointer; } .ds-sleeve-sticker:focus-visible { outline: 2px solid var(--color-sticker, #cc3620); outline-offset: 3px; }"
+    },
+    {
+      "name": "Liner Board",
+      "kind": "card",
+      "refersTo": "liner-board",
+      "description": "The open gatefold's inner board, carbon by default: title, artists, named colourway, ruled tracklist, credits, catalogue line and Discogs credit.",
+      "html": "<article class=\"ds-board\"><h2 class=\"ds-board-title\">Tidal Lines</h2><p class=\"ds-board-artist\">The Paper Moons</p><p class=\"ds-board-meta\">2019 · Blue Marbled vinyl</p><ol class=\"ds-tracks\"><li><span class=\"ds-pos\">A1</span><span>Shoreline</span><span class=\"ds-board-soft\">4:12</span></li><li><span class=\"ds-pos\">A2</span><span>Undertow</span><span class=\"ds-board-soft\">3:48</span></li><li><span class=\"ds-pos\">B1</span><span>Low Tide Radio</span><span class=\"ds-board-soft\"></span></li></ol><dl class=\"ds-facts\"><dt>Format</dt><dd>Vinyl, LP, Album</dd><dt>Producer</dt><dd>Ana Ferreira</dd></dl><p class=\"ds-catline\">SYN-100 · Synthetic Records · Added Oct 14, 2026</p><p class=\"ds-credit\">Data provided by <a href=\"https://www.discogs.com\">Discogs</a></p></article>",
+      "css": ".ds-board { position: relative; max-width: 30rem; aspect-ratio: 1; padding: 2.5rem; display: flex; flex-direction: column; gap: 1.25rem; background: var(--color-carbon, #1b1b1b); color: var(--color-ground, #f3f3f0); font-family: var(--font-sans, 'Archivo Variable', ui-sans-serif, system-ui, sans-serif); font-size: 0.8125rem; box-shadow: 0 18px 32px -14px rgb(20 20 20 / 0.35), 0 4px 10px -4px rgb(20 20 20 / 0.2); } .ds-board::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 1.5rem; background: linear-gradient(to right, rgb(0 0 0 / 0.3), transparent); pointer-events: none; } .ds-board > * { margin: 0; } .ds-board-title { font-size: clamp(1.75rem, 3vw, 2.75rem); font-weight: 700; line-height: 0.95; letter-spacing: -0.02em; font-stretch: 78%; text-wrap: balance; } .ds-board-artist { font-size: 1rem; margin-top: -0.75rem !important; } .ds-board-meta, .ds-board-soft { color: rgb(243 243 240 / 0.78); font-variant-numeric: tabular-nums; } .ds-board-meta { font-size: 0.875rem; margin-top: -1rem !important; } .ds-tracks { list-style: none; padding: 0; } .ds-tracks li { display: grid; grid-template-columns: 2.5rem 1fr auto; gap: 0.75rem; padding: 0.375rem 0; border-top: 1px solid color-mix(in srgb, currentColor 22%, transparent); font-variant-numeric: tabular-nums; } .ds-tracks li:first-child { border-top: 0; } .ds-pos, .ds-facts dt, .ds-catline { font-size: 0.7rem; font-stretch: 72%; text-transform: uppercase; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; color: rgb(243 243 240 / 0.78); } .ds-facts { display: grid; grid-template-columns: auto 1fr; gap: 0.375rem 1rem; } .ds-facts dd { margin: 0; } .ds-credit { font-size: 0.75rem; } .ds-credit a { color: inherit; text-underline-offset: 0.2em; } .ds-credit a:focus-visible { outline: 2px solid var(--color-sticker, #cc3620); outline-offset: 3px; }"
+    },
+    {
+      "name": "Leaned Readout",
+      "kind": "custom",
+      "refersTo": "leaned-readout",
+      "description": "Names the leaned disc under the stack, clear of the discs; reserved height so nothing jumps.",
+      "html": "<p class=\"ds-readout\"><span class=\"ds-readout-title\">Small Hours</span><span class=\"ds-readout-sub\">The Lantern Club · 1966</span></p>",
+      "css": ".ds-readout { margin: 0; min-height: 2.75rem; padding: 0.75rem 1.5rem; border-top: 1px solid var(--color-rule, #d9d8d3); font-family: var(--font-sans, 'Archivo Variable', ui-sans-serif, system-ui, sans-serif); font-size: 0.875rem; line-height: 1.25; color: var(--color-ink, #141414); } .ds-readout-title { display: block; font-weight: 600; } .ds-readout-sub { display: block; font-size: 0.75rem; color: var(--color-ink-soft, #4a4844); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Import Progress",
+      "kind": "custom",
+      "description": "A live count springing up as records arrive, over a hairline track filled in sticker red.",
+      "html": "<div class=\"ds-import\"><p class=\"ds-import-line\"><span class=\"ds-import-count\">214</span><span>of 1,240 records in from Discogs</span></p><progress class=\"ds-import-bar\" max=\"1240\" value=\"214\" aria-label=\"Import progress\"></progress></div>",
+      "css": ".ds-import { font-family: var(--font-sans, 'Archivo Variable', ui-sans-serif, system-ui, sans-serif); color: var(--color-ink, #141414); } .ds-import-line { display: flex; align-items: baseline; gap: 0.5rem; margin: 0 0 0.5rem; font-size: 0.875rem; font-variant-numeric: tabular-nums; } .ds-import-count { font-size: 1.5rem; font-weight: 700; font-stretch: 78%; } .ds-import-bar { appearance: none; display: block; width: 100%; height: 4px; border: 0; overflow: hidden; background: var(--color-rule, #d9d8d3); } .ds-import-bar::-webkit-progress-bar { background: var(--color-rule, #d9d8d3); } .ds-import-bar::-webkit-progress-value { background: var(--color-sticker, #cc3620); } .ds-import-bar::-moz-progress-bar { background: var(--color-sticker, #cc3620); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Gatefold Liner Notes",
+    "overview": "A studio product shot of a record collection. The ground is a studio-white seamless sweep with soft photographic shadows; on it, one gatefold lies open at full size (the cover square on one panel, the liner notes printed on the inner board on the other, a crease between them) and the rest of the collection is fanned beside it as discs in their real colourways, each overlapping the next and showing a crescent. One record at a time gets the whole sleeve. The rest wait as a stack you can thumb through.\n\nType is set like liner notes: one variable family (Archivo) carrying the hierarchy through its width axis, condensed capitals for roles, positions and credit lines, regular weight for names and titles, hairline-ruled columns. Colour is almost all neutral; the only chromatic colours come from the records (cover art and named colourways) and from one sticker red that marks actions. Motion is physical: discs lean out of the stack on springs, and choosing one folds the board shut on its crease and opens it again on the new record.\n\nTruth comes before decoration. A colourway is drawn only when Discogs names it; an unnamed record is drawn black and nothing is printed about its colour. Discogs data never appears without its credit.",
+    "keyCharacteristics": [
+      "Studio-white ground, soft photographic drop shadows, no hard edges of light.",
+      "One open gatefold per screen; everything else is a fanned disc stack.",
+      "Two shapes only: squares (sleeves, boards, covers) and circles (discs, stickers).",
+      "Archivo Variable throughout; width (wdth 62 to 100) does the work other systems give to a second family.",
+      "Sticker red is the single signal colour; actions are round hype stickers or underlined text.",
+      "Springs only, transform and opacity only; reduced motion turns the fold into a crossfade."
+    ],
+    "rules": [
+      {
+        "name": "The One Signal Rule",
+        "body": "Sticker Red marks actions and focus only: hype stickers, the focus ring, the caret, import progress. It is never a decoration, a heading colour or a background panel.",
+        "section": "colors"
+      },
+      {
+        "name": "The Carbon Board Rule",
+        "body": "The liner board is carbon unless the featured cover is CORS-readable, in which case it is printed in the cover's dominant colour deepened to 90%, with black (#141414) or white text chosen by computed contrast. Treat carbon as the effective default and sampling as a latent path. Where board colour is sourced from (client sampling, server-side sampling with a contract change, or carbon only) is an open decision with the user; do not settle it in a surface.",
+        "section": "colors"
+      },
+      {
+        "name": "The Named Colourway Rule",
+        "body": "Only a colourway Discogs names is drawn or printed (\"2019 · Blue Marbled vinyl\"). No name means a Lacquer Black disc and no colour claim in the text. Never guess a colour from the cover.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "Archivo Variable is the only face. Hierarchy comes from the width axis (62 sleeve titles and wordmark, 72 labels, 78 headlines, 100 reading text) and weight, never from a second family or a system display face.",
+        "section": "typography"
+      },
+      {
+        "name": "The Liner Notes Rule",
+        "body": "Condensed caps label data the way a sleeve's credits do: in the left column of a term/value pair, as a track position, or as a credit line under the notes. They never float above a heading as a kicker or eyebrow.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Anything counted or timed (record counts, track durations, years, catalogue lines, the import counter) uses tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Record Rule",
+        "body": "One record is open at full size; the rest of the collection is a stack. Never lay the collection out as a grid of equal square covers.",
+        "section": "layout"
+      },
+      {
+        "name": "The Clear Readout Rule",
+        "body": "Information about a leaned or hovered disc appears in the readout under the stack, never on top of a disc.",
+        "section": "layout"
+      },
+      {
+        "name": "The Product Shot Rule",
+        "body": "Shadows are soft, fall downward and belong to physical objects. No hard offset shadows, no glows, no shadows on text or on rules.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Two Shapes Rule",
+        "body": "If it is not a square of paper or a circle of vinyl or sticker, it has no shape at all: text actions, notices and controls sit directly on the ground without a container.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** keep one record open in the gatefold and the rest in the disc stack (The One Record Rule).",
+      "**Do** reserve Sticker Red for hype stickers, the focus ring, the caret and import progress (The One Signal Rule).",
+      "**Do** fall back to the Carbon Board with Studio White text whenever the cover cannot be sampled, and choose board text by computed contrast, never by assumption.",
+      "**Do** draw only the colourways Discogs names; draw an unnamed record in Lacquer Black and print nothing about its colour.",
+      "**Do** render the Discogs credit with every block of Discogs data.",
+      "**Do** set roles, positions and credit lines in condensed caps beside what they name, and names and titles in regular weight (The Liner Notes Rule).",
+      "**Do** animate with springs on `transform` and `opacity` only, and keep a crossfade path for reduced motion.",
+      "**Do** name a leaned disc in the readout under the stack, clear of the discs.",
+      "**Do** composite discs from the seeded raster plates; regenerate them with `scripts/disc-plates.ts`, never by tracing a real record."
+    ],
+    "donts": [
+      "**Don't** use kicker or eyebrow labels above headings.",
+      "**Don't** use gradient text. (The fold crease and the notes fade are depth devices, not text treatments.)",
+      "**Don't** use hard offset shadows; every shadow is soft and photographic (The Product Shot Rule).",
+      "**Don't** use side stripes wider than 1px.",
+      "**Don't** make any other filled or rectangular button; actions are hype stickers or underlined text.",
+      "**Don't** introduce a second typeface or a system display face (The One Family Rule).",
+      "**Don't** lay the collection out as a grid of equal square covers.",
+      "**Don't** add rounded corners to paper; it is square, or it is a circle.",
+      "**Don't** show a stock image for a missing cover; print the title on the sleeve."
+    ]
+  }
+}
