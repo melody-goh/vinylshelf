@@ -25,6 +25,13 @@ import { healthRoutes, type HealthProbe } from './meta/health.js';
 /** Prefix from the `servers` entry in openapi.yaml. */
 export const API_PREFIX = '/api/v1';
 
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** Every route registered, in registration order. The contract tests check it against the spec. */
+    apiRoutes: readonly { method: string; url: string }[];
+  }
+}
+
 /**
  * Infrastructure the HTTP layer needs, passed in rather than imported. Tests build the
  * app with a test database, MSW-backed Discogs and a fake queue. The composition root
@@ -53,6 +60,12 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
       },
     },
   }).withTypeProvider<ZodTypeProvider>();
+
+  const apiRoutes: { method: string; url: string }[] = [];
+  app.decorate('apiRoutes', apiRoutes);
+  app.addHook('onRoute', (route) => {
+    for (const method of [route.method].flat()) apiRoutes.push({ method, url: route.url });
+  });
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
