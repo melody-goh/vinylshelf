@@ -10,6 +10,7 @@ import { useTestDatabase } from '../test/database.js';
 import { discogsFixtures, discogsHandlers, discogsUrls } from '../test/discogs-handlers.js';
 import { createUser } from '../test/factories.js';
 import { mswServer } from '../test/msw.js';
+import { silentLogger } from '../test/silent-logger.js';
 import { ImportService } from './imports.js';
 import { runImport } from './import-worker.js';
 
@@ -20,8 +21,6 @@ let userId: string;
 let importJobId: string;
 /** Collection pages Discogs was asked for, in order. */
 let requestedPages: number[];
-
-const silentLog = { warn: () => undefined, error: () => undefined } as never;
 
 beforeEach(async () => {
   deps = testDependencies(handle());
@@ -46,7 +45,7 @@ function run(retryCount = 0) {
       users: new UserRepository(handle().db, deps.cipher),
       releaseCache: deps.releaseCache,
       clock: deps.clock,
-      log: silentLog,
+      log: silentLogger,
     },
   );
 }
@@ -135,5 +134,49 @@ describe('runImport', () => {
     await run();
     expect(requestedPages).toEqual([]);
     expect(await job()).toMatchObject({ status: 'succeeded', fetched: 3 });
+  });
+});
+
+describe('runImport: consistency (review findings)', () => {
+  it('does not delete shelf items when the collection changed during the import', async () => {
+    await run(); // shelf now holds all three records
+    importJobId = (await new ImportService(handle(), deps.queue, deps.clock).start(userId)).id;
+
+    // Second import: page 1 is served as before, then the newest record is removed on
+    // Discogs. The oldest record moves up to page 1, which was already fetched, so no
+    // page of this import contains it.
+    mswServer.use(
+      http.get(discogsUrls.collection, ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page'));
+        if (page === 1) return HttpResponse.json(discogsFixtures.collectionPage(1));
+        return HttpResponse.json({ pagination: { page: 2, pages: 1, items: 2 }, releases: [] });
+      }),
+    );
+    await run();
+
+    const remaining = (await db().select().from(collectionItems)).map((i) => i.instanceId);
+    expect(remaining).toContain(2100000003); // still in the collection; must not be deleted
+    expect(await job()).toMatchObject({ status: 'succeeded' });
+  });
+
+  it('lets only one of two concurrent workers advance the checkpoint', async () => {
+    // While this worker fetches page 2, a second worker on the same import commits it.
+    mswServer.use(
+      http.get(discogsUrls.collection, async ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page'));
+        if (page === 2) {
+          await db()
+            .update(importJobs)
+            .set({ cursorPage: 3, fetched: 3 })
+            .where(eq(importJobs.id, importJobId));
+        }
+        return HttpResponse.json(discogsFixtures.collectionPage(page));
+      }),
+    );
+
+    await run();
+
+    // The superseded worker must neither add its page again nor touch the job's status.
+    expect(await job()).toMatchObject({ status: 'running', cursorPage: 3, fetched: 3 });
   });
 });

@@ -33,6 +33,15 @@ export class ImportAbortedError extends Error {
   override name = 'ImportAbortedError';
 }
 
+/**
+ * Another worker advanced this import's checkpoint first. That happens when the queue
+ * redelivers a job that overran its expiry while the original attempt is still running.
+ * The other worker owns the import now, so this one stops without writing anything.
+ */
+class ImportSupersededError extends Error {
+  override name = 'ImportSupersededError';
+}
+
 export async function runImport(
   job: QueuedJob<{ importJobId: string }>,
   deps: ImportWorkerDependencies,
@@ -55,6 +64,11 @@ export async function runImport(
     if (!owner) return; // User deleted; the job row goes with them (ON DELETE CASCADE).
 
     let page = row.cursorPage;
+    let fetched = row.fetched;
+    // Discogs' item count as of each page. If it changes mid-import, items have shifted
+    // between pages and "not seen" no longer means "removed".
+    let total = row.cursorPage > 1 ? row.total : null;
+    let totalChanged = false;
     for (;;) {
       if (job.signal.aborted) throw new ImportAbortedError('Import interrupted; will resume');
 
@@ -86,7 +100,9 @@ export async function runImport(
               },
             });
         }
-        await tx.db
+        // Compare-and-set: advance the checkpoint only from the page this worker read.
+        // If another worker moved it, roll back this page instead of applying it twice.
+        const [advanced] = await tx.db
           .update(importJobs)
           .set({
             cursorPage: page + 1,
@@ -94,17 +110,49 @@ export async function runImport(
             total: result.totalItems,
             updatedAt: now(),
           })
-          .where(eq(importJobs.id, importJobId));
+          .where(
+            and(
+              eq(importJobs.id, importJobId),
+              eq(importJobs.status, 'running'),
+              eq(importJobs.cursorPage, page),
+            ),
+          )
+          .returning({ fetched: importJobs.fetched });
+        if (!advanced)
+          throw new ImportSupersededError(`Page ${page} was committed by another worker`);
+        fetched = advanced.fetched;
       });
 
+      if (total !== null && total !== result.totalItems) totalChanged = true;
+      total = result.totalItems;
       if (page >= result.pages) break;
       page++;
     }
 
     await runInTransaction(database.pool, async (tx) => {
+      const [finished] = await tx.db
+        .update(importJobs)
+        .set({ status: 'succeeded', updatedAt: now(), finishedAt: now() })
+        .where(
+          and(
+            eq(importJobs.id, importJobId),
+            eq(importJobs.status, 'running'),
+            eq(importJobs.cursorPage, page + 1),
+          ),
+        )
+        .returning({ id: importJobs.id });
+      if (!finished) throw new ImportSupersededError('Import was finished by another worker');
+
       // Items no page of this import contained were removed on Discogs (ADR 0006 §6).
-      // An item added during the import can shift between pages and be missed; it
-      // reappears on the next import.
+      // That inference only holds if the collection stayed still while we paged through
+      // it. Otherwise keep everything; the next import reconciles.
+      if (totalChanged || fetched !== total) {
+        deps.log.warn(
+          { importJobId, fetched, total, totalChanged },
+          'Collection changed during import; skipping removal of unseen items',
+        );
+        return;
+      }
       await tx.db
         .delete(collectionItems)
         .where(
@@ -116,22 +164,25 @@ export async function runImport(
             ),
           ),
         );
-      await tx.db
-        .update(importJobs)
-        .set({ status: 'succeeded', updatedAt: now(), finishedAt: now() })
-        .where(eq(importJobs.id, importJobId));
     });
   } catch (error) {
+    if (error instanceof ImportSupersededError) {
+      deps.log.info({ importJobId }, error.message);
+      return; // not a failure: the import is in another worker's hands
+    }
     const retriesLeft = job.retryCount < QUEUES.collectionImport.retryLimit;
     if (isRetryable(error) && retriesLeft) {
       deps.log.warn({ err: error, importJobId, retryCount: job.retryCount }, 'Import will retry');
       throw error; // pg-boss retries with backoff; the checkpoint makes that cheap.
     }
     deps.log.error({ err: error, importJobId }, 'Import failed');
+    // Only fail a job that is still active: never overwrite another worker's success.
     await database.db
       .update(importJobs)
       .set({ status: 'failed', error: toProblem(error), updatedAt: now(), finishedAt: now() })
-      .where(eq(importJobs.id, importJobId));
+      .where(
+        and(eq(importJobs.id, importJobId), inArray(importJobs.status, ['queued', 'running'])),
+      );
   }
 }
 
