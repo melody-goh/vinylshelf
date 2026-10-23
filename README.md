@@ -79,6 +79,7 @@ docs/domain-model.md
 | [ADR 0005](docs/adr/0005-free-tier-constraints-as-design-inputs.md) | Free-tier constraints |
 | [ADR 0006](docs/adr/0006-sessions-tokens-and-shelf-references.md) | Sessions, token storage and shelf references |
 | [ADR 0007](docs/adr/0007-same-origin-api-in-production.md) | Same-origin API in production (proposed) |
+| [ADR 0008](docs/adr/0008-taste-engine-embeddings-evals-and-llm.md) | Taste engine: embeddings, evals and LLM search (proposed) |
 
 ## Roadmap
 
@@ -86,7 +87,7 @@ docs/domain-model.md
 2. Backend hardening: TTL cache, rate limiting, resumable imports
 3. UI polish: shared-element transitions, metallic design system
 4. Recognition: laptop mic, file drop, manual search fallback
-5. Taste engine
+5. Taste engine: embeddings in pgvector, offline evaluation in CI, LLM-assisted search and explanations (ADR 0008, proposed)
 6. Later: phone pairing via QR code
 
 ## Attribution
