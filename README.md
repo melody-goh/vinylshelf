@@ -95,6 +95,7 @@ docs/domain-model.md
 
 | Doc | Purpose |
 |---|---|
+| [`PRODUCT.md`](PRODUCT.md) | Audience, jobs, personality and product constraints |
 | [`packages/contract/openapi.yaml`](packages/contract/openapi.yaml) | API source of truth |
 | [`docs/domain-model.md`](docs/domain-model.md) | Entities and recognition state machine |
 | [ADR 0001](docs/adr/0001-contract-first-api.md) | Contract-first API |
