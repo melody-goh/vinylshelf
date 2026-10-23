@@ -63,6 +63,41 @@ describe('Shelf: the open gatefold and the disc stack', () => {
     expect(screen.getByText('2 records')).toBeInTheDocument();
   });
 
+  it('prints only a colourway Discogs names, never an assumed black', async () => {
+    serveItems(() =>
+      page({
+        totalItems: 2,
+        items: [
+          collectionItem(1, { vinylColors: [] }),
+          collectionItem(2, { title: 'Alpine Suites', vinylColors: ['Blue Marbled'] }),
+        ],
+      }),
+    );
+    const { user } = renderWithQueries(<App />);
+
+    expect(within(await gatefold()).getByText('2019')).toBeInTheDocument();
+    expect(screen.queryByText(/black vinyl/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^Alpine Suites/ }));
+    expect(await screen.findByText('2019 · Blue Marbled vinyl')).toBeInTheDocument();
+  });
+
+  it('names a leaned-out disc below the stack', async () => {
+    serveItems(() =>
+      page({
+        totalItems: 2,
+        items: [collectionItem(1), collectionItem(2, { title: 'Alpine Suites' })],
+      }),
+    );
+    renderWithQueries(<App />);
+
+    const disc = within(await records()).getByRole('button', { name: /^Alpine Suites/ });
+    disc.focus();
+
+    const aside = screen.getByRole('complementary', { name: 'Your collection' });
+    expect(await within(aside).findByText('Alpine Suites')).toBeInTheDocument();
+  });
+
   it('reads the liner notes into the gatefold once the release detail arrives', async () => {
     serveItems(() => page({ totalItems: 1, items: [collectionItem(1)] }));
     renderWithQueries(<App />);

@@ -1,16 +1,18 @@
 import type { CollectionItem, Release } from '@vinylshelf/contract';
 import { useQueryClient } from '@tanstack/react-query';
-import { AnimatePresence, motion } from 'motion/react';
-import { useCallback } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ApiError } from '../api/client';
 import { useExpired } from '../api/expiry';
 import { useRelease } from '../api/releases';
 import { LOGIN_URL } from '../api/session';
 import { useBoardInk, type BoardInk } from '../design/board';
+import { useWideScreen } from '../design/media';
 import { discSurface } from '../design/vinyl';
 import { DiscogsCredit } from './DiscogsCredit';
 
-const unfold = { type: 'spring', stiffness: 260, damping: 30 } as const;
+const fold = { type: 'spring', stiffness: 210, damping: 29 } as const;
 
 const ADDED = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
@@ -21,29 +23,41 @@ const ADDED = new Intl.DateTimeFormat(undefined, {
 /**
  * The open gatefold: one record at full size. The cover on the left panel; on the right,
  * its liner notes printed on a board in the cover's own ink. Choosing another record
- * folds this one away and unfolds the next.
+ * folds the board shut on its crease over the cover, swaps the record while it is
+ * closed, and opens it again. Under reduced motion the record crossfades instead.
  */
 export function Gatefold({ item }: { item: CollectionItem }) {
+  const wide = useWideScreen();
+  const reduced = useReducedMotion() ?? false;
+  // The board hinges on the fold: its left edge beside the cover, its top edge below it.
+  const board: Variants = reduced
+    ? {}
+    : wide
+      ? { open: { rotateY: 0 }, closed: { rotateY: -180 } }
+      : { open: { rotateX: 0 }, closed: { rotateX: 180 } };
+  const sleeve: Variants = reduced
+    ? { open: { opacity: 1 }, closed: { opacity: 0 } }
+    : { open: { opacity: 1 }, closed: { opacity: 1, transition: { when: 'afterChildren' } } };
+
   return (
-    <div className="w-full [perspective:1600px]">
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.article
-          key={item.instanceId}
-          aria-labelledby={`record-${String(item.instanceId)}`}
-          initial={{ opacity: 0, rotateY: -14, x: 28 }}
-          animate={{ opacity: 1, rotateY: 0, x: 0 }}
-          exit={{ opacity: 0, rotateY: 14, x: -28 }}
-          transition={unfold}
-          className="grid origin-center shadow-photo md:grid-cols-2"
-        >
-          <OpenGatefold item={item} />
-        </motion.article>
-      </AnimatePresence>
-    </div>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.article
+        key={item.instanceId}
+        aria-labelledby={`record-${String(item.instanceId)}`}
+        variants={sleeve}
+        initial="closed"
+        animate="open"
+        exit="closed"
+        transition={fold}
+        className="grid w-full shadow-photo [perspective:2400px] md:grid-cols-2"
+      >
+        <OpenGatefold item={item} board={board} />
+      </motion.article>
+    </AnimatePresence>
   );
 }
 
-function OpenGatefold({ item }: { item: CollectionItem }) {
+function OpenGatefold({ item, board: hinge }: { item: CollectionItem; board: Variants }) {
   const { release } = item;
   const board = useBoardInk(release.coverImageUrl ?? null);
   const queryClient = useQueryClient();
@@ -69,8 +83,10 @@ function OpenGatefold({ item }: { item: CollectionItem }) {
         )}
       </div>
 
-      <div
-        className="relative flex min-h-0 flex-col md:aspect-square"
+      <motion.div
+        variants={hinge}
+        transition={fold}
+        className="relative z-10 flex min-h-0 origin-top flex-col [transform-style:preserve-3d] md:aspect-square md:origin-left"
         style={{ backgroundColor: board.ink, color: board.text }}
       >
         {/* The fold: a soft crease where the board meets the cover panel. */}
@@ -79,7 +95,8 @@ function OpenGatefold({ item }: { item: CollectionItem }) {
           className="pointer-events-none absolute inset-y-0 left-0 hidden w-6 bg-gradient-to-r from-black/30 to-transparent md:block"
         />
         {/* Title and attribution stay put; only the liner notes between them scroll. */}
-        <div className="flex min-h-0 flex-1 flex-col gap-5 p-6 md:p-8 lg:p-10">
+        {/* The printed side faces away once the board is folded shut; its back is plain ink. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-5 p-6 [backface-visibility:hidden] md:p-8 lg:p-10">
           <header>
             <h2
               id={`record-${String(item.instanceId)}`}
@@ -89,15 +106,16 @@ function OpenGatefold({ item }: { item: CollectionItem }) {
             </h2>
             <p className="mt-2 text-base">{release.artists.join(', ')}</p>
             <p className="numerals mt-1 text-sm" style={{ color: board.soft }}>
+              {/* Only a colourway Discogs names is printed; black is drawn, not claimed. */}
               {[release.year ?? 'Year unknown', discSurface(release.vinylColors).description]
-                .join(' · ')
-                .replace(/^./, (c) => c.toUpperCase())}
+                .filter(Boolean)
+                .join(' · ')}
             </p>
           </header>
 
-          <div className="-mr-3 min-h-0 flex-1 overflow-y-auto pb-4 pr-3 [mask-image:linear-gradient(to_bottom,black_calc(100%-2rem),transparent)]">
+          <NotesScroller board={board}>
             <LinerNotes detail={detail} error={detailQuery.error} board={board} />
-          </div>
+          </NotesScroller>
 
           <footer className="space-y-2">
             <p className="condensed numerals text-[0.7rem]" style={{ color: board.soft }}>
@@ -112,8 +130,58 @@ function OpenGatefold({ item }: { item: CollectionItem }) {
             <DiscogsCredit href={release.discogsUrl} className="" />
           </footer>
         </div>
-      </div>
+      </motion.div>
     </>
+  );
+}
+
+/**
+ * The liner notes fit the board for a typical record. A long box set's notes scroll
+ * within it, and then say so: the fade and the cue appear only while more is below.
+ */
+function NotesScroller({ board, children }: { board: BoardInk; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [moreBelow, setMoreBelow] = useState(false);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const measure = () => {
+      setMoreBelow(element.scrollHeight - element.scrollTop - element.clientHeight > 4);
+    };
+    measure();
+    element.addEventListener('scroll', measure, { passive: true });
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(element);
+    if (element.firstElementChild) observer?.observe(element.firstElementChild);
+    return () => {
+      element.removeEventListener('scroll', measure);
+      observer?.disconnect();
+    };
+  }, []);
+
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={ref}
+        // Focusable only when it scrolls, so keyboard users can read the rest.
+        tabIndex={moreBelow ? 0 : undefined}
+        role={moreBelow ? 'region' : undefined}
+        aria-label={moreBelow ? 'Liner notes' : undefined}
+        className={`-mr-3 min-h-0 flex-1 overflow-y-auto pr-3 ${moreBelow ? '[mask-image:linear-gradient(to_bottom,black_calc(100%-2.5rem),transparent)]' : ''}`}
+      >
+        {children}
+      </div>
+      {moreBelow && (
+        <p
+          aria-hidden="true"
+          className="condensed pointer-events-none absolute bottom-0 right-0 flex items-center gap-1 text-[0.7rem]"
+          style={{ color: board.soft }}
+        >
+          More below <ChevronDown className="size-3.5" />
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -165,10 +233,10 @@ function LinerNotes({
   }
 
   return (
-    <div className="space-y-6 text-sm">
+    <div className="grid gap-6 text-sm lg:grid-cols-2 lg:gap-8 lg:text-[0.8125rem]">
       {detail.tracklist.length > 0 && (
         <section aria-label="Tracklist">
-          <ol className="divide-y">
+          <ol className="divide-y lg:-mt-1.5">
             {detail.tracklist.map((track) => (
               <li
                 key={`${track.position}-${track.title}`}
@@ -186,7 +254,7 @@ function LinerNotes({
         </section>
       )}
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+      <dl className="grid content-start grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
         {detail.formats.length > 0 && (
           <Fact term="Format" value={detail.formats.join(' / ')} board={board} />
         )}

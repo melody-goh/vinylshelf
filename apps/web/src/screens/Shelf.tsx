@@ -177,6 +177,24 @@ export function Shelf({ user }: { user: User }) {
             </div>
           </main>
 
+          {isEmpty && (
+            // Nothing to thumb through yet: the column stays, holding plain unlit discs.
+            <div
+              aria-hidden="true"
+              className="order-2 hidden min-h-0 flex-col overflow-hidden border-l border-rule md:flex"
+            >
+              <DiscStack
+                items={[]}
+                featuredId={null}
+                onChoose={() => undefined}
+                refreshingCount={5}
+                hasMore={false}
+                loadingMore={false}
+                onLoadMore={() => undefined}
+              />
+            </div>
+          )}
+
           {items.length + refreshingCount > 0 && (
             <aside
               aria-label="Your collection"

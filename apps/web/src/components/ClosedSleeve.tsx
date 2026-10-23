@@ -18,16 +18,19 @@ export function ClosedSleeve({
   sticker?: ReactNode;
 }) {
   return (
-    <div className="relative w-full max-w-[34rem]">
+    <div className="relative mx-auto w-full max-w-[34rem]">
       <div className="flex aspect-square flex-col justify-between bg-carbon p-8 text-ground shadow-photo md:p-10">
-        <Heading className="condensed text-[clamp(3rem,9vw,6rem)] font-extrabold leading-[0.85] [font-stretch:62%]">
+        <Heading
+          className={`condensed text-[clamp(3rem,9vw,6rem)] font-extrabold leading-[0.85] [font-stretch:62%] ${sticker ? 'max-md:pr-32' : ''}`}
+        >
           {title}
         </Heading>
         <div className="max-w-[24rem] space-y-3 text-sm leading-relaxed text-ground/80">
           {children}
         </div>
       </div>
-      {sticker && <div className="absolute -right-6 -top-6 md:-right-10 md:-top-10">{sticker}</div>}
+      {/* On phones the sticker sits on the sleeve, clear of the title and of the screen edge. */}
+      {sticker && <div className="absolute right-3 top-3 md:-right-10 md:-top-10">{sticker}</div>}
     </div>
   );
 }

@@ -17,7 +17,7 @@
   --color-carbon: #1b1b1b;
   --color-lacquer: #121212;
   /* The one signal colour: hype stickers and the focus ring. */
-  --color-sticker: #e8452c;
+  --color-sticker: #cc3620; /* 4.84:1 under sticker ink (WCAG 2.2 AA) */
   --color-sticker-ink: #fff8f0;
 
   --shadow-photo: 0 18px 32px -14px rgb(20 20 20 / 0.35), 0 4px 10px -4px rgb(20 20 20 / 0.2);
