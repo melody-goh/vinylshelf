@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+**/generated/
+**/migrations/
+coverage/
+dist/
+# Hand-written docs and ADRs keep their authored layout (tables, wrapped prose).
+*.md
