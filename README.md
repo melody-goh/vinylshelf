@@ -78,6 +78,7 @@ docs/domain-model.md
 | [ADR 0004](docs/adr/0004-discogs-data-lifecycle.md) | Discogs data lifecycle |
 | [ADR 0005](docs/adr/0005-free-tier-constraints-as-design-inputs.md) | Free-tier constraints |
 | [ADR 0006](docs/adr/0006-sessions-tokens-and-shelf-references.md) | Sessions, token storage and shelf references |
+| [ADR 0007](docs/adr/0007-same-origin-api-in-production.md) | Same-origin API in production (proposed) |
 
 ## Roadmap
 
