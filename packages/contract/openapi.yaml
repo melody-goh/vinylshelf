@@ -531,12 +531,18 @@ components:
 
     CollectionPage:
       type: object
-      required: [items, refresh]
+      required: [items, totalItems, refresh]
       properties:
         items:
           type: array
           items:
             $ref: '#/components/schemas/CollectionItem'
+        totalItems:
+          type: integer
+          minimum: 0
+          description: |
+            Records on the user's shelf, including any withheld while their data
+            refreshes (`refresh.hiddenCount`). The same on every page.
         nextCursor:
           type: [string, 'null']
         refresh:

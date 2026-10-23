@@ -99,7 +99,7 @@ export class CollectionItemsService {
             retryAt: null,
           };
 
-    return { ...page, refresh };
+    return { ...page, totalItems: freshness.totalItems, refresh };
   }
 
   private async page(
@@ -168,6 +168,7 @@ export class CollectionItemsService {
   private async freshness(userId: string, now: Date): Promise<ShelfFreshness> {
     const [row] = await this.database.db
       .select({
+        totalItems: sql<number>`count(*)`.mapWith(Number),
         hiddenCount:
           sql<number>`count(*) filter (where ${discogsReleaseCache.discogsId} is null)`.mapWith(
             Number,
@@ -185,7 +186,11 @@ export class CollectionItemsService {
         ),
       )
       .where(eq(collectionItems.userId, userId));
-    return { hiddenCount: row?.hiddenCount ?? 0, oldestFetchedAt: row?.oldestFetchedAt ?? null };
+    return {
+      totalItems: row?.totalItems ?? 0,
+      hiddenCount: row?.hiddenCount ?? 0,
+      oldestFetchedAt: row?.oldestFetchedAt ?? null,
+    };
   }
 }
 

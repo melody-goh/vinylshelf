@@ -354,6 +354,11 @@ export interface components {
             items: components["schemas"]["CollectionItem"][];
             nextCursor?: string | null;
             refresh: components["schemas"]["CollectionRefresh"];
+            /**
+             * @description Records on the user's shelf, including any withheld while their data
+             *     refreshes (`refresh.hiddenCount`). The same on every page.
+             */
+            totalItems: number;
         };
         /**
          * @description Freshness of the user's shelf. Describes the whole shelf, not just this page.

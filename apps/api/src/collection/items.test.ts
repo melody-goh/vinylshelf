@@ -107,6 +107,7 @@ interface PageBody {
     release: { title: string; discogsUrl: string; expiresAt: string };
   }[];
   nextCursor: string | null;
+  totalItems: number;
   refresh: { status: string; importId: string | null; hiddenCount: number; retryAt: string | null };
 }
 
@@ -266,6 +267,7 @@ describe('GET /collection/items: refresh state (ADR 0004 stale-while-revalidate)
     clock().time = TEST_NOW + TTL; // the first two expire, the rest are 4h old
     const body = await listBody();
     expect(body.items.map((i) => i.instanceId).sort()).toEqual([3, 4, 5]);
+    expect(body.totalItems).toBe(5); // hidden records still count
     expect(body.refresh).toMatchObject({ status: 'refreshing', hiddenCount: 2 });
   });
 
