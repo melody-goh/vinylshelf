@@ -58,6 +58,14 @@ fallback. Live Discogs API data is never embedded.
 - **Retrieval** is hybrid: nearest-neighbour search plus SQL filters (not already
   owned, vinyl only, optional era or genre), then a re-ranking step for diversity, so
   results are not ten copies of the same style.
+- **Semantic search is the core, and it needs no LLM.** A natural-language query is
+  embedded with the same model at request time and searched against the catalogue. A
+  small embedding model (tens of MB) runs inside the API process through an ONNX
+  runtime, so search costs nothing and depends on no vendor. Its memory use on the free
+  host must be measured.
+- **Explanations without an LLM:** the template form ("shares *modal jazz* and
+  *strings* with 12 records on your shelf") is always available, built from the
+  attributes a candidate shares with the user's taste profile.
 
 ### 3. Offline evaluation, treated as a test suite
 
@@ -73,11 +81,22 @@ fallback. Live Discogs API data is never embedded.
   in `pnpm check` with a minimum score, so a quality regression fails the build like a
   broken test. Results are recorded per commit so the trend is visible.
 
-### 4. LLM features behind a `LanguageModel` gateway
+### 4. LLM features behind a `LanguageModel` gateway, free by default
 
-The pattern is the same as the `Recognizer` (ADR 0005): an interface, a real
-implementation using the Claude API through the official Anthropic SDK, and a
-fixture-backed fake used in development, tests and CI.
+The LLM is an enhancement on top of semantic search, never a dependency of it. The
+pattern is the same as the `Recognizer` (ADR 0005): one interface with several
+implementations.
+
+- **Cloudflare Workers AI**: an open-weight model on a free daily allowance. This is
+  the deployed default, so the public demo costs nothing and works on any device. It
+  fits the planned Cloudflare hosting (ADR 0005, ADR 0007).
+- **Claude**, through the official Anthropic SDK: an optional upgrade, off unless
+  configured, under the cost controls below.
+- **A fixture-backed fake**, used in development, tests and CI.
+
+If the free allowance runs out, the provider fails, or the kill switch is on, the app
+falls back to semantic search and template explanations. Users see slightly plainer
+results, not an error.
 
 - **Natural-language search:** the model turns the user's query into **structured
   filters** (genres, styles, era, mood terms mapped to styles, free-text keywords)
@@ -109,20 +128,24 @@ fixture-backed fake used in development, tests and CI.
 ## Open questions
 
 1. **CC0 dumps:** terms, size and refresh process (decision 1). This blocks the phase.
-2. **Model choice.** Pricing per million input/output tokens, as of October 2026:
-   Haiku 5.5 $0.10/$0.50, Sonnet 5.5 $2/$10, Opus 5.5 $4/$20. Compare candidates with
-   the LLM eval on quality and **cost per completed task**, then decide. The project
-   owner decides on cost. A rough estimate, before caching: a search call is about 4k
+2. **Free tier check.** Before relying on Cloudflare Workers AI, confirm its current
+   free allowance and its terms on how submitted data is used, and disclose that use to
+   users. If either is unacceptable, the free LLM layer becomes an on-device model in
+   the browser (see Alternatives).
+3. **Model choice.** Run the same LLM eval against the free open model and Claude
+   models, comparing quality and **cost per completed task**. Claude pricing per
+   million input/output tokens, as of October 2026: Haiku 5.5 $0.10/$0.50, Sonnet 5.5
+   $2/$10, Opus 5.5 $4/$20. The project owner decides on cost. A rough estimate, before caching: a search call is about 4k
    input tokens (mostly the style allowlist) and about 150 output tokens; an
    explanation is about 300 in and 40 out. Thinking tokens may add to the output.
    At 500 searches and 5,000 explanations a month, that comes to about $0.50 on Haiku
    5.5, $10 on Sonnet 5.5 and $20 on Opus 5.5. Prompt caching of the allowlist and
    caching of explanations would lower all three.
-3. **Derived taste signals.** Is an aggregate such as "this user leans towards
+4. **Derived taste signals.** Is an aggregate such as "this user leans towards
    ambient", derived from a Restricted collection, itself Restricted? Until answered,
    such signals are not sent to the LLM. Explanations stay phrased from the candidate's
    CC0 attributes and the matched style names.
-4. **Provider-side spend limits:** check whether the provider account can enforce a
+5. **Provider-side spend limits (Claude):** check whether the provider account can enforce a
    hard cap, in addition to the app-level budget.
 
 ## Consequences
@@ -146,3 +169,10 @@ calling an LLM with the whole collection.
 - **Collaborative filtering across users:** the standard approach at scale, but there
   are too few users, and cross-user use of collection data raises the same Restricted
   Data questions.
+- **An on-device LLM in the browser (WebLLM, transformers.js with WebGPU):** free and
+  the most private, because nothing leaves the device. But the first visit downloads
+  hundreds of MB and it needs WebGPU, which is a poor first impression for a public
+  demo. Kept as a later experiment and as the fallback if the free hosted tier is
+  unsuitable.
+- **Running an LLM on the API host:** the free host has about 512 MB of memory, too
+  little for a useful language model.
