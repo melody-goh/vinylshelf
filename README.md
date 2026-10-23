@@ -77,6 +77,7 @@ docs/domain-model.md
 | [ADR 0003](docs/adr/0003-postgres-as-job-queue.md) | Postgres as the job queue |
 | [ADR 0004](docs/adr/0004-discogs-data-lifecycle.md) | Discogs data lifecycle |
 | [ADR 0005](docs/adr/0005-free-tier-constraints-as-design-inputs.md) | Free-tier constraints |
+| [ADR 0006](docs/adr/0006-sessions-tokens-and-shelf-references.md) | Sessions, token storage and shelf references |
 
 ## Roadmap
 
