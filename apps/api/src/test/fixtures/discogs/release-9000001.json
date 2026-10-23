@@ -1,0 +1,86 @@
+{
+  "id": 9000001,
+  "status": "Accepted",
+  "year": 2019,
+  "resource_url": "https://api.discogs.com/releases/9000001",
+  "uri": "https://www.discogs.com/release/9000001-The-Paper-Moons-Tidal-Lines",
+  "artists": [
+    {
+      "name": "The Paper Moons",
+      "anv": "",
+      "join": "",
+      "role": "",
+      "tracks": "",
+      "id": 700001,
+      "resource_url": "https://api.discogs.com/artists/700001"
+    }
+  ],
+  "artists_sort": "Paper Moons, The",
+  "labels": [
+    {
+      "name": "Fixture Records",
+      "catno": "FX-001",
+      "entity_type": "1",
+      "entity_type_name": "Label",
+      "id": 50001,
+      "resource_url": "https://api.discogs.com/labels/50001"
+    }
+  ],
+  "formats": [
+    {
+      "name": "Vinyl",
+      "qty": "1",
+      "text": "Blue Marbled, 180g",
+      "descriptions": ["LP", "Album", "Limited Edition"]
+    }
+  ],
+  "title": "Tidal Lines",
+  "country": "UK",
+  "released": "2019-05-10",
+  "notes": "Pressed at a fictional plant for test purposes.",
+  "genres": ["Rock"],
+  "styles": ["Indie Rock", "Dream Pop"],
+  "tracklist": [
+    { "position": "", "type_": "heading", "title": "Side One", "duration": "" },
+    { "position": "A1", "type_": "track", "title": "Shoreline", "duration": "4:12" },
+    { "position": "A2", "type_": "track", "title": "Undertow", "duration": "3:48" },
+    { "position": "B1", "type_": "track", "title": "Low Tide Radio", "duration": "" },
+    { "position": "B2", "type_": "track", "title": "Salt", "duration": "5:01" }
+  ],
+  "extraartists": [
+    {
+      "name": "Ana Ferreira (2)",
+      "anv": "",
+      "join": "",
+      "role": "Producer",
+      "tracks": "",
+      "id": 700003,
+      "resource_url": "https://api.discogs.com/artists/700003"
+    },
+    {
+      "name": "Ivo Marsh",
+      "anv": "",
+      "join": "",
+      "role": "Mastered By",
+      "tracks": "",
+      "id": 700005,
+      "resource_url": "https://api.discogs.com/artists/700005"
+    }
+  ],
+  "images": [
+    {
+      "type": "primary",
+      "uri": "https://i.discogs.com/fixture/cover-9000001.jpg",
+      "uri150": "https://i.discogs.com/fixture/cover-9000001-150.jpg",
+      "width": 600,
+      "height": 600
+    },
+    {
+      "type": "secondary",
+      "uri": "https://i.discogs.com/fixture/back-9000001.jpg",
+      "uri150": "https://i.discogs.com/fixture/back-9000001-150.jpg",
+      "width": 600,
+      "height": 600
+    }
+  ]
+}

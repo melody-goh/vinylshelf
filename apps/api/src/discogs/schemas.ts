@@ -49,3 +49,34 @@ export const collectionReleasesResponse = z.object({
   ),
 });
 export type CollectionReleasesResponse = z.infer<typeof collectionReleasesResponse>;
+
+const format = z.object({
+  name: z.string(),
+  qty: z.string().optional(),
+  text: z.string().optional(),
+  descriptions: z.array(z.string()).optional(),
+});
+
+export const releaseResponse = z.object({
+  id: z.number().int().positive(),
+  title: z.string(),
+  year: z.number().int().min(0).optional(),
+  artists: z.array(artist),
+  labels: z.array(z.object({ name: z.string(), catno: z.string().optional() })).default([]),
+  formats: z.array(format).default([]),
+  genres: z.array(z.string()).default([]),
+  styles: z.array(z.string()).default([]),
+  tracklist: z
+    .array(
+      z.object({
+        position: z.string(),
+        title: z.string(),
+        duration: z.string().optional(),
+        type_: z.string().optional(),
+      }),
+    )
+    .default([]),
+  extraartists: z.array(z.object({ name: z.string(), role: z.string() })).default([]),
+  images: z.array(z.object({ type: z.string(), uri: z.string() })).default([]),
+});
+export type ReleaseResponse = z.infer<typeof releaseResponse>;

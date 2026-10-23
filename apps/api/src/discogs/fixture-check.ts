@@ -12,7 +12,7 @@ import { discogsEndpoints } from './endpoints.js';
 import type { TokenPair } from './gateway.js';
 import { authorizationHeader, type ConsumerCredentials } from './oauth1.js';
 import { RateLimiter } from './rate-limiter.js';
-import { collectionReleasesResponse, identityResponse } from './schemas.js';
+import { collectionReleasesResponse, identityResponse, releaseResponse } from './schemas.js';
 
 /** Field paths with JSON types, e.g. `releases[].basic_information.year: number`. */
 export function shapeOf(value: unknown, path = '', into = new Set<string>()): Set<string> {
@@ -68,7 +68,7 @@ export interface FixtureCheckOptions {
   fixturesDir: URL;
 }
 
-/** Makes two live calls (identity, one small collection page) and compares each. */
+/** Makes three live calls (identity, one small collection page, one release) and compares each. */
 export async function checkFixtureShapes(options: FixtureCheckOptions): Promise<ShapeReport[]> {
   const limiter = new RateLimiter();
   const get = async (url: string): Promise<unknown> => {
@@ -95,7 +95,8 @@ export async function checkFixtureShapes(options: FixtureCheckOptions): Promise<
   collectionUrl.searchParams.set('page', '1');
   collectionUrl.searchParams.set('per_page', '5');
 
-  return [
+  const collection = await get(collectionUrl.toString());
+  const reports = [
     compareShapes(
       'oauth/identity',
       await get(discogsEndpoints.identity),
@@ -104,9 +105,23 @@ export async function checkFixtureShapes(options: FixtureCheckOptions): Promise<
     ),
     compareShapes(
       'users/:username/collection/folders/0/releases',
-      await get(collectionUrl.toString()),
+      collection,
       await fixture('collection-page-1.json'),
       collectionReleasesResponse,
     ),
   ];
+
+  // The first record on the user's own shelf stands in for release detail.
+  const firstId = collectionReleasesResponse.safeParse(collection).data?.releases[0]?.id;
+  if (firstId !== undefined) {
+    reports.push(
+      compareShapes(
+        'releases/:id',
+        await get(discogsEndpoints.release(firstId)),
+        await fixture('release-9000001.json'),
+        releaseResponse,
+      ),
+    );
+  }
+  return reports;
 }

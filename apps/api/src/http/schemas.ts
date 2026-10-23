@@ -79,3 +79,19 @@ export const collectionItemsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   sort: z.enum(COLLECTION_SORTS).default('added_desc'),
 });
+
+export const releaseSchema = releaseSummarySchema.extend({
+  label: z.string().nullable(),
+  catalogNumber: z.string().nullable(),
+  genres: z.array(z.string()),
+  styles: z.array(z.string()),
+  formats: z.array(z.string()),
+  credits: z.array(z.object({ name: z.string(), role: z.string() })),
+  tracklist: z.array(
+    z.object({
+      position: z.string(),
+      title: z.string(),
+      duration: z.string().nullable().optional(),
+    }),
+  ),
+});

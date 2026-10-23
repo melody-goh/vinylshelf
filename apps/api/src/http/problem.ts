@@ -14,6 +14,7 @@ export type ProblemCode =
   | 'forbidden_origin'
   | 'not_found'
   | 'import_not_found'
+  | 'release_not_found'
   | 'discogs_unavailable'
   | 'discogs_auth_revoked'
   | 'discogs_unexpected_response'

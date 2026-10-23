@@ -5,6 +5,7 @@ import { fakeClock } from '../test/fake-clock.js';
 import { mswServer } from '../test/msw.js';
 import {
   DiscogsAuthError,
+  DiscogsNotFoundError,
   DiscogsRateLimitedError,
   DiscogsSchemaError,
   DiscogsUnavailableError,
@@ -225,7 +226,7 @@ describe('displayArtistName', () => {
 });
 
 describe('HttpDiscogsGateway: rate-limit lanes', () => {
-  it('runs collection pages in the background lane and login calls in the interactive lane', async () => {
+  it('runs collection pages in the background lane, and login and release calls in the interactive lane', async () => {
     mswServer.use(...discogsHandlers());
     const lanes: string[] = [];
     class RecordingLimiter extends RateLimiter {
@@ -243,7 +244,61 @@ describe('HttpDiscogsGateway: rate-limit lanes', () => {
     await gateway.getRequestToken('http://localhost:3000/cb');
     await gateway.getIdentity(accessToken);
     await gateway.getCollectionPage(accessToken, 'fixture_collector', 1);
+    await gateway.getRelease(accessToken, 9000001);
 
-    expect(lanes).toEqual(['interactive', 'interactive', 'background']);
+    expect(lanes).toEqual(['interactive', 'interactive', 'background', 'interactive']);
+  });
+});
+
+describe('HttpDiscogsGateway: release detail', () => {
+  it('maps a release into the detail the record view needs', async () => {
+    mswServer.use(...discogsHandlers());
+    const release = await makeGateway().gateway.getRelease(accessToken, 9000001);
+
+    expect(release).toEqual({
+      discogsId: 9000001,
+      title: 'Tidal Lines',
+      artists: ['The Paper Moons'],
+      year: 2019,
+      vinylColors: ['Blue Marbled'],
+      coverImageUrl: 'https://i.discogs.com/fixture/cover-9000001.jpg',
+      discogsUrl: 'https://www.discogs.com/release/9000001',
+      label: 'Fixture Records',
+      catalogNumber: 'FX-001',
+      genres: ['Rock'],
+      styles: ['Indie Rock', 'Dream Pop'],
+      formats: ['Vinyl, LP, Album, Limited Edition, Blue Marbled, 180g'],
+      credits: [
+        { name: 'Ana Ferreira', role: 'Producer' },
+        { name: 'Ivo Marsh', role: 'Mastered By' },
+      ],
+      // The "Side One" heading is not a track; an empty duration is unknown.
+      tracklist: [
+        { position: 'A1', title: 'Shoreline', duration: '4:12' },
+        { position: 'A2', title: 'Undertow', duration: '3:48' },
+        { position: 'B1', title: 'Low Tide Radio', duration: null },
+        { position: 'B2', title: 'Salt', duration: '5:01' },
+      ],
+    });
+  });
+
+  it('treats "none" as no catalogue number and counts multi-disc formats', async () => {
+    const release = discogsFixtures.release(9000001);
+    release.labels = [{ name: 'Not On Label', catno: 'none' }];
+    release.formats = [{ name: 'Vinyl', qty: '2', descriptions: ['LP'] }];
+    mswServer.use(http.get(discogsUrls.release, () => HttpResponse.json(release)));
+
+    const detail = await makeGateway().gateway.getRelease(accessToken, 9000001);
+
+    expect(detail.catalogNumber).toBeNull();
+    expect(detail.formats).toEqual(['2 × Vinyl, LP']);
+    expect(detail.vinylColors).toEqual([]);
+  });
+
+  it('reports a release Discogs does not have as not found', async () => {
+    mswServer.use(...discogsHandlers());
+    await expect(makeGateway().gateway.getRelease(accessToken, 1)).rejects.toBeInstanceOf(
+      DiscogsNotFoundError,
+    );
   });
 });

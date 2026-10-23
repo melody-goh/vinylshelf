@@ -19,6 +19,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import type { Problem } from '@vinylshelf/contract';
+import type { ReleaseDetailData } from '../discogs/gateway.js';
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
 const createdAt = () => timestamptz('created_at').notNull().defaultNow();
@@ -144,6 +145,29 @@ export const discogsReleaseCache = pgTable(
     index('discogs_release_cache_expires_idx').on(t.expiresAt),
     check(
       'discogs_release_cache_ttl_max_6h',
+      sql`${t.expiresAt} > ${t.fetchedAt} and ${t.expiresAt} <= ${t.fetchedAt} + interval '6 hours'`,
+    ),
+  ],
+);
+
+/**
+ * Full release detail (tracklist, credits, formats), fetched on demand when a record is
+ * opened. The same lifecycle as the summary cache (ADR 0004): hard expiry within 6
+ * hours, enforced on read and by the CHECK below.
+ */
+export const discogsReleaseDetailCache = pgTable(
+  'discogs_release_detail_cache',
+  {
+    discogsId: integer('discogs_id').primaryKey(),
+    detail: jsonb('detail').$type<ReleaseDetailData>().notNull(),
+    classification: discogsClassification('classification').notNull(),
+    fetchedAt: timestamptz('fetched_at').notNull(),
+    expiresAt: timestamptz('expires_at').notNull(),
+  },
+  (t) => [
+    index('discogs_release_detail_cache_expires_idx').on(t.expiresAt),
+    check(
+      'discogs_release_detail_cache_ttl_max_6h',
       sql`${t.expiresAt} > ${t.fetchedAt} and ${t.expiresAt} <= ${t.fetchedAt} + interval '6 hours'`,
     ),
   ],

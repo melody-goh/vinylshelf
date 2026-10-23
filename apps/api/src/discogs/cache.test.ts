@@ -3,7 +3,7 @@ import { discogsReleaseCache } from '../db/schema.js';
 import { useTestDatabase } from '../test/database.js';
 import { fakeClock } from '../test/fake-clock.js';
 import { DiscogsReleaseCache, classifyRelease } from './cache.js';
-import type { ReleaseSummaryData } from './gateway.js';
+import type { ReleaseDetailData, ReleaseSummaryData } from './gateway.js';
 
 const { db } = useTestDatabase();
 
@@ -90,5 +90,35 @@ describe('classifyRelease', () => {
   it('is restricted when it carries an image URL, cc0 otherwise', () => {
     expect(classifyRelease(release(1))).toBe('restricted');
     expect(classifyRelease(release(1, { coverImageUrl: null }))).toBe('cc0');
+  });
+});
+
+describe('DiscogsReleaseCache: release detail', () => {
+  const detail = (id: number): ReleaseDetailData => ({
+    ...release(id),
+    label: 'Fixture Classics',
+    catalogNumber: 'FXC-74',
+    genres: ['Classical'],
+    styles: [],
+    formats: ['2 × Vinyl, LP'],
+    credits: [],
+    tracklist: [{ position: 'A1', title: 'Prelude', duration: null }],
+  });
+
+  it('returns stored detail until its expiry, then nothing', async () => {
+    const { cache, clock } = setup(120);
+    await cache.storeDetail(db(), detail(7));
+
+    expect((await cache.getFreshDetail(db(), 7))?.catalogNumber).toBe('FXC-74');
+    clock.time = T0 + 120_000;
+    expect(await cache.getFreshDetail(db(), 7)).toBeNull();
+  });
+
+  it('purges expired detail along with expired summaries', async () => {
+    const { cache, clock } = setup(120);
+    await cache.store(db(), [release(1)]);
+    await cache.storeDetail(db(), detail(1));
+    clock.time = T0 + 150_000;
+    expect(await cache.purgeExpired(db())).toBe(2);
   });
 });
