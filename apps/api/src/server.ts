@@ -6,8 +6,10 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
+import { TokenCipher } from './crypto/token-cipher.js';
 import { createDatabase } from './db/client.js';
 import { DiscogsReleaseCache } from './discogs/cache.js';
+import { createDiscogsGateway } from './discogs/index.js';
 import { scheduleCachePurge } from './jobs/cache-purge.js';
 import { PgBossQueue } from './jobs/queue.js';
 import { systemClock } from './lib/clock.js';
@@ -17,10 +19,13 @@ const envFile = fileURLToPath(new URL('../../../.env', import.meta.url));
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const config = loadConfig();
+const clock = systemClock;
 const database = createDatabase(config.databaseUrl);
-const app = await buildApp({ config, healthProbes: [database.ping] });
-
-const releaseCache = new DiscogsReleaseCache(config.discogs.cacheTtlSeconds, systemClock);
+const gateway = createDiscogsGateway({
+  consumer: { key: config.discogs.consumerKey, secret: config.discogs.consumerSecret },
+  userAgent: config.discogs.userAgent,
+});
+const releaseCache = new DiscogsReleaseCache(config.discogs.cacheTtlSeconds, clock);
 const queue = new PgBossQueue({
   connectionString: config.databaseUrl,
   pollingIntervalSeconds: config.queue.pollingIntervalSeconds,
@@ -28,6 +33,18 @@ const queue = new PgBossQueue({
     app.log.error({ err: error }, 'Job queue error');
   },
 });
+
+const app = await buildApp({
+  config,
+  database,
+  gateway,
+  cipher: new TokenCipher(config.tokenEncryptionKey),
+  queue,
+  releaseCache,
+  clock,
+  healthProbes: [database.ping],
+});
+
 await queue.start();
 await scheduleCachePurge({
   queue,

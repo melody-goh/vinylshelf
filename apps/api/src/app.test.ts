@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { API_PREFIX, buildApp } from './app.js';
+import { API_PREFIX } from './app.js';
 import { PROBLEM_CONTENT_TYPE, ProblemError } from './http/problem.js';
 import type { HealthProbe } from './meta/health.js';
+import { buildTestApp } from './test/app.js';
+import { useTestDatabase } from './test/database.js';
 
-const config = { logLevel: 'silent', nodeEnv: 'test' } as const;
+const { handle } = useTestDatabase();
 let app: FastifyInstance | undefined;
 
 afterEach(async () => {
@@ -13,7 +15,7 @@ afterEach(async () => {
 });
 
 async function build(healthProbes: HealthProbe[] = []): Promise<FastifyInstance> {
-  app = await buildApp({ config, healthProbes });
+  app = (await buildTestApp(handle(), { healthProbes })).app;
   return app;
 }
 
