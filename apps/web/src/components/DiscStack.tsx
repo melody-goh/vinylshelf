@@ -68,7 +68,7 @@ export function DiscStack({
   return (
     <div
       ref={scroller}
-      className="flex overflow-x-auto overflow-y-hidden px-4 pb-6 pt-2 [--disc:9.5rem] [--peek:2.75rem] md:h-full md:flex-col md:overflow-x-hidden md:overflow-y-auto md:px-0 md:pb-24 md:pl-[38%] md:[--disc:17.5rem] md:[--peek:3.5rem]"
+      className="flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden px-4 pb-6 pt-2 [--disc:9.5rem] [--peek:2.75rem] md:flex-col md:overflow-x-hidden md:overflow-y-auto md:px-0 md:pb-24 md:pl-[38%] md:[--disc:15rem] md:[--peek:3.25rem]"
     >
       <ul aria-label="Records" className="flex md:flex-col">
         {items.map((item, index) => {
@@ -105,7 +105,7 @@ export function DiscStack({
                     pulled: { opacity: 1 },
                   }}
                   transition={pull}
-                  className="pointer-events-none absolute right-[calc(100%+0.75rem)] top-1/2 hidden w-44 -translate-y-1/2 text-right md:block"
+                  className="pointer-events-none absolute -left-5 top-1/2 hidden w-40 -translate-y-1/2 bg-ground/95 px-2 py-1 text-left shadow-photo md:block"
                 >
                   <span className="block text-sm font-semibold leading-tight">
                     {item.release.title}

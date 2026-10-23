@@ -29,7 +29,6 @@
     background: var(--color-ground);
     color: var(--color-ink);
     font-family: var(--font-sans);
-    font-variation-settings: 'wdth' 100;
     -webkit-font-smoothing: antialiased;
     caret-color: var(--color-sticker);
     scrollbar-color: var(--color-ink-soft) transparent;

@@ -49,8 +49,11 @@ export function discSurface(vinylColors: readonly string[]): DiscSurface {
   const lower = name.toLowerCase();
   const colours = coloursIn(name);
   const clear = CLEAR_WORDS.some((w) => lower.includes(w));
-  const base = colours[0] ? (SWATCHES[colours[0]] ?? LACQUER) : clear ? '#d8dde0' : LACQUER;
-  const second = colours[1] ? (SWATCHES[colours[1]] ?? '#ffffff') : '#ffffff';
+  // Clear vinyl is the base itself; any named colour is then the effect within it
+  // ("Clear w/ Black Splatter"): clear disc, black flecks.
+  const base = clear ? '#d8dde0' : colours[0] ? (SWATCHES[colours[0]] ?? LACQUER) : LACQUER;
+  const effect = clear ? colours[0] : colours[1];
+  const second = effect ? (SWATCHES[effect] ?? '#ffffff') : '#ffffff';
 
   const layers: string[] = [];
   if (lower.includes('splatter')) {

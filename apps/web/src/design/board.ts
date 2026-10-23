@@ -25,9 +25,9 @@ function luminance([r, g, b]: [number, number, number]): number {
   return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
 }
 
-/** A board ink from an average colour: deepened so it reads as printed board, not a tint. */
+/** A board ink from the sleeve's dominant colour, slightly deepened like ink on board. */
 export function inkFrom(rgb: [number, number, number]): BoardInk {
-  const deep = rgb.map((v) => Math.round(v * 0.72)) as [number, number, number];
+  const deep = rgb.map((v) => Math.round(v * 0.9)) as [number, number, number];
   const ink = `rgb(${deep.join(' ')})`;
   const L = luminance(deep);
   // Contrast against white vs. near-black text; pick whichever is higher.
@@ -38,25 +38,32 @@ export function inkFrom(rgb: [number, number, number]): BoardInk {
     : { ink, text: '#141414', soft: 'rgb(20 20 20 / 0.78)' };
 }
 
-/** The average of the cover's central area: its dominant printed colour, roughly. */
+/**
+ * The cover's dominant colour: the most common colour after coarse quantising, so a blue
+ * sleeve with a yellow sun prints blue rather than an averaged grey.
+ */
 function sample(image: HTMLImageElement): [number, number, number] | null {
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 24;
+  canvas.width = canvas.height = 32;
   const context = canvas.getContext('2d', { willReadFrequently: true });
   if (!context) return null;
   try {
-    context.drawImage(image, 0, 0, 24, 24);
-    const { data } = context.getImageData(4, 4, 16, 16); // throws on a tainted canvas
-    let r = 0;
-    let g = 0;
-    let b = 0;
+    context.drawImage(image, 0, 0, 32, 32);
+    const { data } = context.getImageData(0, 0, 32, 32); // throws on a tainted canvas
+    const buckets = new Map<number, { count: number; r: number; g: number; b: number }>();
     for (let i = 0; i < data.length; i += 4) {
-      r += data[i] ?? 0;
-      g += data[i + 1] ?? 0;
-      b += data[i + 2] ?? 0;
+      const [r, g, b] = [data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0];
+      const key = ((r >> 5) << 6) | ((g >> 5) << 3) | (b >> 5);
+      const bucket = buckets.get(key) ?? { count: 0, r: 0, g: 0, b: 0 };
+      bucket.count++;
+      bucket.r += r;
+      bucket.g += g;
+      bucket.b += b;
+      buckets.set(key, bucket);
     }
-    const n = data.length / 4;
-    return [r / n, g / n, b / n];
+    let top: { count: number; r: number; g: number; b: number } | undefined;
+    for (const bucket of buckets.values()) if (!top || bucket.count > top.count) top = bucket;
+    return top ? [top.r / top.count, top.g / top.count, top.b / top.count] : null;
   } catch {
     return null;
   }

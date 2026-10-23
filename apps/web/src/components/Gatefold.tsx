@@ -25,7 +25,7 @@ const ADDED = new Intl.DateTimeFormat(undefined, {
  */
 export function Gatefold({ item }: { item: CollectionItem }) {
   return (
-    <div className="[perspective:1600px]">
+    <div className="w-full [perspective:1600px]">
       <AnimatePresence mode="wait" initial={false}>
         <motion.article
           key={item.instanceId}
@@ -78,7 +78,8 @@ function OpenGatefold({ item }: { item: CollectionItem }) {
           aria-hidden="true"
           className="pointer-events-none absolute inset-y-0 left-0 hidden w-6 bg-gradient-to-r from-black/30 to-transparent md:block"
         />
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-6 md:p-8 lg:p-10">
+        {/* Title and attribution stay put; only the liner notes between them scroll. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-5 p-6 md:p-8 lg:p-10">
           <header>
             <h2
               id={`record-${String(item.instanceId)}`}
@@ -94,9 +95,11 @@ function OpenGatefold({ item }: { item: CollectionItem }) {
             </p>
           </header>
 
-          <LinerNotes detail={detail} error={detailQuery.error} board={board} />
+          <div className="-mr-3 min-h-0 flex-1 overflow-y-auto pb-4 pr-3 [mask-image:linear-gradient(to_bottom,black_calc(100%-2rem),transparent)]">
+            <LinerNotes detail={detail} error={detailQuery.error} board={board} />
+          </div>
 
-          <footer className="mt-auto space-y-2 pt-2">
+          <footer className="space-y-2">
             <p className="condensed numerals text-[0.7rem]" style={{ color: board.soft }}>
               {[
                 detail?.catalogNumber,

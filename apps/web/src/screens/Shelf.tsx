@@ -116,7 +116,7 @@ export function Shelf({ user }: { user: User }) {
               />
             </label>
           )}
-          <span className="text-ink-soft">{user.discogsUsername}</span>
+          <span className="hidden text-ink-soft md:inline">{user.discogsUsername}</span>
           <button
             type="button"
             onClick={() => {
@@ -139,52 +139,58 @@ export function Shelf({ user }: { user: User }) {
           Your shelf couldn&rsquo;t be loaded. Try again in a moment.
         </p>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(16rem,34%)]">
-          <main className="order-2 flex min-h-0 flex-col gap-6 overflow-y-auto p-4 md:order-1 md:p-8">
-            <Notices
-              followedImportId={followedImportId}
-              onImportFinished={onImportFinished}
-              refresh={refresh}
-              startFailed={startImport.isError}
-              onRetry={begin}
-              retryDisabled={startImport.isPending || importing}
-            />
+        <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(16rem,28%)]">
+          <main className="order-2 flex min-h-0 flex-col gap-6 overflow-y-auto p-4 md:order-1 md:items-center md:justify-center md:p-8">
+            {/* Notices and the gatefold share one width; two square panels sized to fit the height available. */}
+            <div className="flex w-full flex-col gap-6 md:max-w-[calc((100dvh-10rem)*2)]">
+              <Notices
+                followedImportId={followedImportId}
+                onImportFinished={onImportFinished}
+                refresh={refresh}
+                startFailed={startImport.isError}
+                onRetry={begin}
+                retryDisabled={startImport.isPending || importing}
+              />
 
-            {featured ? (
-              <Gatefold item={featured} />
-            ) : isEmpty ? (
-              <ClosedSleeve
-                heading="h2"
-                title="Your shelf is empty"
-                sticker={
-                  <HypeSticker onClick={begin} disabled={startImport.isPending}>
-                    Import my collection
-                  </HypeSticker>
-                }
-              >
-                <p>Bring your collection in from Discogs. It takes a minute for a large one.</p>
-              </ClosedSleeve>
-            ) : refreshingCount > 0 ? (
-              <ClosedSleeve heading="h2" title="Back in a moment">
-                <p>
-                  Refreshing {refreshingCount} {refreshingCount === 1 ? 'record' : 'records'} from
-                  Discogs…
-                </p>
-              </ClosedSleeve>
-            ) : null}
+              {featured ? (
+                <Gatefold item={featured} />
+              ) : isEmpty ? (
+                <ClosedSleeve
+                  heading="h2"
+                  title="Your shelf is empty"
+                  sticker={
+                    <HypeSticker onClick={begin} disabled={startImport.isPending}>
+                      Import my collection
+                    </HypeSticker>
+                  }
+                >
+                  <p>Bring your collection in from Discogs. It takes a minute for a large one.</p>
+                </ClosedSleeve>
+              ) : refreshingCount > 0 ? (
+                <ClosedSleeve heading="h2" title="Back in a moment">
+                  <p>
+                    Refreshing {refreshingCount} {refreshingCount === 1 ? 'record' : 'records'} from
+                    Discogs…
+                  </p>
+                </ClosedSleeve>
+              ) : null}
+            </div>
           </main>
 
           {items.length + refreshingCount > 0 && (
             <aside
               aria-label="Your collection"
-              className="relative order-1 min-h-0 border-b border-rule md:order-2 md:border-b-0 md:border-l"
+              className="relative order-1 flex min-h-0 flex-col border-b border-rule md:order-2 md:border-b-0 md:border-l"
             >
-              {refreshingCount > 0 && featured && (
-                <p role="status" className="px-4 pt-3 text-xs text-ink-soft md:px-6">
-                  Refreshing {refreshingCount} {refreshingCount === 1 ? 'record' : 'records'} from
-                  Discogs…
-                </p>
-              )}
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 px-4 pt-3 text-xs text-ink-soft md:px-6">
+                {refreshingCount > 0 && featured && (
+                  <p role="status">
+                    Refreshing {refreshingCount} {refreshingCount === 1 ? 'record' : 'records'} from
+                    Discogs…
+                  </p>
+                )}
+                {featured && <DiscogsCredit href="https://www.discogs.com" className="ml-auto" />}
+              </div>
               <DiscStack
                 items={items}
                 featuredId={featured?.instanceId ?? null}
@@ -198,12 +204,6 @@ export function Shelf({ user }: { user: User }) {
                   void collection.fetchNextPage();
                 }}
               />
-              {featured && (
-                <DiscogsCredit
-                  href="https://www.discogs.com"
-                  className="absolute bottom-3 right-4 bg-ground/90 px-1 text-ink-soft md:right-6"
-                />
-              )}
             </aside>
           )}
         </div>
