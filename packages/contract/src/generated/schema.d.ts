@@ -321,6 +321,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/releases/{discogsId}/previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 30-second previews for a release's tracks
+         * @description Matches the release's tracklist to songs in the iTunes Store and returns a
+         *     30-second preview URL for each track that matched with confidence
+         *     (docs/adr/0010-track-previews-from-itunes.md). Looked up on first request and
+         *     cached for 24 hours, including "no match". The audio streams from Apple to the
+         *     client and is never stored.
+         *
+         *     Clients MUST show `attribution` and a link to `albumUrl` (with Apple's approved
+         *     badge) wherever previews play. A release with no match returns 200 with
+         *     `albumUrl: null` and every `previewUrl` null.
+         */
+        get: operations["getReleasePreviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/search/releases": {
         parameters: {
             query?: never;
@@ -499,6 +527,39 @@ export interface components {
                 duration?: string | null;
                 position: string;
                 title: string;
+            }[];
+        };
+        ReleasePreviews: {
+            /**
+             * Format: uri
+             * @description The matched album in the iTunes Store, the target of Apple's badge. Null when
+             *     nothing matched.
+             */
+            albumUrl: string | null;
+            /** @description Text Apple requires beside previews, shown as given. */
+            attribution: string;
+            discogsId: number;
+            /**
+             * Format: date-time
+             * @description When the match is looked up again (24 hours after `fetchedAt`).
+             */
+            expiresAt: string;
+            /** Format: date-time */
+            fetchedAt: string;
+            /** @description One entry per track of `Release.tracklist`, in the same order. */
+            tracks: {
+                /** @description The track's `position` in `Release.tracklist`. */
+                position: string;
+                /**
+                 * Format: uri
+                 * @description 30 seconds of audio, streamed only. Null when unmatched.
+                 */
+                previewUrl: string | null;
+                /**
+                 * Format: uri
+                 * @description The matched song in the iTunes Store.
+                 */
+                storeUrl: string | null;
             }[];
         };
         ReleaseSummary: {
@@ -1064,6 +1125,62 @@ export interface operations {
             404: components["responses"]["Problem"];
             429: components["responses"]["RateLimited"];
             503: components["responses"]["Problem"];
+        };
+    };
+    getReleasePreviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                discogsId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The release's previews, as far as they could be matched. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasePreviews"];
+                };
+            };
+            /**
+             * @description Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`)
+             *     while fetching the tracklist to match.
+             */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such release on Discogs (`code: release_not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            /**
+             * @description The iTunes Store or Discogs is unavailable (`code: previews_unavailable` or
+             *     `discogs_unavailable`).
+             */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     searchReleases: {
