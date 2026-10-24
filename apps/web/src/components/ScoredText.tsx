@@ -14,16 +14,73 @@ const settle = { type: 'spring', stiffness: 700, damping: 45 } as const;
 /** Ticks a letter keeps its notes mounted after the wave leaves, to settle back. */
 const LINGER = 4;
 
-/** Drawn notes on a 24-unit grid, filled with the text colour. */
-const NOTE_SHAPES = [
-  // Crotchet: head and stem.
-  'M12.4 3h1.6v15.2c0 2.6-2.6 4.6-5.6 4.6-2.2 0-3.6-1.1-3.6-2.8 0-2.5 2.7-4.4 5.6-4.4.8 0 1.5.1 2 .4z',
-  // Quaver: head, stem and flag.
-  'M10.4 3h1.6v15.2c0 2.6-2.6 4.6-5.6 4.6C4.2 22.8 2.8 21.7 2.8 20c0-2.5 2.7-4.4 5.6-4.4.8 0 1.5.1 2 .4zM12 3c0 3.2 6 4.6 6 9.8 0 1.6-.5 3-1.3 4 .4-3.6-1.6-6.4-4.7-7.2z',
-  // Beamed pair: two heads, two stems, one beam.
-  'M7.2 6.2 20.8 3v14.4c0 2.2-2.2 3.9-4.7 3.9-1.8 0-3-1-3-2.4 0-2.1 2.3-3.7 4.7-3.7.6 0 1.1.1 1.5.3V8.4L8.8 10.6v8.8c0 2.2-2.2 3.9-4.7 3.9-1.8 0-3-1-3-2.4 0-2.1 2.3-3.7 4.7-3.7.6 0 1.1.1 1.5.3z',
-];
+/** A filled note head, tilted as engraved. */
+function Head({ x, y, small = false }: { x: number; y: number; small?: boolean }) {
+  return (
+    <ellipse
+      cx={x}
+      cy={y}
+      rx={small ? 3.2 : 4.4}
+      ry={small ? 2.3 : 3.1}
+      transform={`rotate(-24 ${String(x)} ${String(y)})`}
+    />
+  );
+}
 
+/**
+ * The notes, after the sheet in the brief: plain black, engraved shapes on a 24-unit
+ * grid, stems up. Order matches NOTE_SHAPE in design/scored.ts.
+ */
+const NOTE_SHAPES = [
+  // Crotchet.
+  <>
+    <Head x={8} y={19} />
+    <rect x="11" y="2" width="1.4" height="17" />
+  </>,
+  // Quaver: a crotchet with a curved flag.
+  <>
+    <Head x={8} y={19} />
+    <rect x="11" y="2" width="1.4" height="17" />
+    <path d="M11 2h1.4c.2 2.6 1.8 4.2 3.2 6.2 1.2 1.7 2 3.4 2 5.4 0 1.4-.4 2.7-.9 3.8l-.9-.4c.4-1 .7-2 .7-3.2 0-3.4-2.9-5.6-4.1-6.6z" />
+  </>,
+  // Minim: an open head.
+  <>
+    <ellipse
+      cx="8"
+      cy="19"
+      rx="3.7"
+      ry="2.4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      transform="rotate(-24 8 19)"
+    />
+    <rect x="11" y="2" width="1.4" height="17" />
+  </>,
+  // Beamed pair.
+  <>
+    <Head x={5.4} y={20} />
+    <Head x={17} y={18.4} />
+    <rect x="8.4" y="4" width="1.3" height="16" />
+    <rect x="20" y="2.4" width="1.3" height="16" />
+    <path d="M8.4 3.4 21.3 1.6v2.6L8.4 6z" />
+  </>,
+  // Beamed three.
+  <>
+    <Head small x={3.6} y={20.4} />
+    <Head small x={11.2} y={19.4} />
+    <Head small x={18.8} y={18.4} />
+    <rect x="6.4" y="4.6" width="1.1" height="15.8" />
+    <rect x="14" y="3.6" width="1.1" height="15.8" />
+    <rect x="21.6" y="2.6" width="1.1" height="15.8" />
+    <path d="M6.4 4 22.7 1.8v2.3L6.4 6.3z" />
+  </>,
+  // Flat.
+  <>
+    <rect x="7" y="1" width="1.5" height="21.5" />
+    <path d="M8.5 14.2c1.6-1.7 3.6-2.4 5.1-1.4 1.8 1.2 1.4 3.6-.6 5.6l-4.5 4.1v-2.3l3.2-3.1c1.2-1.2 1.5-2.5.7-3.1-.9-.6-2.4-.2-3.9 1.4z" />
+  </>,
+];
 /**
  * Loading type that breaks into music notes and comes back: a wave runs through the
  * words, letter by letter, each one scattering into a cluster of black notes that fill
@@ -105,9 +162,9 @@ export function ScoredText({ text, className = '' }: { text: string; className?:
     <p role="status" className={className}>
       <span className="sr-only">{text}</span>
       <svg aria-hidden="true" className="absolute size-0 overflow-hidden">
-        {NOTE_SHAPES.map((d, i) => (
-          <symbol key={d} id={`${sprite}-${String(i)}`} viewBox="0 0 24 24">
-            <path d={d} fill="currentColor" />
+        {NOTE_SHAPES.map((shape, i) => (
+          <symbol key={i} id={`${sprite}-${String(i)}`} viewBox="0 0 24 24" fill="currentColor">
+            {shape}
           </symbol>
         ))}
       </svg>

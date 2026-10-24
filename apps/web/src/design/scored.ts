@@ -13,8 +13,8 @@ export interface NotePlacement {
   size: number;
   /** Resting tilt, in degrees. */
   rotate: number;
-  /** Which drawn note: crotchet, quaver or beamed pair. */
-  shape: 0 | 1 | 2;
+  /** Which drawn note, as an index into NOTE_SHAPE. */
+  shape: number;
 }
 
 export interface LetterFont {
@@ -31,8 +31,30 @@ export interface LetterFont {
 /** Canvas font size for sampling; large enough that thin strokes still catch points. */
 const PX = 160;
 /** Grid spacing between candidate notes, in em; jittered so no grid shows. */
-const STEP = 0.068;
+const STEP = 0.075;
 const MAX_NOTES = 70;
+
+/**
+ * How often each drawn note appears (components/ScoredText.tsx draws them in this
+ * order): mostly single notes, a few beamed groups and flats for texture.
+ */
+const NOTE_SHAPE = [
+  { name: 'crotchet', weight: 0.26 },
+  { name: 'quaver', weight: 0.26 },
+  { name: 'minim', weight: 0.14 },
+  { name: 'beamed pair', weight: 0.14 },
+  { name: 'beamed three', weight: 0.08 },
+  { name: 'flat', weight: 0.12 },
+];
+
+function pickShape(r: number): number {
+  let sum = 0;
+  for (const [i, shape] of NOTE_SHAPE.entries()) {
+    sum += shape.weight;
+    if (r < sum) return i;
+  }
+  return 0;
+}
 
 function seeded(seed: number): () => number {
   let state = seed;
@@ -83,9 +105,9 @@ export function scoreLetter(char: string, font: LetterFont, seed: number): NoteP
       notes.push({
         x: ((x - pad) / PX) * stretch,
         y: baseline + (y - pad - ascent) / PX,
-        size: 0.11 + random() * 0.06,
+        size: 0.13 + random() * 0.07,
         rotate: -24 + random() * 48,
-        shape: Math.floor(random() * 3) as 0 | 1 | 2,
+        shape: pickShape(random()),
       });
     }
   }
