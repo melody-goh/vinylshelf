@@ -129,7 +129,7 @@ export function scoreLetter(char: string, font: LetterFont, seed: number): NoteP
     if (notes.length >= MAX_NOTES) break;
     if (notes.some((n) => Math.hypot(n.x - point.x, n.y - point.y) < MIN_GAP)) continue;
     const away = Math.atan2(point.y - cy, point.x - cx) + (random() - 0.5) * 0.9;
-    const reach = 0.08 + random() * 0.16;
+    const reach = 0.03 + random() * 0.07;
     notes.push({
       x: point.x,
       y: point.y,
@@ -137,7 +137,7 @@ export function scoreLetter(char: string, font: LetterFont, seed: number): NoteP
       rotate: -18 + random() * 36,
       shape: pickShape(random()),
       driftX: Math.cos(away) * reach,
-      driftY: Math.sin(away) * reach - 0.04,
+      driftY: Math.sin(away) * reach - 0.015,
     });
   }
   return notes;
