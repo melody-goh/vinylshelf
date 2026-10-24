@@ -18,6 +18,7 @@ import { DiscogsCredit } from '../components/DiscogsCredit';
 import { Gatefold } from '../components/Gatefold';
 import { HypeSticker } from '../components/HypeSticker';
 import { ImportProgress } from '../components/ImportProgress';
+import { ScoredText } from '../components/ScoredText';
 
 const SORT_LABELS: Record<CollectionSort, string> = {
   added_desc: 'Recently added',
@@ -131,9 +132,12 @@ export function Shelf({ user }: { user: User }) {
       </header>
 
       {collection.isPending ? (
-        <p role="status" className="p-8">
-          Taking your records off the shelf…
-        </p>
+        <div className="flex flex-1 items-center justify-center p-8">
+          <ScoredText
+            text="Taking your records off the shelf…"
+            className="condensed max-w-[18ch] text-center text-[clamp(2.75rem,8vw,5.5rem)] font-extrabold leading-[0.95] [font-stretch:62%]"
+          />
+        </div>
       ) : collection.isError ? (
         <p role="alert" className="p-8">
           Your shelf couldn&rsquo;t be loaded. Try again in a moment.

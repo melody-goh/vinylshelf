@@ -1,5 +1,6 @@
 import { useMe } from './api/session';
 import { Footer } from './components/Footer';
+import { ScoredText } from './components/ScoredText';
 import { Login } from './screens/Login';
 import { Shelf } from './screens/Shelf';
 
@@ -13,8 +14,11 @@ export function App() {
   return (
     <div className="flex min-h-dvh flex-col md:h-dvh">
       {me.isPending ? (
-        <main className="flex-1 p-8">
-          <p role="status">Waking up the shelf…</p>
+        <main className="flex flex-1 items-center justify-center p-8">
+          <ScoredText
+            text="Waking up the shelf…"
+            className="condensed max-w-[18ch] text-center text-[clamp(2.75rem,8vw,5.5rem)] font-extrabold leading-[0.95] [font-stretch:62%]"
+          />
         </main>
       ) : me.isError ? (
         <main className="flex-1 p-8">

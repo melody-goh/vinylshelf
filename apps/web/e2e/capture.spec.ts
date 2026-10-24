@@ -131,3 +131,21 @@ test('phone captures', async ({ page }) => {
   await page.waitForTimeout(700);
   await page.screenshot({ path: `${OUT}/mobile-leaning.png` });
 });
+
+test('loading captures', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  // Hold the session check open so the first loading screen stays up.
+  await page.route('**/api/v1/me', () => new Promise<void>(() => undefined));
+  await page.goto('/');
+  await page.getByRole('status').waitFor();
+  for (const at of [500, 800, 1100]) {
+    await page.waitForTimeout(at === 500 ? 500 : 300);
+    await page.screenshot({ path: `${OUT}/desktop-loading-${String(at)}.png` });
+  }
+  const text = page.getByRole('status');
+  await text.screenshot({ path: `${OUT}/desktop-loading-detail.png` });
+
+  await page.setViewportSize(phone);
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/mobile-loading.png` });
+});
