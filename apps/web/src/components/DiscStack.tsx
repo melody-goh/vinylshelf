@@ -155,9 +155,27 @@ const drift = {
   repeatType: 'mirror',
 } as const;
 
-/** Pastel rainbow, red round to violet and back, so the strip can drift without seams. */
-const RAINBOW =
-  'linear-gradient(90deg, #fcc9c9, #fddcb4, #fbf0ae, #cfefc3, #bde6ef, #c6d4f6, #dccbf4, #f6c6e1, #fcc9c9, #fddcb4, #fbf0ae, #cfefc3, #bde6ef, #c6d4f6, #dccbf4, #f6c6e1, #fcc9c9)';
+/**
+ * Two layers of pastel splotches across the rainbow. Each drifts on its own
+ * spring, at different speeds, so the colours keep mixing without a visible pattern.
+ */
+const SPLOTCHES = [
+  'radial-gradient(13% 60% at 18% 30%, #fbb1b1, transparent 72%), radial-gradient(12% 57% at 52% 70%, #b6e8ad, transparent 72%), radial-gradient(14% 66% at 82% 26%, #b0c6f7, transparent 72%), radial-gradient(10% 51% at 36% 86%, #f9e68c, transparent 72%), radial-gradient(11% 54% at 70% 92%, #d2b6f4, transparent 72%)',
+  'radial-gradient(12% 57% at 30% 62%, #fcc897, transparent 72%), radial-gradient(13% 63% at 64% 22%, #a4e1ec, transparent 72%), radial-gradient(11% 54% at 88% 70%, #f4b0d6, transparent 72%), radial-gradient(10% 45% at 10% 80%, #c8ecae, transparent 72%), radial-gradient(12% 60% at 48% 40%, #f7d9a0, transparent 72%)',
+];
+
+const DRIFTS = [
+  {
+    from: { x: '-9%', y: '-6%' },
+    to: { x: '8%', y: '5%' },
+    seconds: 11,
+  },
+  {
+    from: { x: '7%', y: '6%' },
+    to: { x: '-8%', y: '-5%' },
+    seconds: 17,
+  },
+];
 
 /**
  * The leaned record, named where it covers nothing: the strip under the stack, washed
@@ -168,14 +186,18 @@ const RAINBOW =
 function Readout({ leaning, wide }: { leaning: CollectionItem | null; wide: boolean }) {
   return (
     <div aria-hidden="true" className="relative shrink-0 overflow-hidden border-t border-rule">
-      {/* Twice as wide as one full rainbow and slid along it: transform only. */}
-      <motion.div
-        className="absolute inset-y-0 left-0 w-[300%] opacity-80"
-        style={{ background: RAINBOW }}
-        initial={{ x: '0%' }}
-        animate={{ x: '-50%' }}
-        transition={drift}
-      />
+      {/* Oversized layers, moved and turned, never repainted: transform only. */}
+      <div className="absolute inset-0 bg-[#f6f1f4]" />
+      {SPLOTCHES.map((background, i) => (
+        <motion.div
+          key={background}
+          className="absolute -inset-[45%]"
+          style={{ background }}
+          initial={DRIFTS[i]?.from}
+          animate={DRIFTS[i]?.to}
+          transition={{ ...drift, visualDuration: DRIFTS[i]?.seconds ?? 12 }}
+        />
+      ))}
       <p className="relative min-h-11 px-4 py-2 text-sm leading-tight md:px-6 md:py-3">
         {leaning ? (
           <>
@@ -187,7 +209,7 @@ function Readout({ leaning, wide }: { leaning: CollectionItem | null; wide: bool
           </>
         ) : (
           <span className="block pt-1.5 text-xs text-ink-soft">
-            {wide ? 'Hover a record to see what it is' : 'Tap a record to open it'}
+            {wide ? 'Hover over a record to see what it is' : 'Tap a record to open it'}
           </span>
         )}
       </p>
