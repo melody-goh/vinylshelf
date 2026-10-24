@@ -8,6 +8,8 @@ import type {
   CollectionPage,
   ImportJob,
   Release,
+  SearchPage,
+  SearchResult,
   User,
 } from '@vinylshelf/contract';
 import { http, HttpResponse, type HttpHandler } from 'msw';
@@ -121,4 +123,35 @@ export function releases(): HttpHandler[] {
       HttpResponse.json(releaseDetail(Number(params.discogsId))),
     ),
   ];
+}
+
+/** One Discogs search result, as the API passes it through. */
+export function searchResult(
+  discogsId: number,
+  overrides: Partial<SearchResult> = {},
+): SearchResult {
+  const now = Date.now();
+  return {
+    discogsId,
+    title: `Found ${String(discogsId - 9000000)}`,
+    artists: ['The Paper Moons'],
+    year: 2019,
+    country: 'UK',
+    label: 'Fixture Records',
+    catalogNumber: 'FX-001',
+    formats: ['Vinyl', 'LP', 'Album'],
+    thumbUrl: null,
+    discogsUrl: `https://www.discogs.com/release/${String(discogsId)}`,
+    inCollection: false,
+    fetchedAt: new Date(now - HOUR).toISOString(),
+    expiresAt: new Date(now + 5 * HOUR).toISOString(),
+    ...overrides,
+  };
+}
+
+export function searchPage(
+  results: SearchResult[],
+  overrides: Partial<SearchPage> = {},
+): SearchPage {
+  return { results, page: 1, pages: 1, totalResults: results.length, ...overrides };
 }
