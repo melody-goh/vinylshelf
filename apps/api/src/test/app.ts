@@ -9,6 +9,7 @@ import { TokenCipher } from '../crypto/token-cipher.js';
 import type { DatabaseHandle } from '../db/client.js';
 import { DiscogsReleaseCache } from '../discogs/cache.js';
 import { createDiscogsGateway } from '../discogs/index.js';
+import { createITunesGateway } from '../itunes/index.js';
 import type { EnqueueOptions, JobPayloads, JobQueue, QueueName } from '../jobs/queue.js';
 import { fakeClock } from './fake-clock.js';
 
@@ -32,6 +33,7 @@ export const testConfig: Config = {
     refreshAfterSeconds: 5 * 60 * 60,
   },
   refreshCooldownMinutes: 15,
+  itunes: { country: 'GB' },
   queue: { pollingIntervalSeconds: 2, cachePurgeCron: '*/15 * * * *' },
 };
 
@@ -73,6 +75,11 @@ export function testDependencies(
     cipher: new TokenCipher(testConfig.tokenEncryptionKey),
     gateway: createDiscogsGateway({
       consumer: { key: testConfig.discogs.consumerKey, secret: testConfig.discogs.consumerSecret },
+      userAgent: testConfig.discogs.userAgent,
+      clock,
+    }),
+    itunes: createITunesGateway({
+      country: testConfig.itunes.country,
       userAgent: testConfig.discogs.userAgent,
       clock,
     }),

@@ -48,6 +48,13 @@ const envSchema = z
       .default(5 * 60 * 60),
     REFRESH_COOLDOWN_MINUTES: z.coerce.number().int().min(0).default(15),
 
+    ITUNES_COUNTRY: z
+      .string()
+      .trim()
+      .regex(/^[A-Za-z]{2}$/, 'must be a two-letter country code')
+      .transform((code) => code.toUpperCase())
+      .default('US'),
+
     QUEUE_POLLING_INTERVAL_SECONDS: z.coerce.number().min(0.5).default(2),
     CACHE_PURGE_CRON: z.string().trim().min(1).default('*/15 * * * *'),
   })
@@ -74,6 +81,10 @@ export interface Config {
     refreshAfterSeconds: number;
   };
   refreshCooldownMinutes: number;
+  itunes: {
+    /** The iTunes storefront previews are matched in (ADR 0010 §6). */
+    country: string;
+  };
   queue: {
     pollingIntervalSeconds: number;
     cachePurgeCron: string;
@@ -113,6 +124,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       refreshAfterSeconds: e.DISCOGS_REFRESH_AFTER_SECONDS,
     },
     refreshCooldownMinutes: e.REFRESH_COOLDOWN_MINUTES,
+    itunes: { country: e.ITUNES_COUNTRY },
     queue: {
       pollingIntervalSeconds: e.QUEUE_POLLING_INTERVAL_SECONDS,
       cachePurgeCron: e.CACHE_PURGE_CRON,
