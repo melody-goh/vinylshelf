@@ -149,36 +149,34 @@ export function DiscStack({
 /** A slow, never-ending drift: a spring with no bounce, mirrored back and forth. */
 const drift = {
   type: 'spring',
-  visualDuration: 7,
+  visualDuration: 12,
   bounce: 0,
   repeat: Infinity,
   repeatType: 'mirror',
 } as const;
 
+/** Pastel rainbow, red round to violet and back, so the strip can drift without seams. */
+const RAINBOW =
+  'linear-gradient(90deg, #fcc9c9, #fddcb4, #fbf0ae, #cfefc3, #bde6ef, #c6d4f6, #dccbf4, #f6c6e1, #fcc9c9, #fddcb4, #fbf0ae, #cfefc3, #bde6ef, #c6d4f6, #dccbf4, #f6c6e1, #fcc9c9)';
+
 /**
- * The leaned record, named where it covers nothing: a pane of frosted glass over a
- * slowly drifting pastel wash, so the eye finds it. The button carries the accessible
- * name, so this is for sighted readers only. Before anything is leaned it says how.
+ * The leaned record, named where it covers nothing: the strip under the stack, washed
+ * in a pastel rainbow that drifts on its own so the eye finds it. The button carries
+ * the accessible name, so this is for sighted readers only. Before anything is leaned
+ * it says how.
  */
 function Readout({ leaning, wide }: { leaning: CollectionItem | null; wide: boolean }) {
   return (
-    <div
-      aria-hidden="true"
-      className="relative mx-3 mb-3 shrink-0 overflow-hidden rounded-xl shadow-photo ring-1 ring-white/70 md:mx-4 md:mb-4"
-    >
-      {/* The wash is oversized and moved, never repainted: transform only. */}
+    <div aria-hidden="true" className="relative shrink-0 overflow-hidden border-t border-rule">
+      {/* Twice as wide as one full rainbow and slid along it: transform only. */}
       <motion.div
-        className="absolute -inset-[60%] blur-lg"
-        style={{
-          background:
-            'radial-gradient(circle at 30% 30%, #f4b3da, transparent 42%), radial-gradient(circle at 70% 32%, #c7b6f4, transparent 42%), radial-gradient(circle at 38% 72%, #b4ead3, transparent 42%), radial-gradient(circle at 76% 70%, #f4e7a8, transparent 42%), radial-gradient(circle at 55% 50%, #b9d4f6, transparent 50%), #e6e2f6',
-        }}
-        initial={{ x: '-14%', y: '8%', rotate: -12 }}
-        animate={{ x: '12%', y: '-10%', rotate: 18 }}
+        className="absolute inset-y-0 left-0 w-[300%] opacity-80"
+        style={{ background: RAINBOW }}
+        initial={{ x: '0%' }}
+        animate={{ x: '-50%' }}
         transition={drift}
       />
-      <div className="absolute inset-0 bg-white/15" />
-      <p className="relative min-h-14 px-4 py-3 text-sm leading-tight">
+      <p className="relative min-h-11 px-4 py-2 text-sm leading-tight md:px-6 md:py-3">
         {leaning ? (
           <>
             <span className="block font-semibold">{leaning.release.title}</span>
@@ -188,7 +186,7 @@ function Readout({ leaning, wide }: { leaning: CollectionItem | null; wide: bool
             </span>
           </>
         ) : (
-          <span className="block pt-2 text-xs text-ink-soft">
+          <span className="block pt-1.5 text-xs text-ink-soft">
             {wide ? 'Hover a record to see what it is' : 'Tap a record to open it'}
           </span>
         )}

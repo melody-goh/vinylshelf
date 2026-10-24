@@ -192,7 +192,7 @@ The app is a full-height column: a thin header strip, the working area, and the 
 
 **Phones (below 48rem).** The stack becomes a horizontal row above the gatefold (9.5rem discs, 2.75rem crescents, 1rem gutters), and the gatefold stacks its panels: cover above, board below, hinged on the shared edge.
 
-**Readout, not overlay.** The leaned record is named in a readout under the stack (title in semibold, artist and year in Soft Ink), on a pane of frosted glass (0.75rem radius, Photo shadow, a 1px white edge) over a pastel wash of pink, lilac, mint, butter and sky that drifts on its own (the oversized wash is translated and turned, never repainted; a zero-bounce spring with a 7s visual duration, mirrored forever; still under reduced motion). The movement is there to draw the eye to where names appear. Before anything is leaned it says how: "Hover a record to see what it is", or "Tap a record to open it" on phones. Reserved at 3.5rem so the layout does not jump. It never sits over the discs. Added at the user's request (2026-10-24), as the world's one piece of glass and its one pastel.
+**Readout, not overlay.** The leaned record is named in the strip under the stack (title in semibold, artist and year in Soft Ink), across the column's full width under a Hairline Rule, with no box of its own. The strip is washed in a pastel rainbow (red, orange, yellow, green, cyan, blue, violet, pink, at 80%) that slides slowly along itself on its own (the wash is three times the strip's width and translated, never repainted; a zero-bounce spring with a 12s visual duration, mirrored forever; still under reduced motion). The movement draws the eye to where names appear. Before anything is leaned it says how: "Hover a record to see what it is", or "Tap a record to open it" on phones. Reserved at 2.75rem so the layout does not jump. It never sits over the discs. Added at the user's request (2026-10-24): the world's one pastel.
 
 **Sign-in.** The closed sleeve (max 34rem, square) is centred with five illustrative discs fanned vertically beside it from 64rem up (18rem discs overlapping by 14.5rem). Those discs stand for no record.
 
@@ -218,7 +218,7 @@ Two other depth devices are native to the world. The fold is a soft crease: a 1.
 
 Two shapes, both taken from the object. Squares with sharp corners (0 radius) for everything paper: covers, sleeves, the liner board. Perfect circles for everything pressed or stuck on: discs, their centre labels (the cover cropped round at 36% of the disc), the spindle hole, hype stickers, and the focus ring on a disc, which follows its circle. Borders are 1px hairlines or nothing. Inside the board, tracklist rows are divided by rules of the board text colour at 22%.
 
-**The Two Shapes Rule.** If it is not a square of paper or a circle of vinyl or sticker, it has no shape at all: text actions, notices and controls sit directly on the ground without a container. The one exception is the leaned-record readout's pane of glass.
+**The Two Shapes Rule.** If it is not a square of paper or a circle of vinyl or sticker, it has no shape at all: text actions, notices and controls sit directly on the ground without a container.
 
 ## Components
 
