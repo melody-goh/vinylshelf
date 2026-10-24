@@ -233,7 +233,7 @@ The round sticker on a sleeve's shrink-wrap; the only filled control in the syst
 Every other action ("Sign out", "Try now", "Sign in again", "Load more records") is underlined text in the current colour, with a 0.2em underline offset. "Load more records" uses condensed caps at 0.75rem and drops the underline while loading. The sort control is a bare select in medium weight with a 1rem chevron, after a "Sort by" label in Soft Ink.
 
 ### Header Strip
-Wordmark on the left; record count, sort, username (wide screens only) and "Sign out" on the right, 1.5rem apart, on a Hairline Rule. 0.75rem vertical, 1rem phone and 2rem wide horizontal padding.
+Wordmark on the left; record count, sort, username (wide screens only) and "Sign out" on the right, 1.5rem apart, on a Hairline Rule. 0.75rem vertical, 1rem phone and 2rem wide horizontal padding. A "Sync with Discogs" text action (reading "Syncing…" while it runs) re-imports on demand, so changes made on discogs.com reach the shelf without waiting for the automatic refresh; it is hidden on an empty shelf, which has its own import sticker.
 
 ### Open Gatefold (signature)
 The record at full size: two square panels in the Photo shadow.

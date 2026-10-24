@@ -312,6 +312,35 @@ describe('Shelf: first import', () => {
     expect(screen.queryByText(/Your shelf is empty/)).not.toBeInTheDocument();
   });
 
+  it('syncs a stocked shelf with Discogs on request, picking up records added there', async () => {
+    serveItems(
+      sequence([
+        page({ totalItems: 1, items: [collectionItem(1, { title: 'Tidal Lines' })] }),
+        page({
+          totalItems: 2,
+          items: [collectionItem(2, { title: 'Added on Discogs' }), collectionItem(1)],
+        }),
+      ]),
+    );
+    let started = 0;
+    server.use(
+      http.post(`${API}/collection/imports`, () => {
+        started++;
+        return HttpResponse.json(importJob({ status: 'queued' }), { status: 202 });
+      }),
+    );
+    serveImport(sequence([importJob({ status: 'running' }), importJob({ status: 'succeeded' })]));
+    const { user } = renderWithQueries(<App />);
+
+    await user.click(await screen.findByRole('button', { name: 'Sync with Discogs' }));
+
+    expect(started).toBe(1);
+    expect(await screen.findByText('2 records')).toBeInTheDocument();
+    expect(
+      within(await records()).getByRole('button', { name: /^Added on Discogs/ }),
+    ).toBeInTheDocument();
+  });
+
   it('shows why an import failed, and offers to try again', async () => {
     serveItems(() => page());
     server.use(

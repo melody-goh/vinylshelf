@@ -127,6 +127,18 @@ export function Shelf({ user }: { user: User }) {
               />
             </label>
           )}
+          {!isEmpty && (
+            // Changes made on discogs.com reach the shelf by re-importing; this does it now
+            // rather than waiting for the automatic refresh (ADR 0004 §4).
+            <button
+              type="button"
+              onClick={begin}
+              disabled={startImport.isPending || importing}
+              className="underline disabled:no-underline disabled:opacity-60"
+            >
+              {importing ? 'Syncing…' : 'Sync with Discogs'}
+            </button>
+          )}
           <span className="hidden text-ink-soft md:inline">{user.discogsUsername}</span>
           <button
             type="button"
