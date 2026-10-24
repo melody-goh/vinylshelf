@@ -156,12 +156,13 @@ const drift = {
 } as const;
 
 /**
- * Two layers of pastel splotches across the rainbow. Each drifts on its own
- * spring, at different speeds, so the colours keep mixing without a visible pattern.
+ * A holographic wash, like light across iridescent foil: broad pastel fields from round
+ * the rainbow that overlap and melt into each other. Two layers drift past each other at
+ * different speeds, so the blend keeps changing and never settles into a pattern.
  */
-const SPLOTCHES = [
-  'radial-gradient(13% 60% at 18% 30%, #fbb1b1, transparent 72%), radial-gradient(12% 57% at 52% 70%, #b6e8ad, transparent 72%), radial-gradient(14% 66% at 82% 26%, #b0c6f7, transparent 72%), radial-gradient(10% 51% at 36% 86%, #f9e68c, transparent 72%), radial-gradient(11% 54% at 70% 92%, #d2b6f4, transparent 72%)',
-  'radial-gradient(12% 57% at 30% 62%, #fcc897, transparent 72%), radial-gradient(13% 63% at 64% 22%, #a4e1ec, transparent 72%), radial-gradient(11% 54% at 88% 70%, #f4b0d6, transparent 72%), radial-gradient(10% 45% at 10% 80%, #c8ecae, transparent 72%), radial-gradient(12% 60% at 48% 40%, #f7d9a0, transparent 72%)',
+const WASHES = [
+  'radial-gradient(38% 160% at 8% 40%, #f9c6a6, transparent 70%), radial-gradient(38% 160% at 40% 65%, #f2e397, transparent 70%), radial-gradient(38% 160% at 70% 35%, #b2daf3, transparent 70%), radial-gradient(38% 160% at 96% 60%, #c8bcf3, transparent 70%)',
+  'radial-gradient(34% 150% at 24% 30%, #f1badb, transparent 70%), radial-gradient(34% 150% at 56% 55%, #b1e6c8, transparent 70%), radial-gradient(34% 150% at 86% 40%, #e9c3ea, transparent 70%)',
 ];
 
 const DRIFTS = [
@@ -186,12 +187,12 @@ const DRIFTS = [
 function Readout({ leaning, wide }: { leaning: CollectionItem | null; wide: boolean }) {
   return (
     <div aria-hidden="true" className="relative shrink-0 overflow-hidden border-t border-rule">
-      {/* Oversized layers, moved and turned, never repainted: transform only. */}
-      <div className="absolute inset-0 bg-[#f6f1f4]" />
-      {SPLOTCHES.map((background, i) => (
+      {/* Oversized layers, moved, never repainted: transform only. */}
+      <div className="absolute inset-0 bg-[#eef0f7]" />
+      {WASHES.map((background, i) => (
         <motion.div
           key={background}
-          className="absolute -inset-[45%]"
+          className={`absolute -inset-[45%] ${i === 1 ? 'opacity-75' : ''}`}
           style={{ background }}
           initial={DRIFTS[i]?.from}
           animate={DRIFTS[i]?.to}
