@@ -8,6 +8,7 @@ import type {
   CollectionPage,
   ImportJob,
   Release,
+  ReleasePreviews,
   SearchPage,
   SearchResult,
   User,
@@ -116,13 +117,38 @@ export function releaseDetail(discogsId: number, overrides: Partial<Release> = {
   };
 }
 
-/** Release detail for any id, as the API would answer it. */
+/** Release detail, and previews for every track, for any id. */
 export function releases(): HttpHandler[] {
   return [
     http.get(`${API}/releases/:discogsId`, ({ params }) =>
       HttpResponse.json(releaseDetail(Number(params.discogsId))),
     ),
+    http.get(`${API}/releases/:discogsId/previews`, ({ params }) =>
+      HttpResponse.json(previews(Number(params.discogsId))),
+    ),
   ];
+}
+
+/** Previews matching `releaseDetail`'s tracklist; pass nulls to leave tracks silent. */
+export function previews(
+  discogsId: number,
+  urls: (string | null)[] = ['https://audio.example/a1.m4a', 'https://audio.example/a2.m4a'],
+): ReleasePreviews {
+  const now = Date.now();
+  const tracklist = releaseDetail(discogsId).tracklist;
+  const anyMatch = urls.some((url) => url !== null);
+  return {
+    discogsId,
+    albumUrl: anyMatch ? `https://music.apple.com/album/${String(discogsId)}` : null,
+    attribution: 'Previews provided courtesy of iTunes',
+    tracks: tracklist.map((track, i) => ({
+      position: track.position,
+      previewUrl: urls[i] ?? null,
+      storeUrl: urls[i] ? `https://music.apple.com/song/${String(i)}` : null,
+    })),
+    fetchedAt: new Date(now - HOUR).toISOString(),
+    expiresAt: new Date(now + 23 * HOUR).toISOString(),
+  };
 }
 
 /** One Discogs search result, as the API passes it through. */

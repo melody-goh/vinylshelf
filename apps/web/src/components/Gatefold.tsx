@@ -1,16 +1,18 @@
-import type { CollectionItem, Release } from '@vinylshelf/contract';
+import type { CollectionItem, Release, ReleasePreviews } from '@vinylshelf/contract';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, Star } from 'lucide-react';
+import { ChevronDown, Play, Star } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ApiError } from '../api/client';
 import { useExpired } from '../api/expiry';
+import { useDwell, usePreviews } from '../api/previews';
 import { useRelease } from '../api/releases';
 import { LOGIN_URL } from '../api/session';
 import { useBoardInk, type BoardInk } from '../design/board';
 import { useWideScreen } from '../design/media';
 import { discSurface } from '../design/vinyl';
 import { DiscogsCredit } from './DiscogsCredit';
+import { ListeningRoom, playableTracks } from './ListeningRoom';
 
 const fold = { type: 'spring', stiffness: 210, damping: 29 } as const;
 
@@ -39,6 +41,21 @@ export function Gatefold({ item }: { item: CollectionItem }) {
     ? { open: { opacity: 1 }, closed: { opacity: 0 } }
     : { open: { opacity: 1 }, closed: { opacity: 1, transition: { when: 'afterChildren' } } };
 
+  // Previews are looked up for a record someone stays with, not every one flicked past.
+  const detail = useRelease(item.release.discogsId).data;
+  const previewsQuery = usePreviews(item.release.discogsId, useDwell(item.instanceId));
+  const [listening, setListening] = useState<{ instanceId: number; position: string } | null>(null);
+  const listen: Listen = {
+    previews: previewsQuery.data,
+    failed: previewsQuery.isError,
+    onPlay: (position) => {
+      setListening({ instanceId: item.instanceId, position });
+    },
+    onRetry: () => {
+      void previewsQuery.refetch();
+    },
+  };
+
   return (
     <div className="flex w-full flex-col gap-3">
       <AnimatePresence mode="wait" initial={false}>
@@ -52,9 +69,19 @@ export function Gatefold({ item }: { item: CollectionItem }) {
           transition={fold}
           className="grid w-full shadow-photo [perspective:2400px] md:grid-cols-2"
         >
-          <OpenGatefold item={item} board={board} />
+          <OpenGatefold item={item} board={board} listen={listen} />
         </motion.article>
       </AnimatePresence>
+      {listening?.instanceId === item.instanceId && detail && previewsQuery.data && (
+        <ListeningRoom
+          release={detail}
+          previews={previewsQuery.data}
+          startAt={listening.position}
+          onClose={() => {
+            setListening(null);
+          }}
+        />
+      )}
       <Community discogsId={item.release.discogsId} discogsUrl={item.release.discogsUrl} />
     </div>
   );
@@ -104,7 +131,23 @@ function Community({ discogsId, discogsUrl }: { discogsId: number; discogsUrl: s
   );
 }
 
-function OpenGatefold({ item, board: hinge }: { item: CollectionItem; board: Variants }) {
+/** What the liner notes need to offer previews (ADR 0010). */
+interface Listen {
+  previews: ReleasePreviews | undefined;
+  failed: boolean;
+  onPlay: (position: string) => void;
+  onRetry: () => void;
+}
+
+function OpenGatefold({
+  item,
+  board: hinge,
+  listen,
+}: {
+  item: CollectionItem;
+  board: Variants;
+  listen: Listen;
+}) {
   const { release } = item;
   const board = useBoardInk(release.coverImageUrl ?? null);
   const queryClient = useQueryClient();
@@ -161,7 +204,7 @@ function OpenGatefold({ item, board: hinge }: { item: CollectionItem; board: Var
           </header>
 
           <NotesScroller board={board}>
-            <LinerNotes detail={detail} error={detailQuery.error} board={board} />
+            <LinerNotes detail={detail} error={detailQuery.error} board={board} listen={listen} />
           </NotesScroller>
 
           <footer className="space-y-2">
@@ -236,10 +279,12 @@ function LinerNotes({
   detail,
   error,
   board,
+  listen,
 }: {
   detail: Release | undefined;
   error: Error | null;
   board: BoardInk;
+  listen: Listen;
 }) {
   if (error) {
     const code = error instanceof ApiError ? error.problem?.code : undefined;
@@ -279,15 +324,19 @@ function LinerNotes({
     );
   }
 
+  const playable = listen.previews ? playableTracks(detail, listen.previews) : [];
+  const canPlay = new Set(playable.map((t) => t.position));
+
   return (
     <div className="grid gap-6 text-sm lg:grid-cols-2 lg:gap-8 lg:text-[0.8125rem]">
       {detail.tracklist.length > 0 && (
         <section aria-label="Tracklist">
+          <ListenLine listen={listen} first={playable[0]?.position} board={board} />
           <ol className="divide-y lg:-mt-1.5">
             {detail.tracklist.map((track) => (
               <li
                 key={`${track.position}-${track.title}`}
-                className="numerals grid grid-cols-[2.5rem_1fr_auto] gap-3 py-1.5"
+                className="numerals grid grid-cols-[2.5rem_1fr_auto_1.25rem] items-center gap-3 py-1.5"
                 style={{ borderColor: 'color-mix(in srgb, currentColor 22%, transparent)' }}
               >
                 <span className="condensed text-[0.7rem] leading-5" style={{ color: board.soft }}>
@@ -295,6 +344,20 @@ function LinerNotes({
                 </span>
                 <span>{track.title}</span>
                 <span style={{ color: board.soft }}>{track.duration ?? ''}</span>
+                {canPlay.has(track.position) ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      listen.onPlay(track.position);
+                    }}
+                    aria-label={`Play a preview of ${track.title}`}
+                    className="grid size-5 place-items-center rounded-full opacity-70 hover:opacity-100 focus-visible:opacity-100"
+                  >
+                    <Play aria-hidden="true" className="size-3 fill-current" />
+                  </button>
+                ) : (
+                  <span />
+                )}
               </li>
             ))}
           </ol>
@@ -322,6 +385,57 @@ function LinerNotes({
         ))}
       </dl>
     </div>
+  );
+}
+
+/**
+ * The tracklist's first line once previews are known: an invitation to listen, or a
+ * plain word that this record has none. Nothing is shown while they are looked up.
+ */
+function ListenLine({
+  listen,
+  first,
+  board,
+}: {
+  listen: Listen;
+  first: string | undefined;
+  board: BoardInk;
+}) {
+  if (listen.failed) {
+    return (
+      <p className="mb-2 text-xs" style={{ color: board.soft }}>
+        Previews are unavailable right now.{' '}
+        <button type="button" onClick={listen.onRetry} className="underline">
+          Try again
+        </button>
+      </p>
+    );
+  }
+  if (!listen.previews) return null;
+  if (first === undefined) {
+    return (
+      <p className="mb-2 text-xs" style={{ color: board.soft }}>
+        No previews for this record
+      </p>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        listen.onPlay(first);
+      }}
+      className="mb-2 inline-flex items-center gap-2 text-sm font-semibold"
+    >
+      <span className="grid size-6 place-items-center rounded-full bg-current">
+        <Play
+          aria-hidden="true"
+          className="ml-px size-3 fill-current"
+          style={{ color: board.ink }}
+        />
+      </span>
+      Listen to previews
+    </button>
   );
 }
 
