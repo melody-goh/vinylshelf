@@ -14,6 +14,7 @@ import type {
   ReleaseDetailData,
   ReleaseSummaryData,
   RequestToken,
+  SearchPageData,
   TokenPair,
 } from './gateway.js';
 import { authorizationHeader, type ConsumerCredentials } from './oauth1.js';
@@ -21,16 +22,21 @@ import { vinylColorsOf } from './vinyl-colors.js';
 import type { Lane, RateLimiter } from './rate-limiter.js';
 import {
   accessTokenResponse,
+  addToCollectionResponse,
   collectionReleasesResponse,
   identityResponse,
   releaseResponse,
   requestTokenResponse,
+  searchResponse,
   type CollectionReleasesResponse,
   type ReleaseResponse,
+  type SearchResponse,
 } from './schemas.js';
 
 /** Discogs' maximum page size; fewer pages means fewer rate-limited calls. */
 export const COLLECTION_PAGE_SIZE = 100;
+/** Enough results to find the right pressing without a long scroll. */
+export const SEARCH_PAGE_SIZE = 24;
 const REQUEST_TIMEOUT_MS = 15_000;
 /** 429s retried here, after the limiter has paused for Retry-After. */
 const MAX_RATE_LIMIT_RETRIES = 2;
@@ -52,6 +58,8 @@ interface SignedRequest {
   form?: boolean;
   /** Imports run in the background lane so they cannot starve logins. */
   lane?: Lane;
+  /** Never retry, even on 429: for writes that must not be applied twice. */
+  noRetry?: boolean;
 }
 
 /**
@@ -146,6 +154,49 @@ export class HttpDiscogsGateway implements DiscogsGateway {
     return toReleaseDetail(parse(releaseResponse, parseJson(body, endpoint), endpoint));
   }
 
+  async searchReleases(
+    accessToken: TokenPair,
+    query: string,
+    page: number,
+  ): Promise<SearchPageData> {
+    const url = new URL(discogsEndpoints.search);
+    url.searchParams.set('q', query);
+    url.searchParams.set('type', 'release');
+    url.searchParams.set('format', 'Vinyl');
+    url.searchParams.set('page', String(page));
+    url.searchParams.set('per_page', String(SEARCH_PAGE_SIZE));
+
+    const endpoint = 'database/search';
+    const body = await this.send({
+      method: 'GET',
+      url: url.toString(),
+      endpoint,
+      token: accessToken,
+      lane: 'interactive',
+    });
+    return toSearchPage(parse(searchResponse, parseJson(body, endpoint), endpoint));
+  }
+
+  async addToCollection(
+    accessToken: TokenPair,
+    username: string,
+    releaseId: number,
+  ): Promise<{ instanceId: number }> {
+    const endpoint = 'users/:username/collection/folders/1/releases/:id';
+    const body = await this.send({
+      method: 'POST',
+      url: discogsEndpoints.addToCollection(username, releaseId),
+      endpoint,
+      token: accessToken,
+      lane: 'interactive',
+      // A write is not retried on 429: Discogs may have applied it, and a retry would
+      // add a second copy.
+      noRetry: true,
+    });
+    const parsed = parse(addToCollectionResponse, parseJson(body, endpoint), endpoint);
+    return { instanceId: parsed.instance_id };
+  }
+
   private async send(request: SignedRequest, attempt = 0): Promise<string> {
     const { limiter, consumer, userAgent } = this.options;
     await limiter.acquire(request.lane ?? 'interactive');
@@ -182,7 +233,9 @@ export class HttpDiscogsGateway implements DiscogsGateway {
     const what = `Discogs ${request.endpoint} returned ${response.status}`;
     switch (true) {
       case response.status === 429: {
-        if (attempt < MAX_RATE_LIMIT_RETRIES) return this.send(request, attempt + 1);
+        if (!request.noRetry && attempt < MAX_RATE_LIMIT_RETRIES) {
+          return this.send(request, attempt + 1);
+        }
         const retryAfter = Number.parseInt(response.headers.get('retry-after') ?? '', 10);
         throw new DiscogsRateLimitedError(what, Number.isFinite(retryAfter) ? retryAfter : null);
       }
@@ -289,5 +342,55 @@ function toReleaseDetail(response: ReleaseResponse): ReleaseDetailData {
     tracklist: response.tracklist
       .filter((t) => t.type_ === undefined || t.type_ === 'track')
       .map((t) => ({ position: t.position, title: t.title, duration: t.duration || null })),
+    community: {
+      rating: {
+        // Two decimals is all Discogs shows, and keeps cached JSON stable.
+        average: Math.round(response.community.rating.average * 100) / 100,
+        count: response.community.rating.count,
+      },
+      have: response.community.have,
+      want: response.community.want,
+    },
+  };
+}
+
+/**
+ * Search gives "Artist - Title" as one string. Split on the first separator (titles may
+ * contain " - " too), but keep the artist part whole: Discogs has already joined several
+ * artists the way the sleeve does, and "Simon & Garfunkel" is one act, not two.
+ */
+function splitSearchTitle(title: string): { artists: string[]; title: string } {
+  const at = title.indexOf(' - ');
+  if (at === -1) return { artists: [], title };
+  // A trailing "*" marks a name variation on Discogs; it is not part of the name.
+  return {
+    artists: [displayArtistName(title.slice(0, at).replace(/\*$/, ''))],
+    title: title.slice(at + 3),
+  };
+}
+
+function toSearchPage(response: SearchResponse): SearchPageData {
+  return {
+    page: response.pagination.page,
+    pages: response.pagination.pages,
+    totalResults: response.pagination.items,
+    results: response.results
+      .filter((r) => r.type === 'release')
+      .map((r) => {
+        const year = Number.parseInt(r.year ?? '', 10);
+        const catno = r.catno?.trim();
+        return {
+          discogsId: r.id,
+          ...splitSearchTitle(r.title),
+          year: Number.isFinite(year) && year > 0 ? year : null,
+          country: r.country || null,
+          label: r.label[0] ?? null,
+          // Discogs writes "none" for releases without a catalogue number.
+          catalogNumber: catno && catno.toLowerCase() !== 'none' ? catno : null,
+          formats: r.format,
+          thumbUrl: coverImage(r.thumb),
+          discogsUrl: discogsEndpoints.releasePage(r.id),
+        };
+      }),
   };
 }

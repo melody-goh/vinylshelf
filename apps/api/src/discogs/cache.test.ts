@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { discogsReleaseCache } from '../db/schema.js';
+import { eq } from 'drizzle-orm';
+import { discogsReleaseCache, discogsReleaseDetailCache } from '../db/schema.js';
 import { useTestDatabase } from '../test/database.js';
 import { fakeClock } from '../test/fake-clock.js';
 import { DiscogsReleaseCache, classifyRelease } from './cache.js';
@@ -103,6 +104,7 @@ describe('DiscogsReleaseCache: release detail', () => {
     formats: ['2 × Vinyl, LP'],
     credits: [],
     tracklist: [{ position: 'A1', title: 'Prelude', duration: null }],
+    community: { rating: { average: 4.5, count: 10 }, have: 40, want: 12 },
   });
 
   it('returns stored detail until its expiry, then nothing', async () => {
@@ -112,6 +114,19 @@ describe('DiscogsReleaseCache: release detail', () => {
     expect((await cache.getFreshDetail(db(), 7))?.catalogNumber).toBe('FXC-74');
     clock.time = T0 + 120_000;
     expect(await cache.getFreshDetail(db(), 7)).toBeNull();
+  });
+
+  it('treats detail cached before a field existed as a miss, so it is refetched whole', async () => {
+    const { cache } = setup(120);
+    const stored = await cache.storeDetail(db(), detail(8));
+    const older: Partial<ReleaseDetailData> = { ...stored };
+    delete older.community;
+    await db()
+      .update(discogsReleaseDetailCache)
+      .set({ detail: older as unknown as ReleaseDetailData })
+      .where(eq(discogsReleaseDetailCache.discogsId, 8));
+
+    expect(await cache.getFreshDetail(db(), 8)).toBeNull();
   });
 
   it('purges expired detail along with expired summaries', async () => {

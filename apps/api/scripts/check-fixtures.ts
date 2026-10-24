@@ -4,7 +4,7 @@
  *   pnpm --filter @vinylshelf/api fixtures:check [discogs_username]
  *
  * Needs a user who has signed in through the app (their encrypted token is read from
- * the database). It makes three live Discogs calls and prints field paths only, never
+ * the database). It makes four read-only live Discogs calls and prints field paths only, never
  * values. Never run in tests or CI (CLAUDE.md: tests do not hit live APIs).
  * Exits 1 if a live response fails the gateway's schemas, since imports would break.
  */

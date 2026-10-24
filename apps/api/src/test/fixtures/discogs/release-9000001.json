@@ -41,11 +41,36 @@
   "genres": ["Rock"],
   "styles": ["Indie Rock", "Dream Pop"],
   "tracklist": [
-    { "position": "", "type_": "heading", "title": "Side One", "duration": "" },
-    { "position": "A1", "type_": "track", "title": "Shoreline", "duration": "4:12" },
-    { "position": "A2", "type_": "track", "title": "Undertow", "duration": "3:48" },
-    { "position": "B1", "type_": "track", "title": "Low Tide Radio", "duration": "" },
-    { "position": "B2", "type_": "track", "title": "Salt", "duration": "5:01" }
+    {
+      "position": "",
+      "type_": "heading",
+      "title": "Side One",
+      "duration": ""
+    },
+    {
+      "position": "A1",
+      "type_": "track",
+      "title": "Shoreline",
+      "duration": "4:12"
+    },
+    {
+      "position": "A2",
+      "type_": "track",
+      "title": "Undertow",
+      "duration": "3:48"
+    },
+    {
+      "position": "B1",
+      "type_": "track",
+      "title": "Low Tide Radio",
+      "duration": ""
+    },
+    {
+      "position": "B2",
+      "type_": "track",
+      "title": "Salt",
+      "duration": "5:01"
+    }
   ],
   "extraartists": [
     {
@@ -82,5 +107,15 @@
       "width": 600,
       "height": 600
     }
-  ]
+  ],
+  "community": {
+    "have": 1840,
+    "want": 960,
+    "rating": {
+      "count": 212,
+      "average": 4.31
+    },
+    "status": "Accepted",
+    "data_quality": "Correct"
+  }
 }

@@ -95,4 +95,42 @@ export const releaseSchema = releaseSummarySchema.extend({
       duration: z.string().nullable().optional(),
     }),
   ),
+  community: z.object({
+    rating: z.object({ average: z.number().min(0).max(5), count: z.number().int().min(0) }),
+    have: z.number().int().min(0),
+    want: z.number().int().min(0),
+  }),
+});
+
+export const searchResultSchema = z.object({
+  discogsId: z.number().int(),
+  title: z.string(),
+  artists: z.array(z.string()),
+  year: z.number().int().nullable(),
+  country: z.string().nullable(),
+  label: z.string().nullable(),
+  catalogNumber: z.string().nullable(),
+  formats: z.array(z.string()),
+  thumbUrl: z.url().nullable(),
+  discogsUrl: z.url(),
+  inCollection: z.boolean(),
+  fetchedAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
+});
+
+export const searchPageSchema = z.object({
+  results: z.array(searchResultSchema),
+  page: z.number().int().min(1),
+  pages: z.number().int().min(0),
+  totalResults: z.number().int().min(0),
+});
+
+export const searchQuery = z.object({
+  q: z.string().trim().min(2).max(200),
+  page: z.coerce.number().int().min(1).default(1),
+});
+
+export const addCollectionItemBody = z.strictObject({
+  discogsId: z.number().int().min(1),
+  allowDuplicate: z.boolean().default(false),
 });

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.2.0
+  version: 0.3.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -243,6 +243,66 @@ paths:
           $ref: '#/components/responses/Problem'
         '401':
           $ref: '#/components/responses/Problem'
+    post:
+      tags: [Collection]
+      operationId: addCollectionItem
+      summary: Add a release to the user's Discogs collection
+      description: |
+        Writes the release to the user's Discogs collection (folder 1, "Uncategorized"),
+        then puts it on the shelf (docs/adr/0009-writing-to-the-discogs-collection.md).
+        Discogs is written first; if that fails nothing changes here.
+
+        Discogs allows several copies of a release, so a release already on the shelf is
+        refused with 409 `already_in_collection` unless `allowDuplicate` is true. Clients
+        set it only after the user confirms they own another copy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [discogsId]
+              additionalProperties: false
+              properties:
+                discogsId: { type: integer, minimum: 1 }
+                allowDuplicate: { type: boolean, default: false }
+      responses:
+        '201':
+          description: Added; the new copy as it now appears on the shelf.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionItem'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: |
+            Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+        '404':
+          description: |
+            No such release on Discogs (`code: release_not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: |
+            Already on the shelf and `allowDuplicate` was not set
+            (`code: already_in_collection`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Problem'
 
   /releases/{discogsId}:
     get:
@@ -279,8 +339,14 @@ paths:
     get:
       tags: [Releases]
       operationId: searchReleases
-      summary: Manual search by title, artist, catalogue number or barcode
-      description: Fallback when recognition fails or the pressing is obscure.
+      summary: Search Discogs for vinyl releases
+      description: |
+        Search by title, artist, catalogue number or barcode, to add a record to the
+        shelf (and, later, as the fallback when recognition fails). Limited to vinyl
+        releases. Results are Discogs data passed straight through: never stored, shown
+        with the Discogs credit, and subject to `expiresAt` like any other
+        (docs/adr/0009-writing-to-the-discogs-collection.md). Search has its own per-user
+        rate limit, since every user shares one Discogs request budget.
       parameters:
         - name: q
           in: query
@@ -291,19 +357,24 @@ paths:
           schema: { type: integer, minimum: 1, default: 1 }
       responses:
         '200':
-          description: Search results.
+          description: One page of search results.
           content:
             application/json:
               schema:
-                type: object
-                required: [results]
-                properties:
-                  results:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/ReleaseSummary'
+                $ref: '#/components/schemas/SearchPage'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: |
+            Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         '429':
           $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Problem'
 
   /listen-sessions:
     post:
@@ -626,8 +697,28 @@ components:
       allOf:
         - $ref: '#/components/schemas/ReleaseSummary'
         - type: object
-          required: [label, catalogNumber, genres, styles, formats, tracklist, credits]
+          required: [label, catalogNumber, genres, styles, formats, tracklist, credits, community]
           properties:
+            community:
+              type: object
+              description: |
+                What the Discogs community says about this release: its average rating
+                and how many members own it and want it. Discogs data, shown with the
+                Discogs credit.
+              required: [rating, have, want]
+              properties:
+                rating:
+                  type: object
+                  required: [average, count]
+                  properties:
+                    average:
+                      type: number
+                      minimum: 0
+                      maximum: 5
+                      description: Mean of the community's 1 to 5 ratings; 0 when unrated.
+                    count: { type: integer, minimum: 0 }
+                have: { type: integer, minimum: 0 }
+                want: { type: integer, minimum: 0 }
             label: { type: [string, 'null'] }
             catalogNumber: { type: [string, 'null'] }
             genres:
@@ -658,6 +749,73 @@ components:
                   position: { type: string }
                   title: { type: string }
                   duration: { type: [string, 'null'] }
+
+    SearchPage:
+      type: object
+      required: [results, page, pages, totalResults]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SearchResult'
+        page: { type: integer, minimum: 1 }
+        pages: { type: integer, minimum: 0 }
+        totalResults: { type: integer, minimum: 0 }
+
+    SearchResult:
+      type: object
+      description: |
+        A release as Discogs search describes it: enough to recognise the right pressing
+        and add it. Fetch `/releases/{discogsId}` for the full detail.
+      required:
+        [
+          discogsId,
+          title,
+          artists,
+          year,
+          country,
+          label,
+          catalogNumber,
+          formats,
+          thumbUrl,
+          discogsUrl,
+          inCollection,
+          fetchedAt,
+          expiresAt,
+        ]
+      properties:
+        discogsId: { type: integer }
+        title: { type: string }
+        artists:
+          type: array
+          items: { type: string }
+        year: { type: [integer, 'null'] }
+        country: { type: [string, 'null'] }
+        label: { type: [string, 'null'] }
+        catalogNumber: { type: [string, 'null'] }
+        formats:
+          type: array
+          items: { type: string }
+          description: Format descriptors as Discogs lists them, e.g. ["Vinyl", "LP", "Album"].
+        thumbUrl:
+          type: [string, 'null']
+          format: uri
+          description: Hotlinked Discogs thumbnail. Never stored; subject to `expiresAt`.
+        discogsUrl:
+          type: string
+          format: uri
+          description: Link target for the mandatory "Data provided by Discogs" credit.
+        inCollection:
+          type: boolean
+          description: |
+            At least one copy is already on the user's shelf (as of their last import),
+            so adding it needs `allowDuplicate`. Same check as the 409 on
+            `addCollectionItem`.
+        fetchedAt: { type: string, format: date-time }
+        expiresAt:
+          type: string
+          format: date-time
+          description: Hard display deadline (at most 6 hours after `fetchedAt`).
 
     CaptureSource:
       type: string

@@ -109,5 +109,14 @@ export function release(discogsId: number): Release {
       { position: 'B2', title: 'Salt', duration: '5:01' },
       { position: 'B3', title: 'A Long Way Round (Reprise)', duration: '2:37' },
     ],
+    // Varied per record, and the odd unrated one.
+    community: {
+      rating:
+        index % 5 === 3
+          ? { average: 0, count: 0 }
+          : { average: 3.6 + (index % 7) * 0.2, count: 40 + index * 37 },
+      have: 300 + index * 211,
+      want: 90 + index * 53,
+    },
   };
 }

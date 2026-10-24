@@ -1,0 +1,72 @@
+{
+  "pagination": {
+    "page": 1,
+    "pages": 1,
+    "per_page": 24,
+    "items": 3,
+    "urls": {}
+  },
+  "results": [
+    {
+      "id": 9000001,
+      "type": "release",
+      "master_id": 8000001,
+      "master_url": "https://api.discogs.com/masters/8000001",
+      "uri": "/release/9000001-The-Paper-Moons-Tidal-Lines",
+      "title": "The Paper Moons - Tidal Lines",
+      "thumb": "https://i.discogs.com/fixture/thumb-9000001.jpg",
+      "cover_image": "https://i.discogs.com/fixture/cover-9000001.jpg",
+      "resource_url": "https://api.discogs.com/releases/9000001",
+      "country": "UK",
+      "year": "2019",
+      "format": ["Vinyl", "LP", "Album", "Limited Edition"],
+      "label": ["Fixture Records", "Fixture Pressing Co."],
+      "genre": ["Rock"],
+      "style": ["Indie Rock"],
+      "catno": "FX-001",
+      "barcode": ["5012345678900"],
+      "community": {
+        "want": 960,
+        "have": 1840
+      },
+      "format_quantity": 1,
+      "user_data": {
+        "in_wantlist": false,
+        "in_collection": true
+      }
+    },
+    {
+      "id": 9000099,
+      "type": "release",
+      "master_id": 0,
+      "uri": "/release/9000099-Nightshade-Night-Bus-Recordings",
+      "title": "Nightshade (2)* - Night Bus - Recordings",
+      "thumb": "",
+      "cover_image": "https://st.discogs.com/images/spacer.gif",
+      "resource_url": "https://api.discogs.com/releases/9000099",
+      "country": "US",
+      "format": ["Vinyl", "LP"],
+      "label": ["Lamplight"],
+      "catno": "none",
+      "community": {
+        "want": 3,
+        "have": 7
+      },
+      "format_quantity": 1,
+      "user_data": {
+        "in_wantlist": false,
+        "in_collection": false
+      }
+    },
+    {
+      "id": 8000001,
+      "type": "master",
+      "uri": "/master/8000001-The-Paper-Moons-Tidal-Lines",
+      "title": "The Paper Moons - Tidal Lines",
+      "year": "2019",
+      "format": ["Vinyl"],
+      "label": [],
+      "resource_url": "https://api.discogs.com/masters/8000001"
+    }
+  ]
+}

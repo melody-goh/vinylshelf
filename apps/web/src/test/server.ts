@@ -107,6 +107,7 @@ export function releaseDetail(discogsId: number, overrides: Partial<Release> = {
       { position: 'A1', title: 'Shoreline', duration: '4:12' },
       { position: 'A2', title: 'Undertow', duration: null },
     ],
+    community: { rating: { average: 4.31, count: 212 }, have: 1840, want: 960 },
     fetchedAt: new Date(now - HOUR).toISOString(),
     expiresAt: new Date(now + 5 * HOUR).toISOString(),
     ...overrides,

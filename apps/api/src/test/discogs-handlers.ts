@@ -15,6 +15,8 @@ export const discogsFixtures = {
   accessToken: () => fixture('access-token.txt').trim(),
   identity: () => JSON.parse(fixture('identity.json')) as Record<string, unknown>,
   release: (id: number) => JSON.parse(fixture(`release-${id}.json`)) as Record<string, unknown>,
+  search: () => JSON.parse(fixture('search-vinyl.json')) as Record<string, unknown>,
+  addToCollection: () => JSON.parse(fixture('add-to-collection.json')) as Record<string, unknown>,
   collectionPage: (page: number) =>
     JSON.parse(fixture(`collection-page-${page}.json`)) as {
       pagination: Record<string, unknown>;
@@ -28,6 +30,8 @@ export const discogsUrls = {
   identity: `${DISCOGS_API_BASE}/oauth/identity`,
   collection: `${DISCOGS_API_BASE}/users/:username/collection/folders/0/releases`,
   release: `${DISCOGS_API_BASE}/releases/:id`,
+  search: `${DISCOGS_API_BASE}/database/search`,
+  addToCollection: `${DISCOGS_API_BASE}/users/:username/collection/folders/1/releases/:id`,
 };
 
 /** Discogs answers unsigned or anonymous requests with an error; so do we. */
@@ -45,7 +49,10 @@ function rejectUnlessSigned(request: Request): Response | undefined {
 const form = (body: string): Response =>
   new HttpResponse(body, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
 
-/** Happy-path Discogs: tokens, identity, a two-page collection and one release. */
+/**
+ * Happy-path Discogs: tokens, identity, a two-page collection, one release, a page of
+ * search results, and adding release 9000001 to the collection.
+ */
 export function discogsHandlers(): HttpHandler[] {
   return [
     http.get(
@@ -67,6 +74,18 @@ export function discogsHandlers(): HttpHandler[] {
         return HttpResponse.json({ message: 'Release not found.' }, { status: 404 });
       }
       return HttpResponse.json(discogsFixtures.release(9000001));
+    }),
+    http.get(
+      discogsUrls.search,
+      ({ request }) => rejectUnlessSigned(request) ?? HttpResponse.json(discogsFixtures.search()),
+    ),
+    http.post(discogsUrls.addToCollection, ({ request, params }) => {
+      const rejected = rejectUnlessSigned(request);
+      if (rejected) return rejected;
+      if (params.id !== '9000001') {
+        return HttpResponse.json({ message: 'Release not found.' }, { status: 404 });
+      }
+      return HttpResponse.json(discogsFixtures.addToCollection(), { status: 201 });
     }),
     http.get(discogsUrls.collection, ({ request }) => {
       const rejected = rejectUnlessSigned(request);
