@@ -3,16 +3,16 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { scoreLetter, type NotePlacement } from '../design/scored';
 
 /** How often the wave moves on by one letter, in ms. */
-const TICK = 85;
+const TICK = 110;
 /** How many letters are in notes at once. */
-const WAVE = 4;
+const WAVE = 5;
 /** Ticks of plain type between passes of the wave. */
 const REST = 10;
 
-const bloom = { type: 'spring', stiffness: 520, damping: 22 } as const;
+const bloom = { type: 'spring', stiffness: 260, damping: 20 } as const;
 const settle = { type: 'spring', stiffness: 700, damping: 45 } as const;
 /** Ticks a letter keeps its notes mounted after the wave leaves, to settle back. */
-const LINGER = 4;
+const LINGER = 5;
 
 /** A filled note head, tilted as engraved. */
 function Head({ x, y, small = false }: { x: number; y: number; small?: boolean }) {
@@ -250,8 +250,8 @@ function Letter({
           initial={false}
           animate={showNotes ? 'scored' : 'type'}
           variants={{
-            scored: { transition: { staggerChildren: 0.0025 } },
-            type: { transition: { staggerChildren: 0.0015, staggerDirection: -1 } },
+            scored: { transition: { staggerChildren: 0.03 } },
+            type: { transition: { staggerChildren: 0.02, staggerDirection: -1 } },
           }}
         >
           {notes.map((note, k) => (
@@ -266,8 +266,14 @@ function Letter({
                 height: `${String(note.size)}em`,
               }}
               variants={{
-                scored: { opacity: 1, scale: 1, rotate: note.rotate, y: 0 },
-                type: { opacity: 0, scale: 0.3, rotate: 0, y: '0.08em' },
+                scored: {
+                  opacity: 1,
+                  scale: 1,
+                  rotate: note.rotate,
+                  x: `${String(note.driftX)}em`,
+                  y: `${String(note.driftY)}em`,
+                },
+                type: { opacity: 0, scale: 0.4, rotate: 0, x: '0em', y: '0em' },
               }}
               transition={bloom}
             >

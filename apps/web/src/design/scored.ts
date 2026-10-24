@@ -1,6 +1,7 @@
 /**
- * Where the music notes go when a letter of loading type breaks into notes: points
- * inside the glyph's own ink, found by drawing it once to a canvas in the page's font.
+ * Where the music notes go when a letter of loading type breaks into notes: a few
+ * well-spaced points inside the glyph's own ink, found by drawing it once to a canvas in
+ * the page's font, each with a drift that carries it a little outside the letter.
  * Positions are in em, so they hold at any font size. Seeded per letter, so a word
  * scores the same way every time it appears.
  */
@@ -15,6 +16,9 @@ export interface NotePlacement {
   rotate: number;
   /** Which drawn note, as an index into NOTE_SHAPE. */
   shape: number;
+  /** Where it drifts to while scored, in em from (x, y): away from the letter's centre. */
+  driftX: number;
+  driftY: number;
 }
 
 export interface LetterFont {
@@ -30,9 +34,14 @@ export interface LetterFont {
 
 /** Canvas font size for sampling; large enough that thin strokes still catch points. */
 const PX = 160;
-/** Grid spacing between candidate notes, in em; jittered so no grid shows. */
-const STEP = 0.075;
-const MAX_NOTES = 70;
+/** Grid spacing between candidate points, in em: fine, so thin strokes are found. */
+const STEP = 0.04;
+/**
+ * Closest two notes may sit, in em. Wide enough that each reads as a note rather than
+ * a speck in a fill.
+ */
+const MIN_GAP = 0.2;
+const MAX_NOTES = 9;
 
 /**
  * How often each drawn note appears (components/ScoredText.tsx draws them in this
@@ -95,29 +104,41 @@ export function scoreLetter(char: string, font: LetterFont, seed: number): NoteP
 
   const random = seeded(seed);
   const step = STEP * PX;
-  const notes: NotePlacement[] = [];
-  for (let gy = step / 2; gy < canvas.height; gy += step * 0.86) {
+  const inked: { x: number; y: number }[] = [];
+  for (let gy = step / 2; gy < canvas.height; gy += step) {
     for (let gx = step / 2; gx < canvas.width; gx += step) {
-      const x = Math.round(gx + (random() - 0.5) * step * 0.7);
-      const y = Math.round(gy + (random() - 0.5) * step * 0.7);
-      const alpha = data[(y * width + x) * 4 + 3] ?? 0;
-      if (alpha < 160) continue;
-      notes.push({
-        x: ((x - pad) / PX) * stretch,
-        y: baseline + (y - pad - ascent) / PX,
-        size: 0.13 + random() * 0.07,
-        rotate: -24 + random() * 48,
-        shape: pickShape(random()),
-      });
+      const alpha = data[(Math.round(gy) * width + Math.round(gx)) * 4 + 3] ?? 0;
+      if (alpha >= 160)
+        inked.push({ x: ((gx - pad) / PX) * stretch, y: baseline + (gy - pad - ascent) / PX });
     }
   }
+  if (inked.length === 0) return [];
 
-  // Thin out evenly rather than truncating, so a large letter is not filled top-first.
-  while (notes.length > MAX_NOTES) notes.splice(Math.floor(random() * notes.length), 1);
-  // Shuffled, so a letter blooms all over at once rather than from the top down.
-  for (let i = notes.length - 1; i > 0; i--) {
+  // The letter's centre of ink, which notes drift away from.
+  const cx = inked.reduce((sum, p) => sum + p.x, 0) / inked.length;
+  const cy = inked.reduce((sum, p) => sum + p.y, 0) / inked.length;
+
+  // Shuffle, then keep points that are far enough from every point kept so far: an even,
+  // loose scatter over the letter, and a bloom order that is not top-down.
+  for (let i = inked.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
-    [notes[i], notes[j]] = [notes[j] as NotePlacement, notes[i] as NotePlacement];
+    [inked[i], inked[j]] = [inked[j] as (typeof inked)[number], inked[i] as (typeof inked)[number]];
+  }
+  const notes: NotePlacement[] = [];
+  for (const point of inked) {
+    if (notes.length >= MAX_NOTES) break;
+    if (notes.some((n) => Math.hypot(n.x - point.x, n.y - point.y) < MIN_GAP)) continue;
+    const away = Math.atan2(point.y - cy, point.x - cx) + (random() - 0.5) * 0.9;
+    const reach = 0.08 + random() * 0.16;
+    notes.push({
+      x: point.x,
+      y: point.y,
+      size: 0.24 + random() * 0.1,
+      rotate: -18 + random() * 36,
+      shape: pickShape(random()),
+      driftX: Math.cos(away) * reach,
+      driftY: Math.sin(away) * reach - 0.04,
+    });
   }
   return notes;
 }
