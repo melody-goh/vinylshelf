@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'motion/react';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { scoreLetter, type NotePlacement } from '../design/scored';
 
 /** How often the wave moves on by one letter, in ms. */
@@ -88,8 +88,28 @@ const NOTE_SHAPES = [
  * note is big enough to read as one. Screen readers get the plain text; under reduced
  * motion, so does everyone.
  */
-export function ScoredText({ text, className = '' }: { text: string; className?: string }) {
+export function ScoredText({
+  text,
+  className = '',
+  onPass,
+}: {
+  text: string;
+  className?: string;
+  /**
+   * Called once the wave has gone through the words a first time, or straight away when
+   * there is no wave to see (reduced motion, or the browser cannot score the letters).
+   */
+  onPass?: () => void;
+}) {
   const reduced = useReducedMotion() ?? false;
+  const passed = useRef(onPass);
+  useEffect(() => {
+    passed.current = onPass;
+  }, [onPass]);
+  const pass = useCallback(() => {
+    passed.current?.();
+    passed.current = undefined;
+  }, []);
   const sprite = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const letters = useRef<HTMLSpanElement>(null);
   const [scores, setScores] = useState<NotePlacement[][] | null>(null);
@@ -106,9 +126,13 @@ export function ScoredText({ text, className = '' }: { text: string; className?:
   // Score each letter once its font has loaded, from the letter as actually laid out.
   useEffect(() => {
     const root = letters.current;
-    if (reduced || !root) return;
+    const fonts = document.fonts as FontFaceSet | undefined;
+    if (reduced || !root || !fonts) {
+      pass();
+      return;
+    }
     let cancelled = false;
-    void (document.fonts as FontFaceSet | undefined)?.ready.then(() => {
+    void fonts.ready.then(() => {
       if (cancelled) return;
       const style = getComputedStyle(root);
       const size = Number.parseFloat(style.fontSize);
@@ -116,28 +140,33 @@ export function ScoredText({ text, className = '' }: { text: string; className?:
       const lineHeight = (Number.parseFloat(style.lineHeight) || size * 1.2) / size;
       const upper = style.textTransform === 'uppercase';
       const spans = root.querySelectorAll<HTMLElement>('[data-letter]');
-      setScores(
-        Array.from(spans, (span, i) => {
-          const char = upper ? span.textContent.toUpperCase() : span.textContent;
-          const advance = (span.getBoundingClientRect().width - spacing) / size;
-          return scoreLetter(
-            char,
-            {
-              family: style.fontFamily,
-              weight: style.fontWeight,
-              style: style.fontStyle,
-              lineHeight,
-              advance,
-            },
-            char.charCodeAt(0) * 131 + i,
-          );
-        }),
-      );
+      const scored = Array.from(spans, (span, i) => {
+        const char = upper ? span.textContent.toUpperCase() : span.textContent;
+        const advance = (span.getBoundingClientRect().width - spacing) / size;
+        return scoreLetter(
+          char,
+          {
+            family: style.fontFamily,
+            weight: style.fontWeight,
+            style: style.fontStyle,
+            lineHeight,
+            advance,
+          },
+          char.charCodeAt(0) * 131 + i,
+        );
+      });
+      if (scored.every((notes) => notes.length === 0)) pass();
+      else setScores(scored);
     });
     return () => {
       cancelled = true;
     };
-  }, [reduced, text]);
+  }, [reduced, text, pass]);
+
+  // The wave has cleared the last letter: one full pass seen.
+  useEffect(() => {
+    if (front === count + WAVE) pass();
+  }, [front, count, pass]);
 
   // The wave front walks through the letters, rests a moment, and starts again.
   useEffect(() => {
