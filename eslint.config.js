@@ -39,7 +39,7 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ['**/discogs/http-gateway*', '**/discogs/oauth1*', '**/discogs/rate-limiter*'],
+              group: ['**/discogs/http-gateway*', '**/discogs/oauth1*'],
               message:
                 'Discogs is reached only through the DiscogsGateway interface (discogs/gateway.ts).',
             },

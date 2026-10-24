@@ -11,7 +11,8 @@ import type { z } from 'zod';
 import { discogsEndpoints } from './endpoints.js';
 import type { TokenPair } from './gateway.js';
 import { authorizationHeader, type ConsumerCredentials } from './oauth1.js';
-import { RateLimiter } from './rate-limiter.js';
+import { RateLimiter } from '../lib/rate-limiter.js';
+import { DISCOGS_REMAINING_HEADER } from './index.js';
 import {
   collectionReleasesResponse,
   identityResponse,
@@ -79,7 +80,7 @@ export interface FixtureCheckOptions {
  * write to the user's real Discogs account.
  */
 export async function checkFixtureShapes(options: FixtureCheckOptions): Promise<ShapeReport[]> {
-  const limiter = new RateLimiter();
+  const limiter = new RateLimiter({ remainingHeader: DISCOGS_REMAINING_HEADER });
   const get = async (url: string): Promise<unknown> => {
     await limiter.acquire();
     const res = await fetch(url, {

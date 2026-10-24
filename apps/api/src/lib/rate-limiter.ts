@@ -1,16 +1,18 @@
 /**
- * The single limiter for all outbound Discogs calls (ADR 0003, ADR 0005). The import
- * queue decides how many jobs run; this decides how fast any of them may call Discogs.
+ * A limiter for one outbound service (ADR 0003, ADR 0005). Each gateway owns exactly one,
+ * so it is the single budget for every call to that service: the import queue decides
+ * how many jobs run; this decides how fast any of them may call out.
  *
- * Discogs counts requests over a moving 60-second window (60 per minute when
- * authenticated). The limiter mirrors that with a sliding-window log: a request is
+ * Services count requests over a moving window (Discogs: 60 per minute when
+ * authenticated; iTunes: about 20). The limiter mirrors that with a sliding-window log: a request is
  * allowed only while fewer than `limit` were granted in the last `windowMs`. A token
  * bucket would be simpler, but it allows a full burst and then keeps refilling within
  * the same minute, about twice the limit in a moving window.
  *
- * It also listens to what Discogs reports. `X-Discogs-Ratelimit-Remaining` lowers the
- * local budget, because Discogs throttles by source IP and sees requests we did not
- * count, and a 429 pauses everything for `Retry-After`.
+ * It also listens to what the service reports. A "requests remaining" header (Discogs:
+ * `X-Discogs-Ratelimit-Remaining`) lowers the local budget, because services throttle
+ * by source IP and see requests we did not count, and a 429 pauses everything for
+ * `Retry-After`.
  *
  * Two lanes keep imports from starving logins; see `Lane`.
  *
@@ -19,7 +21,7 @@
  * instances will together exceed the budget.
  */
 
-import { systemClock, type Clock } from '../lib/clock.js';
+import { systemClock, type Clock } from './clock.js';
 
 export interface RateLimiterOptions {
   /** Requests allowed per window. */
@@ -27,6 +29,8 @@ export interface RateLimiterOptions {
   windowMs?: number;
   /** Pause after a 429 that carries no usable Retry-After. */
   defaultBackoffMs?: number;
+  /** Response header the service uses to report requests left in its window, if any. */
+  remainingHeader?: string;
   /** Requests per window kept for interactive calls. Default: a sixth of the limit. */
   reservedForInteractive?: number;
   clock?: Clock;
@@ -44,6 +48,7 @@ export class RateLimiter {
   private readonly windowMs: number;
   private readonly defaultBackoffMs: number;
   private readonly clock: Clock;
+  private readonly remainingHeader: string | undefined;
   /** Per-window capacity of each lane. */
   private readonly capacity: Record<Lane, number>;
   /** Grant times within the current window, oldest first, shared by both lanes. */
@@ -63,6 +68,7 @@ export class RateLimiter {
     this.windowMs = options.windowMs ?? 60_000;
     this.defaultBackoffMs = options.defaultBackoffMs ?? this.windowMs;
     this.clock = options.clock ?? systemClock;
+    this.remainingHeader = options.remainingHeader;
     const reserved = options.reservedForInteractive ?? Math.floor(this.limit / 6);
     if (reserved < 0 || reserved >= this.limit) {
       throw new RangeError('reservedForInteractive must be at least 0 and below the limit');
@@ -78,16 +84,17 @@ export class RateLimiter {
   }
 
   /**
-   * Feeds Discogs' view of the budget back into the limiter. Call it after every
+   * Feeds the service's view of the budget back into the limiter. Call it after every
    * response, including errors.
    */
   observe(status: number, headers: Headers): void {
     const now = this.clock.now();
     this.evict(now);
 
-    const remaining = Number.parseInt(headers.get('x-discogs-ratelimit-remaining') ?? '', 10);
+    const reported = this.remainingHeader ? headers.get(this.remainingHeader) : null;
+    const remaining = Number.parseInt(reported ?? '', 10);
     if (Number.isFinite(remaining) && remaining >= 0) {
-      // Discogs has seen more requests than we counted. Record the difference as used
+      // The service has seen more requests than we counted. Record the difference as used
       // now, so they age out of the window like real requests.
       const unseen = this.limit - remaining - this.grants.length;
       for (let i = 0; i < unseen; i++) this.grants.push(now);
