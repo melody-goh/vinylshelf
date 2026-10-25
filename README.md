@@ -108,6 +108,7 @@ docs/domain-model.md
 | [ADR 0008](docs/adr/0008-taste-engine-embeddings-evals-and-llm.md) | Taste engine: semantic search, evals and free-by-default LLM (proposed) |
 | [ADR 0009](docs/adr/0009-writing-to-the-discogs-collection.md) | Search, and writing to the user's Discogs collection |
 | [ADR 0010](docs/adr/0010-track-previews-from-itunes.md) | Track previews from the iTunes Search API |
+| [ADR 0011](docs/adr/0011-the-wantlist.md) | The wantlist, read live from Discogs |
 
 ## Roadmap
 
