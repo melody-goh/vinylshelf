@@ -18,6 +18,7 @@ import { Gatefold } from '../components/Gatefold';
 import { HypeSticker } from '../components/HypeSticker';
 import { ImportProgress } from '../components/ImportProgress';
 import { Library } from '../components/Library';
+import { LiquidButton } from '../components/LiquidButton';
 import { ScoredText } from '../components/ScoredText';
 import { SearchField } from '../components/SearchField';
 import { SearchResults } from '../components/SearchResults';
@@ -143,26 +144,19 @@ export function Shelf({ user }: { user: User }) {
           {!isEmpty && (
             // Changes made on discogs.com reach the shelf by re-importing; this does it now
             // rather than waiting for the automatic refresh (ADR 0004 §4).
-            <button
-              type="button"
-              onClick={begin}
-              disabled={startImport.isPending || importing}
-              className="underline disabled:no-underline disabled:opacity-60"
-            >
+            <LiquidButton onClick={begin} disabled={startImport.isPending || importing}>
               {importing ? 'Syncing…' : 'Sync with Discogs'}
-            </button>
+            </LiquidButton>
           )}
           <span className="hidden text-ink-soft md:inline">{user.discogsUsername}</span>
-          <button
-            type="button"
+          <LiquidButton
             onClick={() => {
               logout.mutate();
             }}
             disabled={logout.isPending}
-            className="underline"
           >
             Sign out
-          </button>
+          </LiquidButton>
         </div>
       </header>
 

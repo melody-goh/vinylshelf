@@ -261,3 +261,40 @@ test('wantlist captures', async ({ page }) => {
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/mobile-wantlist-chosen.png` });
 });
+
+test('liquid button captures', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.goto('/');
+  await settle(page);
+
+  // Pull at the lower edge of Sync, just past it, and catch the liquid mid-stretch.
+  const sync = page.getByRole('button', { name: 'Sync with Discogs' });
+  const box = await sync.boundingBox();
+  if (box) {
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await page.waitForTimeout(400);
+    await page.mouse.move(box.x + box.width * 0.75, box.y + box.height + 12, { steps: 6 });
+    await page.waitForTimeout(90);
+    await page.screenshot({
+      path: `${OUT}/liquid-sync.png`,
+      clip: { x: box.x - 60, y: box.y - 30, width: box.width + 120, height: box.height + 70 },
+    });
+  }
+
+  await page.getByRole('button', { name: 'Wantlist' }).click();
+  await page.waitForTimeout(1800);
+  await page.getByRole('button', { name: /^Orchard Weather/ }).click();
+  const acquired = page.getByRole('button', { name: 'Acquired' });
+  const a = await acquired.boundingBox();
+  if (a) {
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+    await page.waitForTimeout(300);
+    await page.mouse.move(a.x + a.width * 0.2, a.y - 10, { steps: 6 });
+    await page.waitForTimeout(90);
+    await page.screenshot({
+      path: `${OUT}/liquid-acquired.png`,
+      clip: { x: a.x - 200, y: a.y - 40, width: a.width + 320, height: a.height + 80 },
+    });
+  }
+});

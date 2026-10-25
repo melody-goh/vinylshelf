@@ -1,6 +1,7 @@
 import type { ReleaseSummary } from '@vinylshelf/contract';
 import { motion } from 'motion/react';
 import type { KeyboardEvent } from 'react';
+import { HOLO_RING } from '../design/holo';
 import { describeRecord } from './DiscStack';
 
 /** Only the first screenful scatters in; later pages simply appear. */
@@ -48,7 +49,8 @@ function onGridKey(event: KeyboardEvent<HTMLUListElement>) {
 
 /**
  * A contact sheet of covers on the studio ground (the library, the wantlist): covers
- * only, lifting on hover or focus, each a button named for its record. When `scatter`
+ * only, lifting with a holographic glow on hover or focus, each a button named for its
+ * record; a chosen one keeps the glow inside a holographic rim. When `scatter`
  * is on, the first screenful arrives tumbling in and settles into place.
  */
 export function CoverGrid<T extends { release: ReleaseSummary }>({
@@ -101,30 +103,53 @@ export function CoverGrid<T extends { release: ReleaseSummary }>({
                 onLean(null);
               }}
               initial={scattering ? scatterFrom(index) : false}
-              animate={
-                selected
-                  ? { x: 0, y: -4, rotate: 0, scale: 1.07, opacity: 1 }
-                  : { x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 }
-              }
-              whileHover={{ y: -3, scale: 1.05 }}
-              whileFocus={{ y: -3, scale: 1.05 }}
+              animate={selected ? 'selected' : 'rest'}
+              whileHover="lean"
+              whileFocus="lean"
+              variants={{
+                rest: { x: 0, y: 0, rotate: 0, scale: 1, opacity: 1 },
+                lean: { y: -3, scale: 1.05 },
+                selected: { x: 0, y: -4, rotate: 0, scale: 1.07, opacity: 1 },
+              }}
               transition={scattering ? { ...settle, delay: Math.min(index * 0.008, 0.5) } : lift}
-              className={`relative block aspect-square w-full overflow-hidden bg-carbon shadow-photo ${selected ? 'ring-2 ring-ink ring-offset-2 ring-offset-ground' : ''}`}
+              className="relative isolate block w-full"
             >
-              {item.release.coverImageUrl ? (
-                <img
-                  src={item.release.coverImageUrl}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover"
+              {/* A holographic glow blooms behind a leaned cover and stays with a chosen one. */}
+              <motion.span
+                aria-hidden="true"
+                className="absolute -inset-3 -z-20 blur-xl"
+                style={{ background: HOLO_RING }}
+                variants={{
+                  rest: { opacity: 0 },
+                  lean: { opacity: 1 },
+                  selected: { opacity: 1 },
+                }}
+                transition={lift}
+              />
+              {/* A chosen cover is rimmed in the same colours, not outlined in ink. */}
+              {selected && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -inset-1 -z-10"
+                  style={{ background: HOLO_RING }}
                 />
-              ) : (
-                <span className="condensed absolute inset-1.5 overflow-hidden text-left text-[0.7rem] font-bold leading-tight text-ground">
-                  {item.release.title}
-                </span>
               )}
+              <span className="relative block aspect-square overflow-hidden bg-carbon shadow-photo">
+                {item.release.coverImageUrl ? (
+                  <img
+                    src={item.release.coverImageUrl}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="condensed absolute inset-1.5 overflow-hidden text-left text-[0.7rem] font-bold leading-tight text-ground">
+                    {item.release.title}
+                  </span>
+                )}
+              </span>
             </motion.button>
           </li>
         );

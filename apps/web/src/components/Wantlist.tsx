@@ -6,6 +6,7 @@ import { useAddToShelf } from '../api/search';
 import { useWant, useWantlist } from '../api/wantlist';
 import { useWideScreen } from '../design/media';
 import { CoverGrid } from './CoverGrid';
+import { LiquidButton } from './LiquidButton';
 import { Readout } from './Readout';
 
 const PLACEHOLDERS = 24;
@@ -141,26 +142,26 @@ export function Wantlist({ onAcquired }: { onAcquired: (item: CollectionItem | n
                   {failed}
                 </span>
               )}
-              <button
-                type="button"
+              <LiquidButton
+                fill="white"
                 disabled={busy}
                 onClick={() => {
                   void acquired(chosen);
                 }}
-                className="font-semibold underline disabled:opacity-50"
               >
-                {addToShelf.isPending ? 'Adding…' : 'Acquired'}
-              </button>
-              <button
-                type="button"
+                <span className="font-semibold">
+                  {addToShelf.isPending ? 'Adding…' : 'Acquired'}
+                </span>
+              </LiquidButton>
+              <LiquidButton
+                fill="white"
                 disabled={busy}
                 onClick={() => {
                   void unwant(chosen);
                 }}
-                className="text-ink-soft underline disabled:opacity-50"
               >
                 Remove
-              </button>
+              </LiquidButton>
             </>
           )
         }
