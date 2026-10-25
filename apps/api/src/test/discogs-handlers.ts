@@ -17,6 +17,8 @@ export const discogsFixtures = {
   release: (id: number) => JSON.parse(fixture(`release-${id}.json`)) as Record<string, unknown>,
   search: () => JSON.parse(fixture('search-vinyl.json')) as Record<string, unknown>,
   addToCollection: () => JSON.parse(fixture('add-to-collection.json')) as Record<string, unknown>,
+  wantlistPage: () => JSON.parse(fixture('wantlist-page-1.json')) as Record<string, unknown>,
+  addToWantlist: () => JSON.parse(fixture('add-to-wantlist.json')) as Record<string, unknown>,
   collectionPage: (page: number) =>
     JSON.parse(fixture(`collection-page-${page}.json`)) as {
       pagination: Record<string, unknown>;
@@ -32,6 +34,8 @@ export const discogsUrls = {
   release: `${DISCOGS_API_BASE}/releases/:id`,
   search: `${DISCOGS_API_BASE}/database/search`,
   addToCollection: `${DISCOGS_API_BASE}/users/:username/collection/folders/1/releases/:id`,
+  wantlist: `${DISCOGS_API_BASE}/users/:username/wants`,
+  want: `${DISCOGS_API_BASE}/users/:username/wants/:id`,
 };
 
 /** Discogs answers unsigned or anonymous requests with an error; so do we. */
@@ -86,6 +90,25 @@ export function discogsHandlers(): HttpHandler[] {
         return HttpResponse.json({ message: 'Release not found.' }, { status: 404 });
       }
       return HttpResponse.json(discogsFixtures.addToCollection(), { status: 201 });
+    }),
+    http.get(
+      discogsUrls.wantlist,
+      ({ request }) =>
+        rejectUnlessSigned(request) ?? HttpResponse.json(discogsFixtures.wantlistPage()),
+    ),
+    http.put(discogsUrls.want, ({ request, params }) => {
+      const rejected = rejectUnlessSigned(request);
+      if (rejected) return rejected;
+      return params.id === '9000101'
+        ? HttpResponse.json(discogsFixtures.addToWantlist(), { status: 201 })
+        : HttpResponse.json({ message: 'Release not found.' }, { status: 404 });
+    }),
+    http.delete(discogsUrls.want, ({ request, params }) => {
+      const rejected = rejectUnlessSigned(request);
+      if (rejected) return rejected;
+      return params.id === '9000101'
+        ? new HttpResponse(null, { status: 204 })
+        : HttpResponse.json({ message: 'Not found.' }, { status: 404 });
     }),
     http.get(discogsUrls.collection, ({ request }) => {
       const rejected = rejectUnlessSigned(request);

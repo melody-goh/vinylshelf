@@ -172,6 +172,7 @@ export function searchResult(
     thumbUrl: null,
     discogsUrl: `https://www.discogs.com/release/${String(discogsId)}`,
     inCollection: false,
+    inWantlist: false,
     fetchedAt: new Date(now - HOUR).toISOString(),
     expiresAt: new Date(now + 5 * HOUR).toISOString(),
     ...overrides,

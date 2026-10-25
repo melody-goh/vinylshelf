@@ -26,6 +26,19 @@ const artist = z.object({
   name: z.string(),
 });
 
+/** The release summary Discogs embeds in collection and wantlist entries. */
+const basicInformation = z.object({
+  id: z.number().int().positive(),
+  title: z.string(),
+  year: z.number().int().min(0),
+  cover_image: z.string().optional(),
+  artists: z.array(artist),
+  formats: z.array(z.object({ name: z.string(), text: z.string().optional() })).default([]),
+  genres: z.array(z.string()).default([]),
+  styles: z.array(z.string()).default([]),
+});
+export type BasicInformation = z.infer<typeof basicInformation>;
+
 export const collectionReleasesResponse = z.object({
   pagination: z.object({
     page: z.number().int().min(1),
@@ -37,16 +50,7 @@ export const collectionReleasesResponse = z.object({
       id: z.number().int().positive(),
       instance_id: z.number().int().positive(),
       date_added: z.iso.datetime({ offset: true }),
-      basic_information: z.object({
-        id: z.number().int().positive(),
-        title: z.string(),
-        year: z.number().int().min(0),
-        cover_image: z.string().optional(),
-        artists: z.array(artist),
-        formats: z.array(z.object({ name: z.string(), text: z.string().optional() })).default([]),
-        genres: z.array(z.string()).default([]),
-        styles: z.array(z.string()).default([]),
-      }),
+      basic_information: basicInformation,
     }),
   ),
 });
@@ -111,6 +115,8 @@ export const searchResponse = z.object({
       catno: z.string().optional(),
       format: z.array(z.string()).default([]),
       thumb: z.string().optional(),
+      /** Present when the search is made as a signed-in user. */
+      user_data: z.object({ in_wantlist: z.boolean().default(false) }).optional(),
     }),
   ),
 });
@@ -120,3 +126,21 @@ export type SearchResponse = z.infer<typeof searchResponse>;
 export const addToCollectionResponse = z.object({
   instance_id: z.number().int().positive(),
 });
+
+/** One release on a wantlist, as listed and as returned when added. */
+export const wantResponse = z.object({
+  id: z.number().int().positive(),
+  date_added: z.iso.datetime({ offset: true }),
+  basic_information: basicInformation,
+});
+
+/** `GET /users/{username}/wants`: one page of the wantlist. */
+export const wantlistResponse = z.object({
+  pagination: z.object({
+    page: z.number().int().min(1),
+    pages: z.number().int().min(0),
+    items: z.number().int().min(0),
+  }),
+  wants: z.array(wantResponse),
+});
+export type WantResponse = z.infer<typeof wantResponse>;

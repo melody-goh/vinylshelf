@@ -15,6 +15,9 @@ export const discogsEndpoints = {
   collectionReleases: (username: string) =>
     `${DISCOGS_API_BASE}/users/${encodeURIComponent(username)}/collection/folders/0/releases`,
   release: (releaseId: number) => `${DISCOGS_API_BASE}/releases/${releaseId}`,
+  wants: (username: string) => `${DISCOGS_API_BASE}/users/${encodeURIComponent(username)}/wants`,
+  want: (username: string, releaseId: number) =>
+    `${DISCOGS_API_BASE}/users/${encodeURIComponent(username)}/wants/${releaseId}`,
   search: `${DISCOGS_API_BASE}/database/search`,
   /** Folder 1 is Discogs' built-in "Uncategorized" folder, where new copies go. */
   addToCollection: (username: string, releaseId: number) =>

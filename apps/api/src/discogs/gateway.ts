@@ -75,6 +75,22 @@ export interface SearchResultData {
   /** A hotlinked Discogs thumbnail, never downloaded (ADR 0004 §6). */
   thumbUrl: string | null;
   discogsUrl: string;
+  /** On the signed-in user's wantlist (ADR 0011 §2). */
+  inWantlist: boolean;
+}
+
+/** One release on the user's wantlist. */
+export interface WantData {
+  releaseId: number;
+  dateAdded: Date;
+  release: ReleaseSummaryData;
+}
+
+export interface WantlistPageData {
+  page: number;
+  pages: number;
+  totalItems: number;
+  wants: WantData[];
 }
 
 export interface SearchPageData {
@@ -110,4 +126,14 @@ export interface DiscogsGateway {
     username: string,
     releaseId: number,
   ): Promise<{ instanceId: number }>;
+  /** One page of the user's wantlist, newest first. Pages start at 1 (ADR 0011). */
+  getWantlistPage(
+    accessToken: TokenPair,
+    username: string,
+    page: number,
+  ): Promise<WantlistPageData>;
+  /** Adds a release to the wantlist; idempotent on Discogs. */
+  addToWantlist(accessToken: TokenPair, username: string, releaseId: number): Promise<WantData>;
+  /** Removes a release from the wantlist. */
+  removeFromWantlist(accessToken: TokenPair, username: string, releaseId: number): Promise<void>;
 }

@@ -146,6 +146,7 @@ export function searchResults(): SearchPage {
     thumbUrl: coverUrl(i),
     discogsUrl: item.release.discogsUrl,
     inCollection: i < 2,
+    inWantlist: i === 4,
     fetchedAt: new Date(now - HOUR).toISOString(),
     expiresAt: new Date(now + 5 * HOUR).toISOString(),
   }));

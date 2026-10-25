@@ -136,6 +136,7 @@ export const searchResultSchema = z.object({
   thumbUrl: z.url().nullable(),
   discogsUrl: z.url(),
   inCollection: z.boolean(),
+  inWantlist: z.boolean(),
   fetchedAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
 });
@@ -170,4 +171,20 @@ export const releasePreviewsSchema = z.object({
   ),
   fetchedAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
+});
+
+export const wantlistItemSchema = z.object({
+  release: releaseSummarySchema,
+  dateAdded: z.iso.datetime(),
+});
+
+export const wantlistPageSchema = z.object({
+  items: z.array(wantlistItemSchema),
+  page: z.number().int().min(1),
+  pages: z.number().int().min(0),
+  totalItems: z.number().int().min(0),
+});
+
+export const wantlistQuery = z.object({
+  page: z.coerce.number().int().min(1).default(1),
 });

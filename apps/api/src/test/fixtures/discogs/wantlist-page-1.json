@@ -1,0 +1,106 @@
+{
+  "pagination": {
+    "page": 1,
+    "pages": 1,
+    "per_page": 100,
+    "items": 2,
+    "urls": {}
+  },
+  "wants": [
+    {
+      "id": 9000101,
+      "resource_url": "https://api.discogs.com/users/fixture_collector/wants/9000101",
+      "rating": 0,
+      "date_added": "2026-10-20T09:00:00-07:00",
+      "basic_information": {
+        "id": 9000101,
+        "master_id": 0,
+        "master_url": null,
+        "resource_url": "https://api.discogs.com/releases/9000101",
+        "title": "Signal Fires",
+        "year": 2016,
+        "formats": [
+          {
+            "name": "Vinyl",
+            "qty": "1",
+            "text": "Purple",
+            "descriptions": ["LP", "Album"]
+          }
+        ],
+        "labels": [
+          {
+            "name": "Fixture Records",
+            "catno": "FX-101",
+            "entity_type": "1",
+            "entity_type_name": "Label",
+            "id": 50001,
+            "resource_url": "https://api.discogs.com/labels/50001"
+          }
+        ],
+        "artists": [
+          {
+            "name": "The Paper Moons",
+            "anv": "",
+            "join": "",
+            "role": "",
+            "tracks": "",
+            "id": 700101,
+            "resource_url": "https://api.discogs.com/artists/700101"
+          }
+        ],
+        "thumb": "https://i.discogs.com/fixture/cover-9000101.jpg",
+        "cover_image": "https://i.discogs.com/fixture/cover-9000101.jpg",
+        "genres": ["Rock"],
+        "styles": ["Dream Pop"]
+      },
+      "notes": ""
+    },
+    {
+      "id": 9000102,
+      "resource_url": "https://api.discogs.com/users/fixture_collector/wants/9000102",
+      "rating": 0,
+      "date_added": "2026-09-01T12:00:00-07:00",
+      "basic_information": {
+        "id": 9000102,
+        "master_id": 0,
+        "master_url": null,
+        "resource_url": "https://api.discogs.com/releases/9000102",
+        "title": "Low Tide Radio",
+        "year": 0,
+        "formats": [
+          {
+            "name": "CD",
+            "qty": "1",
+            "descriptions": ["Album"]
+          }
+        ],
+        "labels": [
+          {
+            "name": "Fixture Records",
+            "catno": "FX-102",
+            "entity_type": "1",
+            "entity_type_name": "Label",
+            "id": 50001,
+            "resource_url": "https://api.discogs.com/labels/50001"
+          }
+        ],
+        "artists": [
+          {
+            "name": "Ana Ferreira (3)",
+            "anv": "",
+            "join": "",
+            "role": "",
+            "tracks": "",
+            "id": 700101,
+            "resource_url": "https://api.discogs.com/artists/700101"
+          }
+        ],
+        "thumb": "",
+        "cover_image": "",
+        "genres": ["Rock"],
+        "styles": ["Dream Pop"]
+      },
+      "notes": ""
+    }
+  ]
+}

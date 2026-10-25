@@ -16,6 +16,7 @@ import type {
   ReleaseSummary,
   SearchPage,
   User,
+  WantlistPage,
 } from '@vinylshelf/contract';
 import type { FastifyInstance } from 'fastify';
 import { http, HttpResponse } from 'msw';
@@ -43,6 +44,7 @@ import type {
   releaseSummarySchema,
   searchPageSchema,
   userSchema,
+  wantlistPageSchema,
 } from './schemas.js';
 
 // 1. A mismatch makes `true` unassignable to `false`, which fails `pnpm typecheck`.
@@ -58,7 +60,8 @@ const typesMatch: [
   Equivalent<z.infer<typeof searchPageSchema>, SearchPage>,
   Equivalent<z.infer<typeof releasePreviewsSchema>, ReleasePreviews>,
   Equivalent<z.infer<typeof collectionFacetsSchema>, CollectionFacets>,
-] = [true, true, true, true, true, true, true, true, true, true];
+  Equivalent<z.infer<typeof wantlistPageSchema>, WantlistPage>,
+] = [true, true, true, true, true, true, true, true, true, true, true];
 
 const { db, handle } = useTestDatabase();
 const EVIL = 'https://evil.example';
@@ -93,7 +96,7 @@ interface CallOptions {
 /** Calls an operation and asserts the response is one the spec documents. */
 async function call(method: HttpMethod, template: string, options: CallOptions = {}) {
   const res = await app.inject({
-    method: method === 'get' ? 'GET' : 'POST',
+    method: method.toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE',
     url: `${API_PREFIX}${options.path ?? template}${options.query ? `?${options.query}` : ''}`,
     headers: { origin: options.origin ?? testConfig.webOrigin },
     cookies: options.signedIn === false ? {} : { sid },
@@ -297,6 +300,28 @@ describe('contract: previews (ADR 0010)', () => {
     expect((await call('get', path, { path: id9000001 })).statusCode).toBe(429);
     mswServer.use(http.get(itunesUrls.search, () => new HttpResponse(null, { status: 500 })));
     expect((await call('get', path, { path: id9000001 })).statusCode).toBe(503);
+  });
+});
+
+describe('contract: wantlist (ADR 0011)', () => {
+  it('GET /wantlist: 200, 401 and 503', async () => {
+    expect((await call('get', '/wantlist')).statusCode).toBe(200);
+    expect((await call('get', '/wantlist', { signedIn: false })).statusCode).toBe(401);
+    mswServer.use(http.get(discogsUrls.wantlist, () => new HttpResponse(null, { status: 500 })));
+    expect((await call('get', '/wantlist')).statusCode).toBe(503);
+  });
+
+  it('PUT and DELETE /wantlist/{discogsId}: 200, 204, 404, 401 and 403', async () => {
+    const one = '/wantlist/{discogsId}';
+    expect((await call('put', one, { path: '/wantlist/9000101' })).statusCode).toBe(200);
+    expect((await call('put', one, { path: '/wantlist/1' })).statusCode).toBe(404);
+    expect(
+      (await call('put', one, { path: '/wantlist/9000101', signedIn: false })).statusCode,
+    ).toBe(401);
+    expect((await call('put', one, { path: '/wantlist/9000101', origin: EVIL })).statusCode).toBe(
+      403,
+    );
+    expect((await call('delete', one, { path: '/wantlist/9000101' })).statusCode).toBe(204);
   });
 });
 
