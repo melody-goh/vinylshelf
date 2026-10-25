@@ -1,5 +1,6 @@
-import type { CollectionItem } from '@vinylshelf/contract';
+import type { ReleaseSummary } from '@vinylshelf/contract';
 import { motion } from 'motion/react';
+import type { ReactNode } from 'react';
 
 /** A slow, never-ending drift: a spring with no bounce, mirrored back and forth. */
 const drift = {
@@ -39,9 +40,24 @@ const DRIFTS = [
  * the accessible name, so this is for sighted readers only. Before anything is leaned
  * it says how.
  */
-export function Readout({ leaning, wide }: { leaning: CollectionItem | null; wide: boolean }) {
+export function Readout({
+  leaning,
+  wide,
+  hint,
+  actions,
+}: {
+  leaning: { release: ReleaseSummary } | null;
+  wide: boolean;
+  /** What to say before anything is leaned; defaults to how to lean. */
+  hint?: string;
+  /** Things to do with the record named; the strip is then a control, not decoration. */
+  actions?: ReactNode;
+}) {
   return (
-    <div aria-hidden="true" className="relative shrink-0 overflow-hidden border-t border-rule">
+    <div
+      aria-hidden={actions ? undefined : true}
+      className="relative shrink-0 overflow-hidden border-t border-rule"
+    >
       {/* Oversized layers, moved, never repainted: transform only. */}
       <div className="absolute inset-0 bg-[#eef0f7]" />
       {WASHES.map((background, i) => (
@@ -54,21 +70,26 @@ export function Readout({ leaning, wide }: { leaning: CollectionItem | null; wid
           transition={{ ...drift, visualDuration: DRIFTS[i]?.seconds ?? 12 }}
         />
       ))}
-      <p className="relative min-h-11 px-4 py-2 text-sm leading-tight md:px-6 md:py-3">
-        {leaning ? (
-          <>
-            <span className="block font-semibold">{leaning.release.title}</span>
-            <span className="block text-xs text-ink-soft">
-              {leaning.release.artists.join(', ')}
-              {leaning.release.year ? ` · ${String(leaning.release.year)}` : ''}
+      <div className="relative flex min-h-11 items-center justify-between gap-4 px-4 py-2 text-sm leading-tight md:px-6 md:py-3">
+        <p>
+          {leaning ? (
+            <>
+              <span className="block font-semibold">{leaning.release.title}</span>
+              <span className="block text-xs text-ink-soft">
+                {leaning.release.artists.join(', ')}
+                {leaning.release.year ? ` · ${String(leaning.release.year)}` : ''}
+              </span>
+            </>
+          ) : (
+            <span className="block pt-1.5 text-xs text-ink-soft">
+              {hint ?? (wide ? 'Hover over a record to see what it is' : 'Tap a record to open it')}
             </span>
-          </>
-        ) : (
-          <span className="block pt-1.5 text-xs text-ink-soft">
-            {wide ? 'Hover over a record to see what it is' : 'Tap a record to open it'}
-          </span>
+          )}
+        </p>
+        {actions && (
+          <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-1">{actions}</div>
         )}
-      </p>
+      </div>
     </div>
   );
 }

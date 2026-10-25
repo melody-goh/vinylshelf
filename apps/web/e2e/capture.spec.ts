@@ -14,6 +14,7 @@ import {
   searchResults,
   silentWav,
   user,
+  wantlist,
 } from './synthetic';
 
 const OUT = '.impeccable/review';
@@ -60,6 +61,7 @@ async function mockApi(page: Page, state: State): Promise<void> {
     return route.fulfill({ json: shelfPage() });
   });
   await page.route('**/api/v1/collection/facets', (route) => route.fulfill({ json: facets() }));
+  await page.route('**/api/v1/wantlist**', (route) => route.fulfill({ json: wantlist() }));
   await page.route('**/api/v1/collection/imports/**', (route) =>
     route.fulfill({
       json: {
@@ -241,4 +243,21 @@ test('library captures', async ({ page }) => {
   await page.setViewportSize(phone);
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${OUT}/mobile-library.png` });
+});
+
+test('wantlist captures', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.goto('/');
+  await settle(page);
+
+  await page.getByRole('button', { name: 'Wantlist' }).click();
+  await page.waitForTimeout(1800);
+  await page.getByRole('button', { name: /^Orchard Weather/ }).click();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${OUT}/desktop-wantlist-chosen.png` });
+
+  await page.setViewportSize(phone);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${OUT}/mobile-wantlist-chosen.png` });
 });

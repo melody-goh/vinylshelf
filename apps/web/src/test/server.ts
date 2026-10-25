@@ -13,6 +13,8 @@ import type {
   SearchPage,
   SearchResult,
   User,
+  WantlistItem,
+  WantlistPage,
 } from '@vinylshelf/contract';
 import { http, HttpResponse, type HttpHandler } from 'msw';
 import { setupServer } from 'msw/node';
@@ -202,4 +204,19 @@ export function facets(overrides: Partial<CollectionFacets> = {}): CollectionFac
     expiresAt: new Date(Date.now() + 5 * HOUR).toISOString(),
     ...overrides,
   };
+}
+
+/** A wanted release, shaped like a shelf item's release. */
+export function wantlistItem(
+  discogsId: number,
+  overrides: Partial<WantlistItem['release']> = {},
+): WantlistItem {
+  return {
+    dateAdded: '2026-10-20T16:00:00.000Z',
+    release: { ...collectionItem(discogsId - 9000000, overrides).release, discogsId, ...overrides },
+  };
+}
+
+export function wantlistPage(items: WantlistItem[]): WantlistPage {
+  return { items, page: 1, pages: 1, totalItems: items.length };
 }

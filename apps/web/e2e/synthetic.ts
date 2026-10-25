@@ -11,6 +11,7 @@ import type {
   ReleasePreviews,
   SearchPage,
   User,
+  WantlistPage,
 } from '@vinylshelf/contract';
 
 const HOUR = 60 * 60 * 1000;
@@ -224,4 +225,10 @@ export function facets(): CollectionFacets {
     colourways: { coloured: 35, black: 25 },
     expiresAt: new Date(Date.now() + 5 * HOUR).toISOString(),
   };
+}
+
+/** A wantlist of invented records, drawn from the same seeds. */
+export function wantlist(): WantlistPage {
+  const wanted = items(9).map((item) => ({ dateAdded: item.dateAdded, release: item.release }));
+  return { items: wanted, page: 1, pages: 1, totalItems: wanted.length };
 }
