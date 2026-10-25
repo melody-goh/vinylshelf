@@ -103,15 +103,6 @@ describe('Shelf: the open gatefold and the disc stack', () => {
     expect(await within(aside).findByText('Alpine Suites')).toBeInTheDocument();
   });
 
-  it('says how many records in other formats are kept off the shelf', async () => {
-    serveItems(() =>
-      page({ totalItems: 2, otherFormatsCount: 3, items: [collectionItem(1), collectionItem(2)] }),
-    );
-    renderWithQueries(<App />);
-
-    expect(await screen.findByText('2 records · 3 other formats hidden')).toBeInTheDocument();
-  });
-
   it('reads the liner notes into the gatefold once the release detail arrives', async () => {
     serveItems(() => page({ totalItems: 1, items: [collectionItem(1)] }));
     renderWithQueries(<App />);

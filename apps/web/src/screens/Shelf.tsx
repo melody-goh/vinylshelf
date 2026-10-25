@@ -56,7 +56,6 @@ export function Shelf({ user }: { user: User }) {
   const pages = collection.data?.pages ?? [];
   const refresh: CollectionRefresh | undefined = pages[0]?.refresh;
   const totalItems = pages[0]?.totalItems ?? 0;
-  const otherFormats = pages[0]?.otherFormatsCount ?? 0;
   const items = useUnexpired(
     pages.flatMap((p) => p.items),
     reload,
@@ -103,9 +102,6 @@ export function Shelf({ user }: { user: User }) {
           {totalItems > 0 && (
             <p className="numerals text-ink-soft">
               {totalItems} {totalItems === 1 ? 'record' : 'records'}
-              {/* Said out loud, so a CD missing from the shelf is never a mystery. */}
-              {otherFormats > 0 &&
-                ` · ${String(otherFormats)} other ${otherFormats === 1 ? 'format' : 'formats'} hidden`}
             </p>
           )}
           {!isEmpty && (

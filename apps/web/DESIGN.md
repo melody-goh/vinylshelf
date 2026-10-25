@@ -271,7 +271,7 @@ The full-screen loading lines ("Waking up the shelf…", "Taking your records of
 A live count that springs up to each new value (spring 120/24), "of N records in from Discogs" beside it, over a 4px bar: Hairline Rule track, Sticker Red fill. Screen readers get the real count once per poll; under reduced motion the count shows the real number directly.
 
 ### Discogs Credit and Footer
-One credit per screen (ADR 0004, note of 2026-10-25): the footer carries "Data provided by Discogs" and the non-affiliation notice in fine print on a Hairline Rule, on every screen. A surface that covers the footer while showing Discogs data (the listening room) carries its own 0.75rem credit in Soft Ink. A record links to its own Discogs page from the community line under the gatefold. The header's count says how many records in other formats are kept off the vinyl-only shelf ("212 records · 8 other formats hidden").
+One credit per screen (ADR 0004, note of 2026-10-25): the footer carries "Data provided by Discogs" and the non-affiliation notice in fine print on a Hairline Rule, on every screen. A surface that covers the footer while showing Discogs data (the listening room) carries its own 0.75rem credit in Soft Ink. A record links to its own Discogs page from the community line under the gatefold.
 
 ### Motion grammar
 All motion runs on springs and touches only `transform` and `opacity`. The app is wrapped in a motion configuration that honours the user's reduced-motion setting: transform animations jump straight to their end state while opacity still animates, and the gatefold swaps its fold for an explicit crossfade.
