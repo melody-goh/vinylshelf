@@ -6,6 +6,8 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
   coverSvg,
+  facets,
+  libraryPage,
   page as shelfPage,
   previews,
   release,
@@ -52,8 +54,12 @@ async function mockApi(page: Page, state: State): Promise<void> {
         }),
       });
     }
+    if (new URL(route.request().url()).searchParams.get('limit') === '100') {
+      return route.fulfill({ json: libraryPage() });
+    }
     return route.fulfill({ json: shelfPage() });
   });
+  await page.route('**/api/v1/collection/facets', (route) => route.fulfill({ json: facets() }));
   await page.route('**/api/v1/collection/imports/**', (route) =>
     route.fulfill({
       json: {
@@ -207,4 +213,32 @@ test('listening room captures', async ({ page }) => {
   await page.setViewportSize(phone);
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/mobile-listening.png` });
+});
+
+test('library captures', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.goto('/');
+  await settle(page);
+
+  await page.getByRole('button', { name: 'Library' }).click();
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${OUT}/desktop-library-arriving.png` });
+  await page.waitForTimeout(1800);
+  await page.screenshot({ path: `${OUT}/desktop-library.png` });
+
+  await page
+    .getByRole('button', { name: /^Small Hours/ })
+    .first()
+    .hover();
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${OUT}/desktop-library-hover.png` });
+
+  await page.getByRole('combobox', { name: 'Genre' }).selectOption('Jazz');
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${OUT}/desktop-library-filtered.png` });
+
+  await page.setViewportSize(phone);
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/mobile-library.png` });
 });

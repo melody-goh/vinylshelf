@@ -1,8 +1,8 @@
 import type { CollectionItem, CollectionRefresh, ImportJob, User } from '@vinylshelf/contract';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronDown } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import {
+  SORT_LABELS,
   collectionKey,
   isActive,
   useCollection,
@@ -17,17 +17,11 @@ import { DiscStack } from '../components/DiscStack';
 import { Gatefold } from '../components/Gatefold';
 import { HypeSticker } from '../components/HypeSticker';
 import { ImportProgress } from '../components/ImportProgress';
+import { Library } from '../components/Library';
 import { ScoredText } from '../components/ScoredText';
 import { SearchField } from '../components/SearchField';
 import { SearchResults } from '../components/SearchResults';
-
-const SORT_LABELS: Record<CollectionSort, string> = {
-  added_desc: 'Recently added',
-  added_asc: 'First added',
-  artist_asc: 'Artist A to Z',
-  year_desc: 'Newest year',
-  year_asc: 'Oldest year',
-};
+import { TextSelect } from '../components/TextSelect';
 
 const RETRY_TIME = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
 
@@ -44,7 +38,10 @@ export function Shelf({ user }: { user: User }) {
   const startImport = useStartImport();
   // An import the user started from this screen, followed until it succeeds.
   const [startedImportId, setStartedImportId] = useState<string | null>(null);
-  const [chosenId, setChosenId] = useState<number | null>(null);
+  // The record chosen on the stack, in search or in the library. Kept whole, because a
+  // record chosen in the library may not be among the shelf's loaded pages.
+  const [chosen, setChosen] = useState<CollectionItem | null>(null);
+  const [view, setView] = useState<'shelf' | 'library'>('shelf');
   // While there is a query, search takes the gatefold's place (ADR 0009).
   const [query, setQuery] = useState('');
   const searching = query.trim().length > 0;
@@ -61,7 +58,9 @@ export function Shelf({ user }: { user: User }) {
     reload,
   );
   const featured: CollectionItem | undefined =
-    items.find((i) => i.instanceId === chosenId) ?? items[0];
+    items.find((i) => i.instanceId === chosen?.instanceId) ??
+    (chosen && items.length > 0 ? chosen : undefined) ??
+    items[0];
 
   // Follow the server's background refresh if there is one, else the user's own import.
   const followedImportId =
@@ -91,8 +90,31 @@ export function Shelf({ user }: { user: User }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-rule px-4 py-3 md:px-8">
-        <p className="condensed text-sm font-extrabold [font-stretch:62%]">Vinyl Shelf</p>
-        <h1 className="sr-only">{user.discogsUsername}&rsquo;s shelf</h1>
+        <div className="flex items-baseline gap-6">
+          <p className="condensed text-sm font-extrabold [font-stretch:62%]">Vinyl Shelf</p>
+          {!isEmpty && (
+            <nav aria-label="Views" className="flex gap-4 text-sm">
+              {(['shelf', 'library'] as const).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  aria-current={view === name ? 'page' : undefined}
+                  onClick={() => {
+                    setView(name);
+                  }}
+                  className={
+                    view === name ? 'font-medium text-ink' : 'text-ink-soft hover:text-ink'
+                  }
+                >
+                  {name === 'shelf' ? 'Shelf' : 'Library'}
+                </button>
+              ))}
+            </nav>
+          )}
+        </div>
+        <h1 className="sr-only">
+          {user.discogsUsername}&rsquo;s {view === 'library' ? 'library' : 'shelf'}
+        </h1>
         <SearchField
           value={query}
           onChange={setQuery}
@@ -104,27 +126,16 @@ export function Shelf({ user }: { user: User }) {
               {totalItems} {totalItems === 1 ? 'record' : 'records'}
             </p>
           )}
-          {!isEmpty && (
-            <label className="relative flex items-center gap-2">
-              <span className="text-ink-soft">Sort by</span>
-              <select
-                value={sort}
-                onChange={(e) => {
-                  setSort(e.target.value as CollectionSort);
-                }}
-                className="appearance-none bg-transparent pr-5 font-medium"
-              >
-                {Object.entries(SORT_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                aria-hidden="true"
-                className="pointer-events-none absolute right-0 size-4"
-              />
-            </label>
+          {!isEmpty && view === 'shelf' && (
+            <TextSelect
+              label="Sort by"
+              value={sort}
+              options={Object.entries(SORT_LABELS).map(([value, label]) => ({
+                value: value as CollectionSort,
+                label,
+              }))}
+              onChange={setSort}
+            />
           )}
           {!isEmpty && (
             // Changes made on discogs.com reach the shelf by re-importing; this does it now
@@ -163,6 +174,14 @@ export function Shelf({ user }: { user: User }) {
         <p role="alert" className="p-8">
           Your shelf couldn&rsquo;t be loaded. Try again in a moment.
         </p>
+      ) : view === 'library' && !isEmpty && !searching ? (
+        <Library
+          onOpen={(item) => {
+            setChosen(item);
+            setView('shelf');
+          }}
+          refreshingCount={refreshingCount}
+        />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(16rem,28%)]">
           <main
@@ -184,7 +203,7 @@ export function Shelf({ user }: { user: User }) {
                   query={query}
                   onAdded={(item) => {
                     setQuery('');
-                    setChosenId(item.instanceId);
+                    setChosen(item);
                   }}
                 />
               ) : featured ? (
@@ -248,7 +267,7 @@ export function Shelf({ user }: { user: User }) {
                 items={items}
                 featuredId={featured?.instanceId ?? null}
                 onChoose={(item) => {
-                  setChosenId(item.instanceId);
+                  setChosen(item);
                 }}
                 refreshingCount={refreshingCount}
                 hasMore={collection.hasNextPage}

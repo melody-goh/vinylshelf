@@ -4,6 +4,7 @@
  * server happens to return (ADR 0001).
  */
 import type {
+  CollectionFacets,
   CollectionItem,
   CollectionPage,
   ImportJob,
@@ -182,4 +183,22 @@ export function searchPage(
   overrides: Partial<SearchPage> = {},
 ): SearchPage {
   return { results, page: 1, pages: 1, totalResults: results.length, ...overrides };
+}
+
+/** What a small shelf can be filtered by. */
+export function facets(overrides: Partial<CollectionFacets> = {}): CollectionFacets {
+  return {
+    genres: [
+      { name: 'Jazz', count: 2 },
+      { name: 'Electronic', count: 1 },
+    ],
+    styles: [{ name: 'Hard Bop', count: 1 }],
+    decades: [
+      { decade: 1950, count: 2 },
+      { decade: 1990, count: 1 },
+    ],
+    colourways: { coloured: 1, black: 2 },
+    expiresAt: new Date(Date.now() + 5 * HOUR).toISOString(),
+    ...overrides,
+  };
 }

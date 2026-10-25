@@ -4,6 +4,7 @@
  * collection (PRODUCT.md: evidence).
  */
 import type {
+  CollectionFacets,
   CollectionItem,
   CollectionPage,
   Release,
@@ -186,4 +187,40 @@ export function silentWav(seconds = 30, rate = 8000): Buffer {
   buffer.write('data', 36);
   buffer.writeUInt32LE(samples * 2, 40);
   return buffer;
+}
+
+/** A library-sized shelf: the synthetic records cycled, so the grid reads as a contact sheet. */
+export function libraryPage(count = 60): CollectionPage {
+  const shelf = items(count);
+  return {
+    items: shelf,
+    totalItems: shelf.length,
+    otherFormatsCount: 0,
+    matchedItems: shelf.length,
+    nextCursor: null,
+    refresh: { status: 'idle', importId: null, hiddenCount: 0, retryAt: null },
+  };
+}
+
+export function facets(): CollectionFacets {
+  return {
+    genres: [
+      { name: 'Rock', count: 31 },
+      { name: 'Electronic', count: 17 },
+      { name: 'Jazz', count: 12 },
+    ],
+    styles: [
+      { name: 'Indie Rock', count: 22 },
+      { name: 'Dream Pop', count: 14 },
+      { name: 'Ambient', count: 9 },
+    ],
+    decades: [
+      { decade: 1960, count: 5 },
+      { decade: 1970, count: 10 },
+      { decade: 1990, count: 8 },
+      { decade: 2010, count: 25 },
+    ],
+    colourways: { coloured: 35, black: 25 },
+    expiresAt: new Date(Date.now() + 5 * HOUR).toISOString(),
+  };
 }
