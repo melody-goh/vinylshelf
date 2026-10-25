@@ -11,7 +11,6 @@ import { LOGIN_URL } from '../api/session';
 import { useBoardInk, type BoardInk } from '../design/board';
 import { useWideScreen } from '../design/media';
 import { discSurface } from '../design/vinyl';
-import { DiscogsCredit } from './DiscogsCredit';
 import { ListeningRoom, playableTracks } from './ListeningRoom';
 
 const fold = { type: 'spring', stiffness: 210, damping: 29 } as const;
@@ -217,7 +216,6 @@ function OpenGatefold({
                 .filter(Boolean)
                 .join(' · ')}
             </p>
-            <DiscogsCredit href={release.discogsUrl} className="" />
           </footer>
         </div>
       </motion.div>

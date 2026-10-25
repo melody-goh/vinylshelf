@@ -62,6 +62,7 @@ export const collectionRefreshSchema = z.object({
 export const collectionPageSchema = z.object({
   items: z.array(collectionItemSchema),
   totalItems: z.number().int().min(0),
+  otherFormatsCount: z.number().int().min(0),
   nextCursor: z.string().nullable().optional(),
   refresh: collectionRefreshSchema,
 });

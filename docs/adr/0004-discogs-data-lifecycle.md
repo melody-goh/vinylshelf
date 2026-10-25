@@ -72,3 +72,18 @@ The alternative is for the server to report `stale` and let the client send
 `POST /collection/imports`. That is cleaner HTTP, but every client then has to
 implement the refresh logic. Revisit this if the API gains other clients or if
 prefetch-triggered imports show up in the logs.
+
+### 2026-10-25: one credit per screen, in the footer
+
+Decision 7 put a `DiscogsCredit` beside every data block. On the shelf that meant the
+same "Data provided by Discogs" three times in one view (stack, gatefold, footer), and
+again in search results, which read as clutter rather than attribution.
+
+We now read the attribution requirement as **once on every screen that shows Discogs
+data**: the page footer carries the credit and the non-affiliation notice, and it is
+present on every screen. A surface that covers the footer while showing Discogs data
+(the listening room, ADR 0010) carries its own credit. Links to a record's Discogs page
+(the community line's "on Discogs") stay where they help.
+
+Discogs' terms are what this rests on; re-check their attribution wording before any
+public launch, and go back to per-block credits if they require it.

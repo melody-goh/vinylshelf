@@ -122,7 +122,7 @@ A studio product shot of a record collection. The ground is a studio-white seaml
 
 Type is set like liner notes: one variable family (Archivo) carrying the hierarchy through its width axis, condensed capitals for roles, positions and credit lines, regular weight for names and titles, hairline-ruled columns. Colour is almost all neutral; the only chromatic colours come from the records (cover art and named colourways) and from one sticker red that marks actions. Motion is physical: discs lean out of the stack on springs, and choosing one folds the board shut on its crease and opens it again on the new record.
 
-Truth comes before decoration. A colourway is drawn only when Discogs names it; an unnamed record is drawn black and nothing is printed about its colour. Discogs data never appears without its credit.
+Truth comes before decoration. A colourway is drawn only when Discogs names it; an unnamed record is drawn black and nothing is printed about its colour. Discogs data never appears on a screen without its credit, which the footer carries once.
 
 **Key Characteristics:**
 - Studio-white ground, soft photographic drop shadows, no hard edges of light.
@@ -175,7 +175,7 @@ Disc colourways come from a fixed swatch table keyed by the colour words Discogs
 - **Body small** (400, 0.875rem, 1.625): the header controls, notices, errors, sleeve copy, the leaned-record readout, liner notes on phones and tablets (0.8125rem from 64rem up, where the notes split into two columns). Sleeve copy holds to 24rem.
 - **Label** (400, 0.7rem, 0.06em, wdth 72, uppercase, tabular numerals): track positions, credit roles (Format, Genre, Producer), the catalogue line ("SYN-100 · Synthetic Records · Added Oct 14, 2026") and the "More below" cue. Always beside or under what it names, as on a printed credit list.
 - **Sticker** (700, 0.875rem, 1.25, wdth 72, uppercase, 0.06em): the words on a hype sticker, centred.
-- **Fine print** (400, 0.7rem, 1.625): the Discogs non-affiliation footer. The per-block "Data provided by Discogs" credit sits at 0.75rem.
+- **Fine print** (400, 0.7rem, 1.625): the Discogs non-affiliation footer and its "Data provided by Discogs" credit.
 
 ### Named Rules
 **The One Family Rule.** Archivo Variable is the only face. Hierarchy comes from the width axis (62 sleeve titles and wordmark, 72 labels, 78 headlines, 100 reading text) and weight, never from a second family or a system display face.
@@ -238,7 +238,7 @@ Wordmark on the left; record count, sort, username (wide screens only) and "Sign
 ### Open Gatefold (signature)
 The record at full size: two square panels in the Photo shadow.
 - **Cover panel:** the Discogs cover, object-fit cover, on carbon. With no cover, the sleeve prints its own title in compressed caps and the artists below, never a stock image.
-- **Liner board:** printed in the board ink (see The Carbon Board Rule), 1.5rem / 2rem / 2.5rem padding by breakpoint. Header: headline title, artists in body, then year and named colourway in Soft board text. Middle: the tracklist (position label, title, duration, ruled rows) and a term/value list of format, genre and credits, side by side from 64rem; only this middle scrolls, and says "More below" while it does. Footer: the catalogue line in label type and the Discogs credit.
+- **Liner board:** printed in the board ink (see The Carbon Board Rule), 1.5rem / 2rem / 2.5rem padding by breakpoint. Header: headline title, artists in body, then year and named colourway in Soft board text. Middle: the tracklist (position label, title, duration, ruled rows) and a term/value list of format, genre and credits, side by side from 64rem; only this middle scrolls, and says "More below" while it does. Footer: the catalogue line in label type.
 - **Loading:** "Reading the liner notes…" over four bars in the text colour at 15%.
 - **The fold:** choosing another record folds the board shut on its crease over the cover (rotateY to -180° from its left edge on wide screens, rotateX to 180° from its top edge on phones), swaps the record while closed, and opens it again; spring 210/29. Under reduced motion the record crossfades instead.
 
@@ -252,7 +252,7 @@ The rest of the collection, fanned. The open record's disc is nudged 10% out of 
 The front of the gatefold before anything is open: a carbon square (max 34rem) in the Photo shadow, the display title at the top, up to 24rem of body-small copy at 80% Studio White at the bottom, and an optional hype sticker. Used for sign-in, the empty shelf and the "Back in a moment" refresh state.
 
 ### Search
-A search field sits in the header between the wordmark and the controls: text straight on the ground over a hairline (25% Ink), a Search icon, placeholder "Find a record on Discogs", a clear button once there is text; Escape clears it. On phones it takes its own row under the header controls. While there is a query, results take the gatefold's place (top-aligned), and on phones the disc row steps aside. Results are a ruled list: a square thumbnail in the Photo shadow (carbon when Discogs has none), the title in semibold, the artists, a condensed caps pressing line (year · country · label and catalogue number) and the formats in Soft Ink. The action is a small hype sticker (3.5rem, 4rem from 48rem) reading ADD. A record already on the shelf shows "On your shelf" and an "I have another copy" text action; only after that does an ADD COPY sticker appear (ADR 0009). Results carry the Discogs credit; pages turn with Previous and Next. Adding closes search and opens the new record in the gatefold.
+A search field sits in the header between the wordmark and the controls: text straight on the ground over a hairline (25% Ink), a Search icon, placeholder "Find a record on Discogs", a clear button once there is text; Escape clears it. On phones it takes its own row under the header controls. While there is a query, results take the gatefold's place (top-aligned), and on phones the disc row steps aside. Results are a ruled list: a square thumbnail in the Photo shadow (carbon when Discogs has none), the title in semibold, the artists, a condensed caps pressing line (year · country · label and catalogue number) and the formats in Soft Ink. The action is a small hype sticker (3.5rem, 4rem from 48rem) reading ADD. A record already on the shelf shows "On your shelf" and an "I have another copy" text action; only after that does an ADD COPY sticker appear (ADR 0009). Pages turn with Previous and Next. Adding closes search and opens the new record in the gatefold.
 
 ### Community line
 Under the open gatefold, outside it, as plain body-small text on the ground: a filled star and the Discogs rating to two decimals in Ink ("4.31 from 212 ratings"), then "1,840 have it · 960 want it · on Discogs" in Soft Ink, with "Discogs" linking to the release. Unrated records say "No ratings yet". Reserved at 1.25rem so the gatefold does not shift when it arrives.
@@ -271,7 +271,7 @@ The full-screen loading lines ("Waking up the shelf…", "Taking your records of
 A live count that springs up to each new value (spring 120/24), "of N records in from Discogs" beside it, over a 4px bar: Hairline Rule track, Sticker Red fill. Screen readers get the real count once per poll; under reduced motion the count shows the real number directly.
 
 ### Discogs Credit and Footer
-"Data provided by Discogs" in 0.75rem, linked to the record's Discogs page, rendered with each Discogs data block. It takes the colour of whatever it sits on (Soft Ink on the ground, board text on the board). The footer carries the non-affiliation notice in fine print on a Hairline Rule. How many credits a screen carries (currently one on the board, one over the stack) is an open question with the user.
+One credit per screen (ADR 0004, note of 2026-10-25): the footer carries "Data provided by Discogs" and the non-affiliation notice in fine print on a Hairline Rule, on every screen. A surface that covers the footer while showing Discogs data (the listening room) carries its own 0.75rem credit in Soft Ink. A record links to its own Discogs page from the community line under the gatefold. The header's count says how many records in other formats are kept off the vinyl-only shelf ("212 records · 8 other formats hidden").
 
 ### Motion grammar
 All motion runs on springs and touches only `transform` and `opacity`. The app is wrapped in a motion configuration that honours the user's reduced-motion setting: transform animations jump straight to their end state while opacity still animates, and the gatefold swaps its fold for an explicit crossfade.
@@ -283,7 +283,7 @@ All motion runs on springs and touches only `transform` and `opacity`. The app i
 - **Do** reserve Sticker Red for hype stickers, the focus ring, the caret and import progress (The One Signal Rule).
 - **Do** fall back to the Carbon Board with Studio White text whenever the cover cannot be sampled, and choose board text by computed contrast, never by assumption.
 - **Do** draw only the colourways Discogs names; draw an unnamed record in Lacquer Black and print nothing about its colour.
-- **Do** render the Discogs credit with every block of Discogs data.
+- **Do** credit Discogs once on every screen that shows its data: the footer, or the surface's own credit when it covers the footer.
 - **Do** set roles, positions and credit lines in condensed caps beside what they name, and names and titles in regular weight (The Liner Notes Rule).
 - **Do** animate with springs on `transform` and `opacity` only, and keep a crossfade path for reduced motion.
 - **Do** name a leaned disc in the readout under the stack, clear of the discs.

@@ -18,6 +18,7 @@ function release(id: number, overrides: Partial<ReleaseSummaryData> = {}): Relea
     artists: ['Ensemble Lumière'],
     year: 1974,
     vinylColors: [],
+    formatNames: ['Vinyl'],
     coverImageUrl: `https://i.discogs.com/fixture/cover-${id}.jpg`,
     discogsUrl: `https://www.discogs.com/release/${id}`,
     ...overrides,

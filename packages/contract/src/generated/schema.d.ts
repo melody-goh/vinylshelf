@@ -393,12 +393,24 @@ export interface components {
             instanceId: number;
             release: components["schemas"]["ReleaseSummary"];
         };
+        /**
+         * @description The shelf holds vinyl only. A release counts as vinyl when any of its formats is
+         *     Vinyl (an LP-and-CD box set is on the shelf); CDs, cassettes and other formats
+         *     in the Discogs collection are left off and counted in `otherFormatsCount`.
+         *     Releases whose formats are not yet known (cached before 0.5.0) are treated as
+         *     vinyl until the next import.
+         */
         CollectionPage: {
             items: components["schemas"]["CollectionItem"][];
             nextCursor?: string | null;
+            /**
+             * @description Releases in the user's Discogs collection that are not vinyl, and so are not
+             *     on the shelf. The same on every page.
+             */
+            otherFormatsCount: number;
             refresh: components["schemas"]["CollectionRefresh"];
             /**
-             * @description Records on the user's shelf, including any withheld while their data
+             * @description Vinyl records on the user's shelf, including any withheld while their data
              *     refreshes (`refresh.hiddenCount`). The same on every page.
              */
             totalItems: number;

@@ -187,6 +187,7 @@ describe('contract: responses validate against openapi.yaml', () => {
         artists: ['Miles Davis'],
         year: null,
         vinylColors: ['Blue Marbled'],
+        formatNames: ['Vinyl'],
         coverImageUrl: 'https://i.discogs.com/fixture/cover-1.jpg',
         discogsUrl: 'https://www.discogs.com/release/1',
       },

@@ -29,6 +29,13 @@
       "when": 1792838460102,
       "tag": "0003_itunes_preview_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792914374502,
+      "tag": "0004_release_format_names",
+      "breakpoints": true
     }
   ]
 }

@@ -6,8 +6,10 @@ import type { CollectionRefresh } from '@vinylshelf/contract';
 import type { ImportJobRow } from './imports.js';
 
 export interface ShelfFreshness {
-  /** Every record on the shelf, hidden ones included. */
+  /** Every vinyl record on the shelf, hidden ones included. */
   totalItems: number;
+  /** Collection releases in other formats, kept off the shelf. */
+  otherFormatsCount: number;
   /** Shelf items whose cached release data is past `expires_at`, so withheld. */
   hiddenCount: number;
   /** Oldest `fetched_at` among the shelf's still-fresh cache rows. */

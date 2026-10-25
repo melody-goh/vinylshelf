@@ -21,6 +21,7 @@ import {
 import { createPortal } from 'react-dom';
 import appleMusicBadge from '../design/listen-on-apple-music.svg';
 import { Disc } from './Disc';
+import { DiscogsCredit } from './DiscogsCredit';
 
 /** Every iTunes preview is (about) this long; the ruler gives each track this span. */
 const PREVIEW_SECONDS = 30;
@@ -392,6 +393,8 @@ export function ListeningRoom({
 
         <footer className="mt-2 flex flex-col items-center gap-3 text-xs text-ink-soft">
           <p>{previews.attribution}</p>
+          {/* The room covers the page footer, so it carries the Discogs credit itself. */}
+          <DiscogsCredit href={release.discogsUrl} />
           {previews.albumUrl && (
             <a href={previews.albumUrl} target="_blank" rel="noreferrer">
               <img src={appleMusicBadge} alt="Listen on Apple Music" className="h-10 w-auto" />

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { API_PREFIX, type AppDependencies } from '../app.js';
-import { collectionItems, importJobs } from '../db/schema.js';
+import { collectionItems, discogsReleaseCache, importJobs } from '../db/schema.js';
 import type { ReleaseSummaryData } from '../discogs/gateway.js';
 import type { Clock } from '../lib/clock.js';
 import { buildTestApp, TEST_NOW, testConfig, type FakeQueue } from '../test/app.js';
@@ -37,6 +37,8 @@ interface Seed {
   artist: string;
   year: number | null;
   added: string;
+  /** Discogs format names; vinyl when omitted. */
+  formats?: string[] | null;
 }
 
 const SHELF: Seed[] = [
@@ -85,6 +87,7 @@ async function seed(items: Seed[] = SHELF, owner = userId): Promise<void> {
     artists: [s.artist],
     year: s.year,
     vinylColors: [],
+    formatNames: s.formats === undefined ? ['Vinyl'] : (s.formats ?? ['Vinyl']),
     coverImageUrl: null,
     discogsUrl: `https://www.discogs.com/release/${100 + s.instanceId}`,
   }));
@@ -108,6 +111,7 @@ interface PageBody {
   }[];
   nextCursor: string | null;
   totalItems: number;
+  otherFormatsCount: number;
   refresh: { status: string; importId: string | null; hiddenCount: number; retryAt: string | null };
 }
 
@@ -189,6 +193,60 @@ describe('GET /collection/items: listing', () => {
 
   it('requires a session', async () => {
     expect((await list('', 'nope')).statusCode).toBe(401);
+  });
+});
+
+describe('GET /collection/items: vinyl only', () => {
+  it('keeps CDs and cassettes off the shelf and counts them, but keeps an LP-and-CD set', async () => {
+    await seed([
+      { instanceId: 1, title: 'On Vinyl', artist: 'A', year: 2001, added: '2026-01-01T00:00:00Z' },
+      {
+        instanceId: 2,
+        title: 'On CD',
+        artist: 'B',
+        year: 2002,
+        added: '2026-01-02T00:00:00Z',
+        formats: ['CD'],
+      },
+      {
+        instanceId: 3,
+        title: 'On Tape',
+        artist: 'C',
+        year: 2003,
+        added: '2026-01-03T00:00:00Z',
+        formats: ['Cassette'],
+      },
+      {
+        instanceId: 4,
+        title: 'Box Set',
+        artist: 'D',
+        year: 2004,
+        added: '2026-01-04T00:00:00Z',
+        formats: ['Box Set', 'Vinyl', 'CD'],
+      },
+    ]);
+
+    const body = await listBody();
+    expect(body.items.map((i) => i.release.title)).toEqual(['Box Set', 'On Vinyl']);
+    expect(body.totalItems).toBe(2);
+    expect(body.otherFormatsCount).toBe(2);
+  });
+
+  it('treats a release whose formats are not known yet as vinyl, so nothing vanishes', async () => {
+    await seed([
+      {
+        instanceId: 1,
+        title: 'Cached Before',
+        artist: 'A',
+        year: 2001,
+        added: '2026-01-01T00:00:00Z',
+      },
+    ]);
+    await db().update(discogsReleaseCache).set({ formatNames: null });
+
+    const body = await listBody();
+    expect(body.items.map((i) => i.release.title)).toEqual(['Cached Before']);
+    expect(body.otherFormatsCount).toBe(0);
   });
 });
 

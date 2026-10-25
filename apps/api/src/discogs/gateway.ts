@@ -26,6 +26,8 @@ export interface ReleaseSummaryData {
   year: number | null;
   /** Colourways named by Discogs; empty means unnamed (shown as black). */
   vinylColors: string[];
+  /** Format names as Discogs lists them ("Vinyl", "CD", "Box Set"): what the shelf keeps. */
+  formatNames: string[];
   /** A hotlinked Discogs image URL, never downloaded (ADR 0004 §6). */
   coverImageUrl: string | null;
   discogsUrl: string;

@@ -1,0 +1,1 @@
+ALTER TABLE "discogs_release_cache" ADD COLUMN "format_names" jsonb;
