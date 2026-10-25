@@ -67,6 +67,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/collection/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What the user's shelf can be filtered by
+         * @description The genres, styles, decades and colourways on the user's vinyl shelf, each with
+         *     how many records have it, for the library's filters. Counted over records whose
+         *     Discogs data is fresh (ADR 0004); `expiresAt` is when the first of them expires.
+         */
+        get: operations["getCollectionFacets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/collection/imports": {
         parameters: {
             query?: never;
@@ -386,6 +408,27 @@ export interface components {
          * @enum {string}
          */
         CaptureSource: "laptop_mic" | "file_upload" | "paired_phone";
+        CollectionFacets: {
+            colourways: {
+                black: number;
+                coloured: number;
+            };
+            /** @description Oldest first. Records with no known year are not counted. */
+            decades: {
+                count: number;
+                /** @description The decade's first year, e.g. 1970. */
+                decade: number;
+            }[];
+            /**
+             * Format: date-time
+             * @description When the first counted record's data expires; null for an empty shelf.
+             */
+            expiresAt: string | null;
+            /** @description Most records first, then by name. */
+            genres: components["schemas"]["FacetCount"][];
+            /** @description Most records first, then by name. */
+            styles: components["schemas"]["FacetCount"][];
+        };
         CollectionItem: {
             /** Format: date-time */
             dateAdded: string;
@@ -402,6 +445,12 @@ export interface components {
          */
         CollectionPage: {
             items: components["schemas"]["CollectionItem"][];
+            /**
+             * @description Records that match the filters given (genre, style, decade, colourway), among
+             *     those whose data is fresh. Equal to the visible shelf when no filter is given.
+             *     The same on every page.
+             */
+            matchedItems: number;
             nextCursor?: string | null;
             /**
              * @description Releases in the user's Discogs collection that are not vinyl, and so are not
@@ -443,6 +492,10 @@ export interface components {
             retryAt: string | null;
             /** @enum {string} */
             status: "idle" | "refreshing" | "backoff";
+        };
+        FacetCount: {
+            count: number;
+            name: string;
         };
         ImportJob: {
             /** Format: date-time */
@@ -774,6 +827,27 @@ export interface operations {
             403: components["responses"]["ForbiddenOrigin"];
         };
     };
+    getCollectionFacets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The shelf's facets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionFacets"];
+                };
+            };
+            401: components["responses"]["Problem"];
+        };
+    };
     startCollectionImport: {
         parameters: {
             query?: never;
@@ -845,10 +919,21 @@ export interface operations {
     listCollectionItems: {
         parameters: {
             query?: {
+                /**
+                 * @description `coloured` for records whose colourway Discogs names, `black` for the rest
+                 *     (see `ReleaseSummary.vinylColors`).
+                 */
+                colourway?: "coloured" | "black";
                 /** @description Opaque cursor from a previous page. */
                 cursor?: string;
+                /** @description Only records released in this decade, given by its first year (1970 for the 1970s). */
+                decade?: number;
+                /** @description Only records with this Discogs genre (exact, as listed by `/collection/facets`). */
+                genre?: string;
                 limit?: number;
                 sort?: "added_desc" | "added_asc" | "artist_asc" | "year_asc" | "year_desc";
+                /** @description Only records with this Discogs style (exact, as listed by `/collection/facets`). */
+                style?: string;
             };
             header?: never;
             path?: never;

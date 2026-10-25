@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.5.0
+  version: 0.6.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -146,6 +146,25 @@ paths:
         '401':
           $ref: '#/components/responses/Problem'
 
+  /collection/facets:
+    get:
+      tags: [Collection]
+      operationId: getCollectionFacets
+      summary: What the user's shelf can be filtered by
+      description: |
+        The genres, styles, decades and colourways on the user's vinyl shelf, each with
+        how many records have it, for the library's filters. Counted over records whose
+        Discogs data is fresh (ADR 0004); `expiresAt` is when the first of them expires.
+      responses:
+        '200':
+          description: The shelf's facets.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionFacets'
+        '401':
+          $ref: '#/components/responses/Problem'
+
   /collection/imports:
     post:
       tags: [Collection]
@@ -233,6 +252,24 @@ paths:
             type: string
             enum: [added_desc, added_asc, artist_asc, year_asc, year_desc]
             default: added_desc
+        - name: genre
+          in: query
+          description: Only records with this Discogs genre (exact, as listed by `/collection/facets`).
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: style
+          in: query
+          description: Only records with this Discogs style (exact, as listed by `/collection/facets`).
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: decade
+          in: query
+          description: Only records released in this decade, given by its first year (1970 for the 1970s).
+          schema: { type: integer, minimum: 1900, maximum: 2090, multipleOf: 10 }
+        - name: colourway
+          in: query
+          description: |
+            `coloured` for records whose colourway Discogs names, `black` for the rest
+            (see `ReleaseSummary.vinylColors`).
+          schema: { type: string, enum: [coloured, black] }
       responses:
         '200':
           description: A page of collection items.
@@ -662,7 +699,7 @@ components:
         in the Discogs collection are left off and counted in `otherFormatsCount`.
         Releases whose formats are not yet known (cached before 0.5.0) are treated as
         vinyl until the next import.
-      required: [items, totalItems, otherFormatsCount, refresh]
+      required: [items, totalItems, otherFormatsCount, matchedItems, refresh]
       properties:
         items:
           type: array
@@ -680,10 +717,60 @@ components:
           description: |
             Releases in the user's Discogs collection that are not vinyl, and so are not
             on the shelf. The same on every page.
+        matchedItems:
+          type: integer
+          minimum: 0
+          description: |
+            Records that match the filters given (genre, style, decade, colourway), among
+            those whose data is fresh. Equal to the visible shelf when no filter is given.
+            The same on every page.
         nextCursor:
           type: [string, 'null']
         refresh:
           $ref: '#/components/schemas/CollectionRefresh'
+
+    CollectionFacets:
+      type: object
+      required: [genres, styles, decades, colourways, expiresAt]
+      properties:
+        genres:
+          type: array
+          description: Most records first, then by name.
+          items:
+            $ref: '#/components/schemas/FacetCount'
+        styles:
+          type: array
+          description: Most records first, then by name.
+          items:
+            $ref: '#/components/schemas/FacetCount'
+        decades:
+          type: array
+          description: Oldest first. Records with no known year are not counted.
+          items:
+            type: object
+            required: [decade, count]
+            properties:
+              decade:
+                type: integer
+                description: The decade's first year, e.g. 1970.
+              count: { type: integer, minimum: 1 }
+        colourways:
+          type: object
+          required: [coloured, black]
+          properties:
+            coloured: { type: integer, minimum: 0 }
+            black: { type: integer, minimum: 0 }
+        expiresAt:
+          type: [string, 'null']
+          format: date-time
+          description: When the first counted record's data expires; null for an empty shelf.
+
+    FacetCount:
+      type: object
+      required: [name, count]
+      properties:
+        name: { type: string }
+        count: { type: integer, minimum: 1 }
 
     CollectionRefresh:
       type: object

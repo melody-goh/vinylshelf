@@ -44,6 +44,8 @@ export const collectionReleasesResponse = z.object({
         cover_image: z.string().optional(),
         artists: z.array(artist),
         formats: z.array(z.object({ name: z.string(), text: z.string().optional() })).default([]),
+        genres: z.array(z.string()).default([]),
+        styles: z.array(z.string()).default([]),
       }),
     }),
   ),

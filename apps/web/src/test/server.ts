@@ -56,6 +56,7 @@ export function page(overrides: Partial<CollectionPage> = {}): CollectionPage {
     nextCursor: null,
     totalItems: 0,
     otherFormatsCount: 0,
+    matchedItems: overrides.items?.length ?? 0,
     refresh: { status: 'idle', importId: null, hiddenCount: 0, retryAt: null },
     ...overrides,
   };

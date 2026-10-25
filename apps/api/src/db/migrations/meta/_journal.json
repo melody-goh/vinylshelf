@@ -36,6 +36,13 @@
       "when": 1792914374502,
       "tag": "0004_release_format_names",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792915934005,
+      "tag": "0005_release_genres_styles",
+      "breakpoints": true
     }
   ]
 }

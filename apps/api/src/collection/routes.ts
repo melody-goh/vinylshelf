@@ -5,12 +5,14 @@ import type { SessionStore } from '../auth/sessions.js';
 import { ProblemError } from '../http/problem.js';
 import {
   addCollectionItemBody,
+  collectionFacetsSchema,
   collectionItemSchema,
   collectionItemsQuery,
   collectionPageSchema,
   importJobSchema,
 } from '../http/schemas.js';
 import type { CollectionAddService } from './add.js';
+import type { CollectionFacetsService } from './facets.js';
 import { toImportJobDto, type ImportService } from './imports.js';
 import type { CollectionItemsService } from './items.js';
 
@@ -19,6 +21,7 @@ export interface CollectionRouteDependencies {
   imports: ImportService;
   items: CollectionItemsService;
   add: CollectionAddService;
+  facets: CollectionFacetsService;
 }
 
 /** Collection import and listing endpoints (openapi.yaml, tag Collection). */
@@ -70,6 +73,12 @@ export const collectionRoutes =
         schema: { querystring: collectionItemsQuery, response: { 200: collectionPageSchema } },
       },
       async (request) => deps.items.list({ userId: currentUserId(request), ...request.query }),
+    );
+
+    app.get(
+      '/collection/facets',
+      { ...auth, schema: { response: { 200: collectionFacetsSchema } } },
+      async (request) => deps.facets.get(currentUserId(request)),
     );
 
     app.post(

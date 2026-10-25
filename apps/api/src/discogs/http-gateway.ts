@@ -297,6 +297,8 @@ function toCollectionPage(response: CollectionReleasesResponse): CollectionPageR
         year: info.year > 0 ? info.year : null,
         vinylColors: vinylColorsOf(info.formats),
         formatNames: formatNamesOf(info.formats),
+        genres: info.genres,
+        styles: info.styles,
         coverImageUrl: coverImage(info.cover_image),
         discogsUrl: discogsEndpoints.releasePage(info.id),
       };
