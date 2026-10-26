@@ -43,6 +43,13 @@
       "when": 1792915934005,
       "tag": "0005_release_genres_styles",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793029082144,
+      "tag": "0006_taste_catalogue",
+      "breakpoints": true
     }
   ]
 }

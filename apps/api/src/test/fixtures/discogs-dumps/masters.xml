@@ -1,0 +1,6 @@
+<masters>
+<master id="100"><main_release>1</main_release><artists><artist><id>23755</id><name>Miles Davis</name></artist></artists><genres><genre>Jazz</genre></genres><styles><style>Modal</style><style>Hard Bop</style></styles><year>1959</year><title>Kind of Blue</title><data_quality>Correct</data_quality></master>
+<master id="200"><main_release>4</main_release><artists><artist><name>Disc Band</name></artist></artists><genres><genre>Pop</genre></genres><year>2001</year><title>Only On CD</title></master>
+<master id="300"><main_release>6</main_release><artists><artist><name>Aphex Twin</name></artist></artists><genres><genre>Electronic</genre></genres><styles><style>Ambient</style><style>IDM</style></styles><year>1992</year><title>Selected Ambient Works 85-92</title></master>
+<master id="400"><main_release>7</main_release><artists><artist><name>Los Señores (2)</name></artist></artists><genres><genre>Latin</genre><genre>Jazz</genre></genres><styles><style>Bossa Nova</style></styles><year>0</year><title>Café Noir</title></master>
+</masters>

@@ -7,18 +7,21 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   check,
+  halfvec,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import type { Problem } from '@vinylshelf/contract';
+import type { CatalogueManifest, Credit } from '../catalogue/model.js';
 import type { MatchedTrack } from '../itunes/match.js';
 import type { ReleaseDetailData } from '../discogs/gateway.js';
 
@@ -208,4 +211,52 @@ export const itunesPreviewCache = pgTable(
       sql`${t.expiresAt} > ${t.fetchedAt} and ${t.expiresAt} <= ${t.fetchedAt} + interval '24 hours'`,
     ),
   ],
+);
+
+/**
+ * Dimensions of the catalogue's vectors: those of the embedding model (ADR 0008,
+ * bge-small-en-v1.5). A different model means a new column size and a rebuilt catalogue.
+ */
+export const CATALOGUE_DIMS = 384;
+
+/**
+ * The taste catalogue (ADR 0008, ADR 0012): vinyl masters from Discogs' monthly CC0
+ * dumps, with their embeddings. Unlike API data (ADR 0004) it may be kept, because the
+ * dumps are CC0; it holds no user data and no images. Replaced whole by
+ * `catalogue:load`, never edited row by row.
+ */
+export const catalogueMasters = pgTable(
+  'catalogue_masters',
+  {
+    /** Discogs master id. */
+    id: integer('id').primaryKey(),
+    mainReleaseId: integer('main_release_id').notNull(),
+    title: text('title').notNull(),
+    artists: jsonb('artists').$type<string[]>().notNull(),
+    year: integer('year'),
+    genres: jsonb('genres').$type<string[]>().notNull(),
+    styles: jsonb('styles').$type<string[]>().notNull(),
+    labels: jsonb('labels').$type<string[]>().notNull(),
+    country: text('country'),
+    credits: jsonb('credits').$type<Credit[]>().notNull(),
+    versions: integer('versions').notNull(),
+    vinylVersions: integer('vinyl_versions').notNull(),
+    /** Half precision: half the space of `vector`, ample for similarity (ADR 0012). */
+    embedding: halfvec('embedding', { dimensions: CATALOGUE_DIMS }).notNull(),
+  },
+  (t) => [
+    // HNSW for approximate nearest neighbours by cosine distance.
+    index('catalogue_masters_embedding_idx').using('hnsw', t.embedding.op('halfvec_cosine_ops')),
+  ],
+);
+
+/** Which catalogue is loaded: one row, the manifest it was built with (ADR 0012 §4). */
+export const catalogueMeta = pgTable(
+  'catalogue_meta',
+  {
+    id: smallint('id').primaryKey().default(1),
+    manifest: jsonb('manifest').$type<CatalogueManifest>().notNull(),
+    loadedAt: timestamptz('loaded_at').notNull(),
+  },
+  (t) => [check('catalogue_meta_single_row', sql`${t.id} = 1`)],
 );
