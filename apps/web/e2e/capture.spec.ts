@@ -198,7 +198,12 @@ test('listening room captures', async ({ page }) => {
   await settle(page);
 
   await page.getByRole('button', { name: 'Play a preview of Undertow' }).click({ timeout: 6000 });
-  await page.waitForTimeout(1600);
+  // The disc's way in, from the sleeve to the platter.
+  for (const at of [60, 200, 380, 600, 900]) {
+    await page.waitForTimeout(at === 60 ? 60 : 160);
+    await page.screenshot({ path: `${OUT}/desktop-listening-in-${String(at)}.png` });
+  }
+  await page.waitForTimeout(1200);
   await page.screenshot({ path: `${OUT}/desktop-listening.png` });
 
   // Cue by hand: drag the cursor across the ruler and hold mid-drag.
@@ -215,6 +220,15 @@ test('listening room captures', async ({ page }) => {
   await page.setViewportSize(phone);
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/mobile-listening.png` });
+
+  // And back into the sleeve.
+  await page.setViewportSize(desktop);
+  await page.waitForTimeout(400);
+  await page.keyboard.press('Escape');
+  for (const at of [150, 450]) {
+    await page.waitForTimeout(at === 150 ? 150 : 300);
+    await page.screenshot({ path: `${OUT}/desktop-listening-out-${String(at)}.png` });
+  }
 });
 
 test('library captures', async ({ page }) => {

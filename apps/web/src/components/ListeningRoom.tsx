@@ -1,6 +1,7 @@
 import type { Release, ReleasePreviews } from '@vinylshelf/contract';
 import { Pause, Play, SkipBack, SkipForward, X } from 'lucide-react';
 import {
+  animate,
   motion,
   useAnimationFrame,
   useMotionValue,
@@ -12,6 +13,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -23,6 +25,7 @@ import { createPortal } from 'react-dom';
 import appleMusicBadge from '../design/listen-on-apple-music.svg';
 import { Disc } from './Disc';
 import { DiscogsCredit } from './DiscogsCredit';
+import { MissingCover } from './MissingCover';
 
 /** Every iTunes preview is (about) this long; the ruler gives each track this span. */
 const PREVIEW_SECONDS = 30;
@@ -37,6 +40,21 @@ const STEP_SECONDS = 5;
 const press = { type: 'spring', stiffness: 500, damping: 28 } as const;
 /** The tabs' travelling dot, reused for the track that is playing. */
 const trackSlide = { type: 'spring', stiffness: 420, damping: 34 } as const;
+
+/**
+ * The disc's way in (and back out): drawn from the sleeve, then carried to the platter.
+ * The size spring is underdamped on purpose, so the disc zooms a touch past the platter
+ * and settles back, like something with weight being set down.
+ */
+const draw = { type: 'spring', stiffness: 260, damping: 32 } as const;
+const carry = { type: 'spring', stiffness: 130, damping: 21 } as const;
+const settle = { type: 'spring', stiffness: 150, damping: 11 } as const;
+const turn = { type: 'spring', stiffness: 70, damping: 18 } as const;
+const fade = { type: 'spring', stiffness: 300, damping: 40 } as const;
+/** Leaving is quicker than arriving: the listener has already decided to go. */
+const back = { type: 'spring', stiffness: 260, damping: 30 } as const;
+/** How far the disc slides out of its sleeve, as a share of the cover's width. */
+const DRAWN = 0.45;
 
 export interface Playable {
   position: string;
@@ -65,17 +83,25 @@ function clock(seconds: number): string {
  * Dragging the cursor cues the record by hand: the disc turns with it, forwards or
  * back, and picks up its spin again on release. Previews stream from Apple and are
  * shown with Apple's attribution and badge (ADR 0010 §5).
+ *
+ * The disc arrives from the sleeve it was opened from: it slides out from behind the
+ * cover, then is carried to the platter as the room comes up, turning over once and
+ * settling with a little zoom. Closing sends it back the same way. Under reduced motion
+ * the room simply appears.
  */
 export function ListeningRoom({
   release,
   previews,
   startAt,
+  from = null,
   onClose,
 }: {
   release: Release;
   previews: ReleasePreviews;
   /** Position of the track to start with. */
   startAt: string;
+  /** Where the sleeve is on screen; the disc is drawn out of it, and goes back into it. */
+  from?: DOMRect | null;
   onClose: () => void;
 }) {
   const reduced = useReducedMotion() ?? false;
@@ -103,6 +129,84 @@ export function ListeningRoom({
   /** Where the cursor is, from 0 (first track's start) to 1 (last track's end). */
   const progress = useMotionValue(count ? index / count : 0);
   const rotation = useMotionValue(0);
+
+  // The flight between sleeve and platter (transform and opacity only).
+  const flies = !reduced && from !== null && from.width > 0;
+  const sleeveAt = flies ? from : null;
+  const platter = useRef<HTMLDivElement>(null);
+  const flight = {
+    x: useMotionValue(0),
+    y: useMotionValue(0),
+    scale: useMotionValue(1),
+    rotateY: useMotionValue(0),
+  };
+  const ground = useMotionValue(flies ? 0 : 1);
+  /** A stand-in for the sleeve over the disc, so the disc comes out from behind it. */
+  const sleeve = useMotionValue(flies ? 1 : 0);
+  const [revealed, setRevealed] = useState(!flies);
+  const [leaving, setLeaving] = useState(false);
+
+  /** Where the disc sits when it is in the sleeve, relative to the platter. */
+  const sleeved = useCallback(() => {
+    const target = platter.current?.getBoundingClientRect();
+    if (!from || !target || target.width === 0) return null;
+    return {
+      x: from.left + from.width / 2 - (target.left + target.width / 2),
+      y: from.top + from.height / 2 - (target.top + target.height / 2),
+      scale: (from.width * 0.92) / target.width,
+      out: from.width * DRAWN,
+    };
+  }, [from]);
+
+  useLayoutEffect(() => {
+    if (!flies) return;
+    const start = sleeved();
+    if (!start) return;
+    flight.x.set(start.x);
+    flight.y.set(start.y);
+    flight.scale.set(start.scale);
+    const run = { cancelled: false };
+    void (async () => {
+      // Drawn out of the sleeve, over the page...
+      await animate(flight.x, start.x + start.out, draw);
+      if (run.cancelled) return;
+      setRevealed(true);
+      // ...then carried to the platter as the room comes up, turning over once on the way.
+      void animate(ground, 1, fade);
+      void animate(sleeve, 0, fade);
+      void animate(flight.x, 0, carry);
+      void animate(flight.y, 0, carry);
+      void animate(flight.rotateY, 360, turn);
+      void animate(flight.scale, 1, settle);
+    })();
+    return () => {
+      run.cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, on opening
+  }, []);
+
+  /** Closing reverses the way in: back into the sleeve, then the room goes. */
+  const close = useCallback(async () => {
+    const end = flies ? sleeved() : null;
+    if (!end || leaving) {
+      onClose();
+      return;
+    }
+    setLeaving(true);
+    setRevealed(false);
+    audio.current?.pause();
+    void animate(ground, 0, fade);
+    void animate(sleeve, 1, fade);
+    await Promise.all([
+      animate(flight.x, end.x + end.out, back),
+      animate(flight.y, end.y, back),
+      animate(flight.rotateY, 0, back),
+      animate(flight.scale, end.scale, back),
+    ]);
+    await animate(flight.x, end.x, draw);
+    onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- motion values are stable
+  }, [flies, leaving, onClose, sleeved]);
 
   // Time moves the cursor and, while playing, turns the disc. Dragging owns both.
   useAnimationFrame((_, delta) => {
@@ -237,7 +341,7 @@ export function ListeningRoom({
     const total = count * PREVIEW_SECONDS;
     switch (event.key) {
       case 'Escape':
-        onClose();
+        void close();
         break;
       case ' ':
         if (onButton) return;
@@ -288,128 +392,169 @@ export function ListeningRoom({
       aria-modal="true"
       aria-label={`Listening Room: ${release.title}`}
       onKeyDown={onKeyDown}
-      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-ground"
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto"
     >
-      <header className="flex items-center justify-between px-4 py-3 md:px-8">
+      {/* The room's ground, fading in over the page while the disc comes out. */}
+      <motion.div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 -z-10 bg-ground"
+        style={{ opacity: ground }}
+      />
+      {sleeveAt && (
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none fixed z-20 overflow-hidden bg-carbon"
+          style={{
+            left: sleeveAt.left,
+            top: sleeveAt.top,
+            width: sleeveAt.width,
+            height: sleeveAt.height,
+            opacity: sleeve,
+          }}
+        >
+          {release.coverImageUrl ? (
+            <img
+              src={release.coverImageUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <MissingCover title={release.title} artists={release.artists} />
+          )}
+        </motion.div>
+      )}
+      <Reveal shown={revealed} className="flex items-center justify-between px-4 py-3 md:px-8">
         <p className="condensed text-sm font-extrabold [font-stretch:62%]">Listening Room</p>
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => {
+            void close();
+          }}
           className="-mr-2 grid size-10 place-items-center rounded-full text-ink-soft hover:text-ink"
           aria-label="Close the listening room"
         >
           <X aria-hidden="true" className="size-5" />
         </button>
-      </header>
+      </Reveal>
 
       <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-6 pb-12 pt-4 md:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)] md:gap-16 md:px-10">
         <div className="flex flex-col items-center gap-6 md:gap-7">
           {/* The record, floating over its own shadow on the seamless ground. */}
           <div className="flex w-[min(40vh,72vw,26rem)] flex-col items-center">
-            <motion.div className="w-full" style={{ rotate: rotation }}>
-              <Disc
-                vinylColors={release.vinylColors}
-                labelImageUrl={release.coverImageUrl ?? null}
-                seed={release.discogsId}
-                className="w-full"
-              />
+            <motion.div
+              ref={platter}
+              className="relative z-10 w-full"
+              style={{ ...flight, transformPerspective: 1400 }}
+            >
+              <motion.div className="w-full" style={{ rotate: rotation }}>
+                <Disc
+                  vinylColors={release.vinylColors}
+                  labelImageUrl={release.coverImageUrl ?? null}
+                  seed={release.discogsId}
+                  className="w-full"
+                />
+              </motion.div>
             </motion.div>
-            <div
+            <Reveal
+              shown={revealed}
               aria-hidden="true"
               className="mt-6 h-5 w-[78%] rounded-[50%] bg-[radial-gradient(closest-side,rgb(20_20_20/0.22),transparent)] blur-[6px]"
             />
           </div>
 
-          <p className="text-center text-lg font-semibold leading-snug [text-wrap:balance]">
-            <span className="condensed numerals mr-2 text-[0.7rem] font-normal text-ink-soft">
-              {shown.position}
-            </span>
-            {shown.title}
-          </p>
-
-          <div className="w-full max-w-xl">
-            <div
-              ref={ruler}
-              role="slider"
-              tabIndex={0}
-              aria-label="Position in the record"
-              aria-valuemin={0}
-              aria-valuemax={count * PREVIEW_SECONDS}
-              aria-valuenow={at.track * PREVIEW_SECONDS + seconds}
-              aria-valuetext={`${shown.title}, ${clock(seconds)} of ${clock(PREVIEW_SECONDS)}`}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-              className="relative h-12 cursor-ew-resize touch-none select-none"
-            >
-              {Array.from({ length: TICKS }, (_, i) => (
-                <Tick key={i} at={i / (TICKS - 1)} progress={progress} still={reduced} />
-              ))}
-              {/* Where each track begins. */}
-              {tracks.slice(1).map((track, i) => (
-                <Tick
-                  key={track.position}
-                  at={(i + 1) / count}
-                  progress={progress}
-                  still={reduced}
-                  major
-                />
-              ))}
-              <Cursor progress={progress} />
-            </div>
-            <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-baseline gap-4 text-xs">
-              <span className="truncate text-ink-soft">{first?.title}</span>
-              <span className="numerals text-ink">
-                {clock(seconds)} <span className="text-ink-soft">/ {clock(PREVIEW_SECONDS)}</span>
+          <Reveal shown={revealed} className="flex w-full flex-col items-center gap-6 md:gap-7">
+            <p className="text-center text-lg font-semibold leading-snug [text-wrap:balance]">
+              <span className="condensed numerals mr-2 text-[0.7rem] font-normal text-ink-soft">
+                {shown.position}
               </span>
-              <span className="truncate text-right text-ink-soft">{last?.title}</span>
-            </div>
-          </div>
+              {shown.title}
+            </p>
 
-          <div className="flex items-center gap-6">
-            <button
-              type="button"
-              onClick={() => {
-                step(-1);
-              }}
-              disabled={index === 0}
-              aria-label="Previous track"
-              className="grid size-10 place-items-center rounded-full text-ink disabled:opacity-30"
-            >
-              <SkipBack aria-hidden="true" className="size-5 fill-current" />
-            </button>
-            <motion.button
-              type="button"
-              onClick={toggle}
-              aria-label={playing ? 'Pause' : 'Play'}
-              whileHover={{ scale: 1.06 }}
-              whileTap={{ scale: 0.95 }}
-              transition={press}
-              className="grid size-14 place-items-center rounded-full bg-sticker text-sticker-ink shadow-photo"
-            >
-              {playing ? (
-                <Pause aria-hidden="true" className="size-6 fill-current" />
-              ) : (
-                <Play aria-hidden="true" className="ml-0.5 size-6 fill-current" />
-              )}
-            </motion.button>
-            <button
-              type="button"
-              onClick={() => {
-                step(1);
-              }}
-              disabled={index === count - 1}
-              aria-label="Next track"
-              className="grid size-10 place-items-center rounded-full text-ink disabled:opacity-30"
-            >
-              <SkipForward aria-hidden="true" className="size-5 fill-current" />
-            </button>
-          </div>
+            <div className="w-full max-w-xl">
+              <div
+                ref={ruler}
+                role="slider"
+                tabIndex={0}
+                aria-label="Position in the record"
+                aria-valuemin={0}
+                aria-valuemax={count * PREVIEW_SECONDS}
+                aria-valuenow={at.track * PREVIEW_SECONDS + seconds}
+                aria-valuetext={`${shown.title}, ${clock(seconds)} of ${clock(PREVIEW_SECONDS)}`}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
+                className="relative h-12 cursor-ew-resize touch-none select-none"
+              >
+                {Array.from({ length: TICKS }, (_, i) => (
+                  <Tick key={i} at={i / (TICKS - 1)} progress={progress} still={reduced} />
+                ))}
+                {/* Where each track begins. */}
+                {tracks.slice(1).map((track, i) => (
+                  <Tick
+                    key={track.position}
+                    at={(i + 1) / count}
+                    progress={progress}
+                    still={reduced}
+                    major
+                  />
+                ))}
+                <Cursor progress={progress} />
+              </div>
+              <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-baseline gap-4 text-xs">
+                <span className="truncate text-ink-soft">{first?.title}</span>
+                <span className="numerals text-ink">
+                  {clock(seconds)} <span className="text-ink-soft">/ {clock(PREVIEW_SECONDS)}</span>
+                </span>
+                <span className="truncate text-right text-ink-soft">{last?.title}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <button
+                type="button"
+                onClick={() => {
+                  step(-1);
+                }}
+                disabled={index === 0}
+                aria-label="Previous track"
+                className="grid size-10 place-items-center rounded-full text-ink disabled:opacity-30"
+              >
+                <SkipBack aria-hidden="true" className="size-5 fill-current" />
+              </button>
+              <motion.button
+                type="button"
+                onClick={toggle}
+                aria-label={playing ? 'Pause' : 'Play'}
+                whileHover={{ scale: 1.06 }}
+                whileTap={{ scale: 0.95 }}
+                transition={press}
+                className="grid size-14 place-items-center rounded-full bg-sticker text-sticker-ink shadow-photo"
+              >
+                {playing ? (
+                  <Pause aria-hidden="true" className="size-6 fill-current" />
+                ) : (
+                  <Play aria-hidden="true" className="ml-0.5 size-6 fill-current" />
+                )}
+              </motion.button>
+              <button
+                type="button"
+                onClick={() => {
+                  step(1);
+                }}
+                disabled={index === count - 1}
+                aria-label="Next track"
+                className="grid size-10 place-items-center rounded-full text-ink disabled:opacity-30"
+              >
+                <SkipForward aria-hidden="true" className="size-5 fill-current" />
+              </button>
+            </div>
+          </Reveal>
         </div>
 
         {/* The liner notes: what is on the platter, and what is playing. */}
-        <aside className="flex flex-col">
+        <Reveal shown={revealed} as="aside" className="flex flex-col">
           <h2 className="text-[clamp(1.75rem,3.2vw,2.75rem)] font-bold leading-[1.02] tracking-[-0.02em] [text-wrap:balance]">
             {release.title}
           </h2>
@@ -483,7 +628,7 @@ export function ListeningRoom({
               </a>
             )}
           </footer>
-        </aside>
+        </Reveal>
       </div>
 
       {/* Streamed from Apple, never stored (ADR 0010 §4). */}
@@ -559,5 +704,26 @@ function Note({ label, children }: { label: string; children: ReactNode }) {
       <dt className="condensed text-[0.7rem] text-ink-soft">{label}</dt>
       <dd className="text-right text-sm">{children}</dd>
     </div>
+  );
+}
+
+/** Parts of the room that wait for the disc: they fade in once it is on its way. */
+function Reveal({
+  shown,
+  as = 'div',
+  children,
+  ...rest
+}: {
+  shown: boolean;
+  as?: 'div' | 'aside';
+  className?: string;
+  'aria-hidden'?: 'true';
+  children?: ReactNode;
+}) {
+  const Tag = as === 'aside' ? motion.aside : motion.div;
+  return (
+    <Tag initial={false} animate={{ opacity: shown ? 1 : 0 }} transition={fade} {...rest}>
+      {children}
+    </Tag>
   );
 }
