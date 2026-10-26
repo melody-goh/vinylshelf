@@ -14,7 +14,6 @@ import { useUnexpired } from '../api/expiry';
 import { useLogout } from '../api/session';
 import { ClosedSleeve } from '../components/ClosedSleeve';
 import { DiscStack } from '../components/DiscStack';
-import { DiscogsCredit } from '../components/DiscogsCredit';
 import { Gatefold } from '../components/Gatefold';
 import { HypeSticker } from '../components/HypeSticker';
 import { ImportProgress } from '../components/ImportProgress';
@@ -244,7 +243,6 @@ export function Shelf({ user }: { user: User }) {
                     Discogs…
                   </p>
                 )}
-                {featured && <DiscogsCredit href="https://www.discogs.com" className="ml-auto" />}
               </div>
               <DiscStack
                 items={items}

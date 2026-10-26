@@ -296,6 +296,7 @@ function toCollectionPage(response: CollectionReleasesResponse): CollectionPageR
         // Discogs reports an unknown year as 0.
         year: info.year > 0 ? info.year : null,
         vinylColors: vinylColorsOf(info.formats),
+        formatNames: formatNamesOf(info.formats),
         coverImageUrl: coverImage(info.cover_image),
         discogsUrl: discogsEndpoints.releasePage(info.id),
       };
@@ -307,6 +308,11 @@ function toCollectionPage(response: CollectionReleasesResponse): CollectionPageR
       };
     }),
   };
+}
+
+/** Each format's name once, in Discogs' order: ["Vinyl", "CD"] for an LP-and-CD set. */
+function formatNamesOf(formats: readonly { name: string }[]): string[] {
+  return [...new Set(formats.map((f) => f.name))];
 }
 
 /** "2 × Vinyl, LP, Album, Blue Marbled": quantity, format, descriptions, free text. */
@@ -329,6 +335,7 @@ function toReleaseDetail(response: ReleaseResponse): ReleaseDetailData {
     artists: response.artists.map((a) => displayArtistName(a.name)),
     year: response.year !== undefined && response.year > 0 ? response.year : null,
     vinylColors: vinylColorsOf(response.formats),
+    formatNames: formatNamesOf(response.formats),
     coverImageUrl: coverImage(primary?.uri),
     discogsUrl: discogsEndpoints.releasePage(response.id),
     label: label?.name ?? null,

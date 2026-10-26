@@ -130,6 +130,7 @@ describe('HttpDiscogsGateway: collection', () => {
           artists: ['The Paper Moons'],
           year: 2019,
           vinylColors: ['Blue Marbled'],
+          formatNames: ['Vinyl'],
           coverImageUrl: 'https://i.discogs.com/fixture/cover-9000001.jpg',
           discogsUrl: 'https://www.discogs.com/release/9000001',
         },
@@ -144,6 +145,7 @@ describe('HttpDiscogsGateway: collection', () => {
           artists: ['Nightshade', 'Ana Ferreira'],
           year: null,
           vinylColors: [],
+          formatNames: ['Vinyl'],
           coverImageUrl: null,
           discogsUrl: 'https://www.discogs.com/release/9000002',
         },
@@ -267,6 +269,7 @@ describe('HttpDiscogsGateway: release detail', () => {
       artists: ['The Paper Moons'],
       year: 2019,
       vinylColors: ['Blue Marbled'],
+      formatNames: ['Vinyl'],
       coverImageUrl: 'https://i.discogs.com/fixture/cover-9000001.jpg',
       discogsUrl: 'https://www.discogs.com/release/9000001',
       label: 'Fixture Records',
@@ -309,6 +312,7 @@ describe('HttpDiscogsGateway: release detail', () => {
 
     expect(detail.catalogNumber).toBeNull();
     expect(detail.formats).toEqual(['2 × Vinyl, LP']);
+    expect(detail.formatNames).toEqual(['Vinyl']);
     expect(detail.vinylColors).toEqual([]);
   });
 

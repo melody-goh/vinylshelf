@@ -49,10 +49,15 @@ describe('Shelf: the open gatefold and the disc stack', () => {
 
     const open = await gatefold();
     expect(within(open).getByRole('heading', { name: 'Tidal Lines' })).toBeInTheDocument();
-    expect(within(open).getByRole('link', { name: 'Discogs' })).toHaveAttribute(
-      'href',
-      'https://www.discogs.com/release/9000001',
-    );
+    // The record links to its Discogs page from the community line under the sleeve;
+    // the credit itself is in the footer, once (ADR 0004, note of 2026-10-25).
+    await waitFor(() => {
+      const links = screen.getAllByRole('link', { name: 'Discogs' });
+      expect(links.map((l) => l.getAttribute('href'))).toContain(
+        'https://www.discogs.com/release/9000001',
+      );
+    });
+    expect(within(open).queryByText(/Data provided by/)).not.toBeInTheDocument();
 
     const discs = within(await records()).getAllByRole('button');
     expect(discs.map((d) => d.getAttribute('aria-label'))).toEqual([

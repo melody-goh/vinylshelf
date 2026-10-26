@@ -86,6 +86,7 @@ export function page(overrides: Partial<CollectionPage> = {}): CollectionPage {
   return {
     items: shelf,
     totalItems: shelf.length,
+    otherFormatsCount: 0,
     nextCursor: null,
     refresh: { status: 'idle', importId: null, hiddenCount: 0, retryAt: null },
     ...overrides,

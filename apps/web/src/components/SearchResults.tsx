@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { ApiError } from '../api/client';
 import { LOGIN_URL } from '../api/session';
 import { MIN_QUERY, useAddToShelf, useDebounced, useSearch } from '../api/search';
-import { DiscogsCredit } from './DiscogsCredit';
 
 const press = { type: 'spring', stiffness: 500, damping: 28 } as const;
 
@@ -76,7 +75,6 @@ export function SearchResults({
             : `${totalResults.toLocaleString()} vinyl ${totalResults === 1 ? 'release' : 'releases'} on Discogs`}
           {search.isFetching ? ' · searching…' : ''}
         </p>
-        <DiscogsCredit href="https://www.discogs.com" />
       </div>
 
       {results.length > 0 && (

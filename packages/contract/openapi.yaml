@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.4.0
+  version: 0.5.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -10,8 +10,9 @@ info:
 
     **Discogs data.** Fields sourced from Discogs carry `fetchedAt` and `expiresAt`.
     Clients MUST NOT display a Discogs-sourced value after `expiresAt`, and MUST render
-    the attribution required by Discogs' API Terms of Use next to it
-    (see docs/adr/0004-discogs-data-lifecycle.md). `discogsUrl` is provided for that link.
+    the attribution required by Discogs' API Terms of Use on every screen that shows
+    it (see docs/adr/0004-discogs-data-lifecycle.md, note of 2026-10-25). `discogsUrl`
+    links a record to its Discogs page.
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -655,7 +656,13 @@ components:
 
     CollectionPage:
       type: object
-      required: [items, totalItems, refresh]
+      description: |
+        The shelf holds vinyl only. A release counts as vinyl when any of its formats is
+        Vinyl (an LP-and-CD box set is on the shelf); CDs, cassettes and other formats
+        in the Discogs collection are left off and counted in `otherFormatsCount`.
+        Releases whose formats are not yet known (cached before 0.5.0) are treated as
+        vinyl until the next import.
+      required: [items, totalItems, otherFormatsCount, refresh]
       properties:
         items:
           type: array
@@ -665,8 +672,14 @@ components:
           type: integer
           minimum: 0
           description: |
-            Records on the user's shelf, including any withheld while their data
+            Vinyl records on the user's shelf, including any withheld while their data
             refreshes (`refresh.hiddenCount`). The same on every page.
+        otherFormatsCount:
+          type: integer
+          minimum: 0
+          description: |
+            Releases in the user's Discogs collection that are not vinyl, and so are not
+            on the shelf. The same on every page.
         nextCursor:
           type: [string, 'null']
         refresh:

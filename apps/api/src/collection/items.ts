@@ -7,7 +7,7 @@ import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { DatabaseHandle } from '../db/client.js';
 import { collectionItems, discogsReleaseCache } from '../db/schema.js';
-import { freshReleaseCondition } from '../discogs/cache.js';
+import { freshReleaseCondition, vinylReleaseCondition } from '../discogs/cache.js';
 import { ProblemError } from '../http/problem.js';
 import type { CollectionSort } from '../http/schemas.js';
 import type { Clock } from '../lib/clock.js';
@@ -99,7 +99,12 @@ export class CollectionItemsService {
             retryAt: null,
           };
 
-    return { ...page, totalItems: freshness.totalItems, refresh };
+    return {
+      ...page,
+      totalItems: freshness.totalItems,
+      otherFormatsCount: freshness.otherFormatsCount,
+      refresh,
+    };
   }
 
   private async page(
@@ -140,7 +145,7 @@ export class CollectionItemsService {
           freshReleaseCondition(now),
         ),
       )
-      .where(and(eq(collectionItems.userId, input.userId), after))
+      .where(and(eq(collectionItems.userId, input.userId), vinylReleaseCondition(), after))
       .orderBy(sql`${spec.key} ${dir}`, sql`${collectionItems.instanceId} ${dir}`)
       .limit(input.limit + 1);
 
@@ -168,7 +173,16 @@ export class CollectionItemsService {
   private async freshness(userId: string, now: Date): Promise<ShelfFreshness> {
     const [row] = await this.database.db
       .select({
-        totalItems: sql<number>`count(*)`.mapWith(Number),
+        // Records withheld while refreshing have no known format yet; they count as
+        // shelf records, like any release whose formats are unknown.
+        totalItems:
+          sql<number>`count(*) filter (where ${discogsReleaseCache.discogsId} is null or ${vinylReleaseCondition()})`.mapWith(
+            Number,
+          ),
+        otherFormatsCount:
+          sql<number>`count(*) filter (where ${discogsReleaseCache.discogsId} is not null and not ${vinylReleaseCondition()})`.mapWith(
+            Number,
+          ),
         hiddenCount:
           sql<number>`count(*) filter (where ${discogsReleaseCache.discogsId} is null)`.mapWith(
             Number,
@@ -188,6 +202,7 @@ export class CollectionItemsService {
       .where(eq(collectionItems.userId, userId));
     return {
       totalItems: row?.totalItems ?? 0,
+      otherFormatsCount: row?.otherFormatsCount ?? 0,
       hiddenCount: row?.hiddenCount ?? 0,
       oldestFetchedAt: row?.oldestFetchedAt ?? null,
     };

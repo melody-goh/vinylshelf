@@ -19,7 +19,8 @@ Motion), `apps/api` (TypeScript, Fastify, Zod, Drizzle, Postgres, pg-boss),
 - Every external service (Discogs, recognition vendor, MusicBrainz) is accessed only
   through its own gateway module behind an interface. Never call them from elsewhere.
 - Discogs data follows ADR 0004: tag classification, enforce a TTL of at most 6 hours on
-  read, never store images, render `DiscogsCredit` next to Discogs data.
+  read, never store images, and credit Discogs on every screen that shows its data (the
+  footer does; a surface covering the footer carries its own `DiscogsCredit`).
 - Tests must never hit live third-party APIs. Use recorded fixtures or fakes.
 - Free to build and host: do not add paid services or new infrastructure without asking.
 - Never commit secrets. Config comes from environment variables, validated at startup.

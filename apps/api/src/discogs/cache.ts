@@ -38,6 +38,14 @@ export function classifyRelease(release: ReleaseSummaryData): DiscogsClassificat
   return release.coverImageUrl === null ? 'cc0' : 'restricted';
 }
 
+/**
+ * The only definition of "on the shelf": any of the release's formats is Vinyl, or its
+ * formats are not known yet (cached before they were kept).
+ */
+export function vinylReleaseCondition(): SQL {
+  return sql`(${discogsReleaseCache.formatNames} is null or ${discogsReleaseCache.formatNames} @> '["Vinyl"]'::jsonb)`;
+}
+
 /** The only definition of "fresh". Use it in every query that reads cached releases. */
 export function freshReleaseCondition(now: Date): SQL {
   return gt(discogsReleaseCache.expiresAt, now);
@@ -76,6 +84,7 @@ export class DiscogsReleaseCache {
       artistSort: (r.artists[0] ?? '').toLocaleLowerCase('en'),
       year: r.year,
       vinylColors: r.vinylColors,
+      formatNames: r.formatNames,
       coverImageUrl: r.coverImageUrl,
       discogsUrl: r.discogsUrl,
       classification: classifyRelease(r),
@@ -94,6 +103,7 @@ export class DiscogsReleaseCache {
           artistSort: sqlExcluded('artist_sort'),
           year: sqlExcluded('year'),
           vinylColors: sqlExcluded('vinyl_colors'),
+          formatNames: sqlExcluded('format_names'),
           coverImageUrl: sqlExcluded('cover_image_url'),
           discogsUrl: sqlExcluded('discogs_url'),
           classification: sqlExcluded('classification'),
@@ -121,6 +131,7 @@ export class DiscogsReleaseCache {
           artists: row.artists,
           year: row.year,
           vinylColors: row.vinylColors,
+          formatNames: row.formatNames ?? ['Vinyl'],
           coverImageUrl: row.coverImageUrl,
           discogsUrl: row.discogsUrl,
           classification: row.classification,
