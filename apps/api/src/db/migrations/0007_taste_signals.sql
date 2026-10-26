@@ -7,5 +7,5 @@ CREATE TABLE "taste_feedback" (
 	CONSTRAINT "taste_feedback_user_id_master_id_pk" PRIMARY KEY("user_id","master_id")
 );
 --> statement-breakpoint
-ALTER TABLE "discogs_release_cache" ADD COLUMN "master_id" integer;--> statement-breakpoint
+ALTER TABLE "collection_items" ADD COLUMN "master_id" integer;--> statement-breakpoint
 ALTER TABLE "taste_feedback" ADD CONSTRAINT "taste_feedback_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;

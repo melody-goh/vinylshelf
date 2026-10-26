@@ -1,5 +1,5 @@
 {
-  "id": "384cf85d-32fc-48fc-9c30-0e6df0708efe",
+  "id": "e92d7621-6759-470f-9f9c-60f97c8fb088",
   "prevId": "407df077-1524-4141-b283-cd39d5c264b8",
   "version": "7",
   "dialect": "postgresql",
@@ -171,6 +171,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "master_id": {
+          "name": "master_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "date_added": {
           "name": "date_added",
           "type": "timestamp with time zone",
@@ -279,12 +285,6 @@
           "type": "integer",
           "primaryKey": true,
           "notNull": true
-        },
-        "master_id": {
-          "name": "master_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
         },
         "title": {
           "name": "title",

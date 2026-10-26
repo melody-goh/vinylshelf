@@ -103,6 +103,12 @@ export const collectionItems = pgTable(
     // Discogs instance ids are approaching the int4 limit, so store them as int8.
     instanceId: bigint('instance_id', { mode: 'number' }).notNull(),
     releaseId: integer('release_id').notNull(),
+    /**
+     * The release's Discogs master, or null when it has none. An identifier like
+     * release_id (ADR 0006, note of 2026-10-27): it links a shelf record to the CC0 taste
+     * catalogue without keeping any Discogs data past its deadline.
+     */
+    masterId: integer('master_id'),
     dateAdded: timestamptz('date_added').notNull(),
     /** Set by each import; rows an import did not see are deleted when it succeeds. */
     lastSeenImportId: uuid('last_seen_import_id').references(() => importJobs.id, {
@@ -128,8 +134,6 @@ export const discogsReleaseCache = pgTable(
   'discogs_release_cache',
   {
     discogsId: integer('discogs_id').primaryKey(),
-    /** The release's master; null when it has none, or for rows cached before 0.8. */
-    masterId: integer('master_id'),
     title: text('title').notNull(),
     artists: jsonb('artists').$type<string[]>().notNull(),
     /** Lower-cased first artist, for the `artist_asc` sort. */

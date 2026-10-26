@@ -18,7 +18,8 @@ import {
 import type { Clock } from '../lib/clock.js';
 import type { ReleaseDetailData, ReleaseSummaryData } from './gateway.js';
 
-export interface CachedRelease extends ReleaseSummaryData {
+/** The master id is not cached: it lives on the shelf reference (ADR 0006 note). */
+export interface CachedRelease extends Omit<ReleaseSummaryData, 'masterId'> {
   classification: DiscogsClassification;
   fetchedAt: Date;
   expiresAt: Date;
@@ -79,7 +80,6 @@ export class DiscogsReleaseCache {
     const expiresAt = new Date(fetchedAt.getTime() + this.ttlSeconds * 1000);
     const rows = unique.map((r) => ({
       discogsId: r.discogsId,
-      masterId: r.masterId,
       title: r.title,
       artists: r.artists,
       artistSort: (r.artists[0] ?? '').toLocaleLowerCase('en'),
@@ -101,7 +101,6 @@ export class DiscogsReleaseCache {
       .onConflictDoUpdate({
         target: discogsReleaseCache.discogsId,
         set: {
-          masterId: sqlExcluded('master_id'),
           title: sqlExcluded('title'),
           artists: sqlExcluded('artists'),
           artistSort: sqlExcluded('artist_sort'),
@@ -133,7 +132,6 @@ export class DiscogsReleaseCache {
         row.discogsId,
         {
           discogsId: row.discogsId,
-          masterId: row.masterId,
           title: row.title,
           artists: row.artists,
           year: row.year,
