@@ -78,5 +78,43 @@ export const releaseResponse = z.object({
     .default([]),
   extraartists: z.array(z.object({ name: z.string(), role: z.string() })).default([]),
   images: z.array(z.object({ type: z.string(), uri: z.string() })).default([]),
+  community: z
+    .object({
+      have: z.number().int().min(0).default(0),
+      want: z.number().int().min(0).default(0),
+      rating: z
+        .object({ count: z.number().int().min(0), average: z.number().min(0).max(5) })
+        .default({ count: 0, average: 0 }),
+    })
+    .default({ have: 0, want: 0, rating: { count: 0, average: 0 } }),
 });
 export type ReleaseResponse = z.infer<typeof releaseResponse>;
+
+/** `GET /database/search`: one page of results. Discogs sends strings where it can. */
+export const searchResponse = z.object({
+  pagination: z.object({
+    page: z.number().int().min(1),
+    pages: z.number().int().min(0),
+    items: z.number().int().min(0),
+  }),
+  results: z.array(
+    z.object({
+      id: z.number().int().positive(),
+      type: z.string(),
+      /** "Artist - Title", as Discogs shows it. */
+      title: z.string(),
+      year: z.string().optional(),
+      country: z.string().optional(),
+      label: z.array(z.string()).default([]),
+      catno: z.string().optional(),
+      format: z.array(z.string()).default([]),
+      thumb: z.string().optional(),
+    }),
+  ),
+});
+export type SearchResponse = z.infer<typeof searchResponse>;
+
+/** `POST /users/{username}/collection/folders/{folder}/releases/{release}` (201). */
+export const addToCollectionResponse = z.object({
+  instance_id: z.number().int().positive(),
+});

@@ -3,7 +3,14 @@ import { z } from 'zod';
 import { currentUserId, requireUser } from '../auth/guard.js';
 import type { SessionStore } from '../auth/sessions.js';
 import { ProblemError } from '../http/problem.js';
-import { collectionItemsQuery, collectionPageSchema, importJobSchema } from '../http/schemas.js';
+import {
+  addCollectionItemBody,
+  collectionItemSchema,
+  collectionItemsQuery,
+  collectionPageSchema,
+  importJobSchema,
+} from '../http/schemas.js';
+import type { CollectionAddService } from './add.js';
 import { toImportJobDto, type ImportService } from './imports.js';
 import type { CollectionItemsService } from './items.js';
 
@@ -11,6 +18,7 @@ export interface CollectionRouteDependencies {
   sessions: SessionStore;
   imports: ImportService;
   items: CollectionItemsService;
+  add: CollectionAddService;
 }
 
 /** Collection import and listing endpoints (openapi.yaml, tag Collection). */
@@ -62,6 +70,15 @@ export const collectionRoutes =
         schema: { querystring: collectionItemsQuery, response: { 200: collectionPageSchema } },
       },
       async (request) => deps.items.list({ userId: currentUserId(request), ...request.query }),
+    );
+
+    app.post(
+      '/collection/items',
+      { ...auth, schema: { body: addCollectionItemBody, response: { 201: collectionItemSchema } } },
+      async (request, reply) => {
+        const item = await deps.add.add({ userId: currentUserId(request), ...request.body });
+        return reply.status(201).send(item);
+      },
     );
 
     return Promise.resolve();

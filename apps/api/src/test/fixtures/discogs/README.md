@@ -10,6 +10,9 @@ prove unknown fields are tolerated, and edge cases the gateway must handle:
 - an artist name with Discogs' disambiguation suffix (`"Nightshade (2)"`)
 - an unknown year reported as `0`
 - a release with an empty `cover_image`
+- search results with a name-variation `*`, an artist suffix, a title containing
+  " - ", no year, a `"none"` catalogue number, a spacer thumbnail, and a master
+  result mixed in (search can return masters even when asked for releases)
 
 Hand-built fixtures can drift from reality. Last checked against the live API on
 2026-10-23: no schema issues; label `entity_type`, `entity_type_name` and `resource_url`

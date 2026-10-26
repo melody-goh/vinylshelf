@@ -50,6 +50,7 @@ describe('GET /releases/{discogsId}', () => {
       catalogNumber: 'FX-001',
       tracklist: [{ position: 'A1', title: 'Shoreline' }, {}, {}, {}],
       credits: [{ role: 'Producer' }, { role: 'Mastered By' }],
+      community: { rating: { average: 4.31, count: 212 }, have: 1840, want: 960 },
       discogsUrl: 'https://www.discogs.com/release/9000001',
       expiresAt: new Date(clock().time + testConfig.discogs.cacheTtlSeconds * 1000).toISOString(),
     });

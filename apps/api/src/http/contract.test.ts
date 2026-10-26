@@ -12,6 +12,7 @@ import type {
   Problem,
   Release,
   ReleaseSummary,
+  SearchPage,
   User,
 } from '@vinylshelf/contract';
 import type { FastifyInstance } from 'fastify';
@@ -35,6 +36,7 @@ import type {
   problemSchema,
   releaseSchema,
   releaseSummarySchema,
+  searchPageSchema,
   userSchema,
 } from './schemas.js';
 
@@ -48,7 +50,8 @@ const typesMatch: [
   Equivalent<z.infer<typeof collectionRefreshSchema>, CollectionRefresh>,
   Equivalent<z.infer<typeof collectionPageSchema>, CollectionPage>,
   Equivalent<z.infer<typeof releaseSchema>, Release>,
-] = [true, true, true, true, true, true, true];
+  Equivalent<z.infer<typeof searchPageSchema>, SearchPage>,
+] = [true, true, true, true, true, true, true, true];
 
 const { db, handle } = useTestDatabase();
 const EVIL = 'https://evil.example';
@@ -77,6 +80,7 @@ interface CallOptions {
   query?: string;
   signedIn?: boolean;
   origin?: string;
+  body?: Record<string, unknown>;
 }
 
 /** Calls an operation and asserts the response is one the spec documents. */
@@ -86,6 +90,7 @@ async function call(method: HttpMethod, template: string, options: CallOptions =
     url: `${API_PREFIX}${options.path ?? template}${options.query ? `?${options.query}` : ''}`,
     headers: { origin: options.origin ?? testConfig.webOrigin },
     cookies: options.signedIn === false ? {} : { sid },
+    ...(options.body ? { payload: options.body } : {}),
   });
   expectToMatchContract(method, template, res);
   return res;
@@ -216,6 +221,47 @@ describe('contract: responses validate against openapi.yaml', () => {
     expect((await call('get', byId, { path: '/releases/9000001' })).statusCode).toBe(429);
     mswServer.use(http.get(discogsUrls.release, () => new HttpResponse(null, { status: 500 })));
     expect((await call('get', byId, { path: '/releases/9000001' })).statusCode).toBe(503);
+  });
+});
+
+describe('contract: search and adding (ADR 0009)', () => {
+  it('GET /search/releases: 200, 400, 401, 429 and 503', async () => {
+    const path = '/search/releases';
+    expect((await call('get', path, { query: 'q=tidal' })).statusCode).toBe(200);
+    expect((await call('get', path, { query: 'q=a' })).statusCode).toBe(400);
+    expect((await call('get', path, { query: 'q=tidal', signedIn: false })).statusCode).toBe(401);
+
+    mswServer.use(http.get(discogsUrls.search, () => new HttpResponse(null, { status: 500 })));
+    expect((await call('get', path, { query: 'q=tidal' })).statusCode).toBe(503);
+    mswServer.use(
+      http.get(discogsUrls.search, () =>
+        HttpResponse.json({}, { status: 429, headers: { 'Retry-After': '5' } }),
+      ),
+    );
+    expect((await call('get', path, { query: 'q=tidal' })).statusCode).toBe(429);
+  });
+
+  it('POST /collection/items: 201, 409, 400, 401, 403, 404, 429 and 503', async () => {
+    const path = '/collection/items';
+    const body = { discogsId: 9000001 };
+    expect((await call('post', path, { body })).statusCode).toBe(201);
+    expect((await call('post', path, { body })).statusCode).toBe(409);
+    expect((await call('post', path, { body: { discogsId: 0 } })).statusCode).toBe(400);
+    expect((await call('post', path, { body, signedIn: false })).statusCode).toBe(401);
+    expect((await call('post', path, { body, origin: EVIL })).statusCode).toBe(403);
+    expect((await call('post', path, { body: { discogsId: 1 } })).statusCode).toBe(404);
+
+    const again = { discogsId: 9000001, allowDuplicate: true };
+    mswServer.use(
+      http.post(discogsUrls.addToCollection, () =>
+        HttpResponse.json({}, { status: 429, headers: { 'Retry-After': '5' } }),
+      ),
+    );
+    expect((await call('post', path, { body: again })).statusCode).toBe(429);
+    mswServer.use(
+      http.post(discogsUrls.addToCollection, () => new HttpResponse(null, { status: 500 })),
+    );
+    expect((await call('post', path, { body: again })).statusCode).toBe(503);
   });
 });
 

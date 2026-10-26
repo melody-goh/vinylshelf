@@ -164,7 +164,8 @@ export class DiscogsReleaseCache {
         ),
       )
       .limit(1);
-    if (!row) return null;
+    // Rows cached before a field joined the detail are a miss, refetched in full.
+    if (!row || !isCurrentDetail(row.detail)) return null;
     return {
       ...row.detail,
       classification: row.classification,
@@ -190,6 +191,12 @@ export class DiscogsReleaseCache {
       .returning({ id: discogsReleaseDetailCache.discogsId });
     return summaries.length + details.length;
   }
+}
+
+/** Whether a cached detail has every field the current `ReleaseDetailData` has. */
+function isCurrentDetail(detail: ReleaseDetailData): boolean {
+  // `community` joined in 0.3.0; older rows were written without it.
+  return (detail as Partial<ReleaseDetailData>).community !== undefined;
 }
 
 /** `excluded.<column>` in an upsert: the value from the row being inserted. */

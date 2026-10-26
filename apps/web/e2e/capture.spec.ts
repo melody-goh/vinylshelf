@@ -3,8 +3,8 @@
  * review (impeccable's inspection round). Run with `pnpm --filter @vinylshelf/web
  * e2e:capture`; images land in .impeccable/review/ (git-ignored).
  */
-import { test, type Page } from '@playwright/test';
-import { coverSvg, page as shelfPage, release, user } from './synthetic';
+import { expect, test, type Page } from '@playwright/test';
+import { coverSvg, page as shelfPage, release, searchResults, user } from './synthetic';
 
 const OUT = '.impeccable/review';
 
@@ -57,6 +57,9 @@ async function mockApi(page: Page, state: State): Promise<void> {
       },
     }),
   );
+  await page.route('**/api/v1/search/releases**', (route) =>
+    route.fulfill({ json: searchResults() }),
+  );
   await page.route('**/api/v1/releases/*', (route) => {
     const id = Number(route.request().url().split('/').pop());
     return route.fulfill({ json: release(id) });
@@ -65,6 +68,10 @@ async function mockApi(page: Page, state: State): Promise<void> {
 
 async function settle(page: Page): Promise<void> {
   await page.waitForLoadState('networkidle');
+  // The first screen holds for one pass of its scored type before the app appears.
+  await expect(page.getByText('Waking up the shelf…', { exact: true })).toHaveCount(0, {
+    timeout: 8000,
+  });
   await page.waitForTimeout(900); // springs and the ticking count come to rest
 }
 
@@ -99,6 +106,11 @@ test('desktop captures', async ({ page }) => {
   await settle(page);
   await page.screenshot({ path: `${OUT}/desktop-chosen.png` });
 
+  await page.getByRole('searchbox', { name: /search discogs/i }).fill('paper moons');
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${OUT}/desktop-search.png` });
+  await page.getByRole('searchbox', { name: /search discogs/i }).fill('');
+
   await page.unrouteAll();
   await mockApi(page, 'empty');
   await page.goto('/');
@@ -125,6 +137,12 @@ test('phone captures', async ({ page }) => {
   await page.goto('/');
   await settle(page);
   await page.screenshot({ path: `${OUT}/mobile.png`, fullPage: true });
+
+  await page.getByRole('searchbox', { name: /search discogs/i }).fill('paper moons');
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${OUT}/mobile-search.png` });
+  await page.getByRole('searchbox', { name: /search discogs/i }).fill('');
+  await page.waitForTimeout(400);
 
   // Keyboard focus leans a disc out and names it under the row.
   await page.getByRole('button', { name: /^Orchard Weather/ }).focus();

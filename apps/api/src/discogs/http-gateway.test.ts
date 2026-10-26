@@ -10,7 +10,12 @@ import {
   DiscogsSchemaError,
   DiscogsUnavailableError,
 } from './errors.js';
-import { COLLECTION_PAGE_SIZE, HttpDiscogsGateway, displayArtistName } from './http-gateway.js';
+import {
+  COLLECTION_PAGE_SIZE,
+  HttpDiscogsGateway,
+  SEARCH_PAGE_SIZE,
+  displayArtistName,
+} from './http-gateway.js';
 import { RateLimiter, type Lane } from './rate-limiter.js';
 
 const accessToken = { token: 'acc-token', secret: 'acc-secret' };
@@ -279,7 +284,18 @@ describe('HttpDiscogsGateway: release detail', () => {
         { position: 'B1', title: 'Low Tide Radio', duration: null },
         { position: 'B2', title: 'Salt', duration: '5:01' },
       ],
+      community: { rating: { average: 4.31, count: 212 }, have: 1840, want: 960 },
     });
+  });
+
+  it('reads a release without community data as unrated, owned by no one', async () => {
+    const release = discogsFixtures.release(9000001);
+    delete release.community;
+    mswServer.use(http.get(discogsUrls.release, () => HttpResponse.json(release)));
+
+    const detail = await makeGateway().gateway.getRelease(accessToken, 9000001);
+
+    expect(detail.community).toEqual({ rating: { average: 0, count: 0 }, have: 0, want: 0 });
   });
 
   it('treats "none" as no catalogue number and counts multi-disc formats', async () => {
@@ -300,5 +316,86 @@ describe('HttpDiscogsGateway: release detail', () => {
     await expect(makeGateway().gateway.getRelease(accessToken, 1)).rejects.toBeInstanceOf(
       DiscogsNotFoundError,
     );
+  });
+});
+
+describe('HttpDiscogsGateway: search', () => {
+  it('searches vinyl releases only, signed, on the interactive lane', async () => {
+    const seen = capture('get', discogsUrls.search);
+    await makeGateway().gateway.searchReleases(accessToken, 'tidal lines', 2);
+
+    const url = new URL(seen[0]?.url ?? '');
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      q: 'tidal lines',
+      type: 'release',
+      format: 'Vinyl',
+      page: '2',
+      per_page: String(SEARCH_PAGE_SIZE),
+    });
+  });
+
+  it('maps results into clean domain entries and drops masters', async () => {
+    mswServer.use(...discogsHandlers());
+    const page = await makeGateway().gateway.searchReleases(accessToken, 'tidal', 1);
+
+    expect(page).toMatchObject({ page: 1, pages: 1, totalResults: 3 });
+    expect(page.results).toEqual([
+      {
+        discogsId: 9000001,
+        title: 'Tidal Lines',
+        artists: ['The Paper Moons'],
+        year: 2019,
+        country: 'UK',
+        label: 'Fixture Records',
+        catalogNumber: 'FX-001',
+        formats: ['Vinyl', 'LP', 'Album', 'Limited Edition'],
+        thumbUrl: 'https://i.discogs.com/fixture/thumb-9000001.jpg',
+        discogsUrl: 'https://www.discogs.com/release/9000001',
+      },
+      {
+        // The name-variation "*" and the "(2)" suffix go; only the first " - " splits.
+        discogsId: 9000099,
+        title: 'Night Bus - Recordings',
+        artists: ['Nightshade'],
+        year: null,
+        country: 'US',
+        label: 'Lamplight',
+        catalogNumber: null,
+        formats: ['Vinyl', 'LP'],
+        thumbUrl: null,
+        discogsUrl: 'https://www.discogs.com/release/9000099',
+      },
+    ]);
+  });
+});
+
+describe('HttpDiscogsGateway: adding to the collection', () => {
+  it('adds one copy to folder 1 and returns its instance id', async () => {
+    const seen = capture('post', discogsUrls.addToCollection);
+    const result = await makeGateway().gateway.addToCollection(
+      accessToken,
+      'fixture_collector',
+      9000001,
+    );
+
+    expect(result).toEqual({ instanceId: 2100000099 });
+    expect(seen[0]?.url).toBe(
+      'https://api.discogs.com/users/fixture_collector/collection/folders/1/releases/9000001',
+    );
+    expect(seen[0]?.headers.get('authorization')).toContain('oauth_token="acc-token"');
+  });
+
+  it('never retries a write on 429, since Discogs may have added the copy', async () => {
+    let calls = 0;
+    mswServer.use(
+      http.post(discogsUrls.addToCollection, () => {
+        calls++;
+        return HttpResponse.json({}, { status: 429, headers: { 'Retry-After': '3' } });
+      }),
+    );
+    await expect(
+      makeGateway().gateway.addToCollection(accessToken, 'fixture_collector', 9000001),
+    ).rejects.toBeInstanceOf(DiscogsRateLimitedError);
+    expect(calls).toBe(1);
   });
 });

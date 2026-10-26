@@ -17,3 +17,5 @@ export type CollectionItem = Schemas['CollectionItem'];
 export type ReleaseSummary = Schemas['ReleaseSummary'];
 export type Release = Schemas['Release'];
 export type LoginErrorCode = Schemas['LoginErrorCode'];
+export type SearchPage = Schemas['SearchPage'];
+export type SearchResult = Schemas['SearchResult'];

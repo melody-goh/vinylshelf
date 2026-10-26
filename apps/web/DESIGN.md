@@ -233,7 +233,7 @@ The round sticker on a sleeve's shrink-wrap; the only filled control in the syst
 Every other action ("Sign out", "Try now", "Sign in again", "Load more records") is underlined text in the current colour, with a 0.2em underline offset. "Load more records" uses condensed caps at 0.75rem and drops the underline while loading. The sort control is a bare select in medium weight with a 1rem chevron, after a "Sort by" label in Soft Ink.
 
 ### Header Strip
-Wordmark on the left; record count, sort, username (wide screens only) and "Sign out" on the right, 1.5rem apart, on a Hairline Rule. 0.75rem vertical, 1rem phone and 2rem wide horizontal padding.
+Wordmark on the left; record count, sort, username (wide screens only) and "Sign out" on the right, 1.5rem apart, on a Hairline Rule. 0.75rem vertical, 1rem phone and 2rem wide horizontal padding. A "Sync with Discogs" text action (reading "Syncing…" while it runs) re-imports on demand, so changes made on discogs.com reach the shelf without waiting for the automatic refresh; it is hidden on an empty shelf, which has its own import sticker.
 
 ### Open Gatefold (signature)
 The record at full size: two square panels in the Photo shadow.
@@ -250,6 +250,12 @@ The rest of the collection, fanned. The open record's disc is nudged 10% out of 
 
 ### Closed Sleeve
 The front of the gatefold before anything is open: a carbon square (max 34rem) in the Photo shadow, the display title at the top, up to 24rem of body-small copy at 80% Studio White at the bottom, and an optional hype sticker. Used for sign-in, the empty shelf and the "Back in a moment" refresh state.
+
+### Search
+A search field sits in the header between the wordmark and the controls: text straight on the ground over a hairline (25% Ink), a Search icon, placeholder "Find a record on Discogs", a clear button once there is text; Escape clears it. On phones it takes its own row under the header controls. While there is a query, results take the gatefold's place (top-aligned), and on phones the disc row steps aside. Results are a ruled list: a square thumbnail in the Photo shadow (carbon when Discogs has none), the title in semibold, the artists, a condensed caps pressing line (year · country · label and catalogue number) and the formats in Soft Ink. The action is a small hype sticker (3.5rem, 4rem from 48rem) reading ADD. A record already on the shelf shows "On your shelf" and an "I have another copy" text action; only after that does an ADD COPY sticker appear (ADR 0009). Results carry the Discogs credit; pages turn with Previous and Next. Adding closes search and opens the new record in the gatefold.
+
+### Community line
+Under the open gatefold, outside it, as plain body-small text on the ground: a filled star and the Discogs rating to two decimals in Ink ("4.31 from 212 ratings"), then "1,840 have it · 960 want it · on Discogs" in Soft Ink, with "Discogs" linking to the release. Unrated records say "No ratings yet". Reserved at 1.25rem so the gatefold does not shift when it arrives.
 
 ### Scored Text (loading)
 The full-screen loading lines ("Waking up the shelf…", "Taking your records off the shelf…"), set in display type (800, wdth 62, caps, clamp(2.75rem, 8vw, 5.5rem)) centred on the ground. A wave runs through the words, five letters wide, one letter every 110ms: each letter fades out as a handful of engraved notes (up to nine, about a quarter of an em each, at least 0.2em apart; crotchet, quaver, minim, beamed pair and three, flat; plain Ink) bloom from points inside its outline and drift just past it (0.03 to 0.1em), away from the letter's centre, then pull back in as the letter returns; the wave rests ten ticks between passes. Points are sampled from the glyph as laid out in Archivo (`src/design/scored.ts`), seeded per letter so a word always scores the same way. Springs 260/20 for the notes, 700/45 for the letter. On first load the screen is held until the wave has passed through once (about 2.3s from page load, capped at 4s), so the notes are seen even when the session check is instant; it is never held under reduced motion or when the letters cannot be scored. Screen readers get the sentence once, as plain text in the status; under reduced motion everyone does. Display size only: below about 2rem a note cannot read as one, so small loading lines stay plain.

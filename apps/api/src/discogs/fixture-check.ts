@@ -12,7 +12,12 @@ import { discogsEndpoints } from './endpoints.js';
 import type { TokenPair } from './gateway.js';
 import { authorizationHeader, type ConsumerCredentials } from './oauth1.js';
 import { RateLimiter } from './rate-limiter.js';
-import { collectionReleasesResponse, identityResponse, releaseResponse } from './schemas.js';
+import {
+  collectionReleasesResponse,
+  identityResponse,
+  releaseResponse,
+  searchResponse,
+} from './schemas.js';
 
 /** Field paths with JSON types, e.g. `releases[].basic_information.year: number`. */
 export function shapeOf(value: unknown, path = '', into = new Set<string>()): Set<string> {
@@ -68,7 +73,11 @@ export interface FixtureCheckOptions {
   fixturesDir: URL;
 }
 
-/** Makes three live calls (identity, one small collection page, one release) and compares each. */
+/**
+ * Makes four read-only live calls (identity, one small collection page, one release, one
+ * search) and compares each. Adding to the collection is never exercised live: it would
+ * write to the user's real Discogs account.
+ */
 export async function checkFixtureShapes(options: FixtureCheckOptions): Promise<ShapeReport[]> {
   const limiter = new RateLimiter();
   const get = async (url: string): Promise<unknown> => {
@@ -123,5 +132,20 @@ export async function checkFixtureShapes(options: FixtureCheckOptions): Promise<
       ),
     );
   }
+
+  // A well-known album, so the page is full of every field search can return.
+  const searchUrl = new URL(discogsEndpoints.search);
+  searchUrl.searchParams.set('q', 'Kind of Blue');
+  searchUrl.searchParams.set('type', 'release');
+  searchUrl.searchParams.set('format', 'Vinyl');
+  searchUrl.searchParams.set('per_page', '5');
+  reports.push(
+    compareShapes(
+      'database/search',
+      await get(searchUrl.toString()),
+      await fixture('search-vinyl.json'),
+      searchResponse,
+    ),
+  );
   return reports;
 }

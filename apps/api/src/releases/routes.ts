@@ -3,15 +3,24 @@ import { z } from 'zod';
 import { currentUserId, requireUser } from '../auth/guard.js';
 import type { SessionStore } from '../auth/sessions.js';
 import { ProblemError } from '../http/problem.js';
-import { releaseSchema } from '../http/schemas.js';
+import { releaseSchema, searchPageSchema, searchQuery } from '../http/schemas.js';
 import { toReleaseDto, type ReleaseService } from './release-service.js';
+import type { SearchService } from './search-service.js';
+
+/**
+ * Searches per session per minute. Every user shares one Discogs budget of 60 a minute
+ * (ADR 0009 §5); with the client debouncing keystrokes, this is plenty for a person and
+ * stops one tab from starving imports and record detail for everyone else.
+ */
+export const SEARCHES_PER_MINUTE = 20;
 
 export interface ReleaseRouteDependencies {
   sessions: SessionStore;
   releases: ReleaseService;
+  search: SearchService;
 }
 
-/** Release detail (openapi.yaml, tag Releases). */
+/** Release detail and search (openapi.yaml, tag Releases). */
 export const releaseRoutes =
   (deps: ReleaseRouteDependencies): FastifyPluginAsyncZod =>
   (app) => {
@@ -30,6 +39,24 @@ export const releaseRoutes =
         }
         return toReleaseDto(await deps.releases.get(currentUserId(request), id));
       },
+    );
+
+    app.get(
+      '/search/releases',
+      {
+        preHandler: requireUser(deps.sessions),
+        config: {
+          rateLimit: {
+            max: SEARCHES_PER_MINUTE,
+            timeWindow: 60_000,
+            // Keyed by session, not IP: people behind one NAT should not share a limit.
+            keyGenerator: (request) => request.cookies.sid ?? request.ip,
+          },
+        },
+        schema: { querystring: searchQuery, response: { 200: searchPageSchema } },
+      },
+      async (request) =>
+        deps.search.search(currentUserId(request), request.query.q, request.query.page),
     );
 
     return Promise.resolve();

@@ -146,7 +146,17 @@ export interface paths {
          */
         get: operations["listCollectionItems"];
         put?: never;
-        post?: never;
+        /**
+         * Add a release to the user's Discogs collection
+         * @description Writes the release to the user's Discogs collection (folder 1, "Uncategorized"),
+         *     then puts it on the shelf (docs/adr/0009-writing-to-the-discogs-collection.md).
+         *     Discogs is written first; if that fails nothing changes here.
+         *
+         *     Discogs allows several copies of a release, so a release already on the shelf is
+         *     refused with 409 `already_in_collection` unless `allowDuplicate` is true. Clients
+         *     set it only after the user confirms they own another copy.
+         */
+        post: operations["addCollectionItem"];
         delete?: never;
         options?: never;
         head?: never;
@@ -319,8 +329,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Manual search by title, artist, catalogue number or barcode
-         * @description Fallback when recognition fails or the pressing is obscure.
+         * Search Discogs for vinyl releases
+         * @description Search by title, artist, catalogue number or barcode, to add a record to the
+         *     shelf (and, later, as the fallback when recognition fails). Limited to vinyl
+         *     releases. Results are Discogs data passed straight through: never stored, shown
+         *     with the Discogs credit, and subject to `expiresAt` like any other
+         *     (docs/adr/0009-writing-to-the-discogs-collection.md). Search has its own per-user
+         *     rate limit, since every user shares one Discogs request budget.
          */
         get: operations["searchReleases"];
         put?: never;
@@ -456,6 +471,20 @@ export interface components {
         };
         Release: components["schemas"]["ReleaseSummary"] & {
             catalogNumber: string | null;
+            /**
+             * @description What the Discogs community says about this release: its average rating
+             *     and how many members own it and want it. Discogs data, shown with the
+             *     Discogs credit.
+             */
+            community: {
+                have: number;
+                rating: {
+                    /** @description Mean of the community's 1 to 5 ratings; 0 when unrated. */
+                    average: number;
+                    count: number;
+                };
+                want: number;
+            };
             /** @description Release-level credits (the liner notes), in Discogs order. */
             credits: {
                 name: string;
@@ -500,6 +529,50 @@ export interface components {
              */
             vinylColors: string[];
             year?: number | null;
+        };
+        SearchPage: {
+            page: number;
+            pages: number;
+            results: components["schemas"]["SearchResult"][];
+            totalResults: number;
+        };
+        /**
+         * @description A release as Discogs search describes it: enough to recognise the right pressing
+         *     and add it. Fetch `/releases/{discogsId}` for the full detail.
+         */
+        SearchResult: {
+            artists: string[];
+            catalogNumber: string | null;
+            country: string | null;
+            discogsId: number;
+            /**
+             * Format: uri
+             * @description Link target for the mandatory "Data provided by Discogs" credit.
+             */
+            discogsUrl: string;
+            /**
+             * Format: date-time
+             * @description Hard display deadline (at most 6 hours after `fetchedAt`).
+             */
+            expiresAt: string;
+            /** Format: date-time */
+            fetchedAt: string;
+            /** @description Format descriptors as Discogs lists them, e.g. ["Vinyl", "LP", "Album"]. */
+            formats: string[];
+            /**
+             * @description At least one copy is already on the user's shelf (as of their last import),
+             *     so adding it needs `allowDuplicate`. Same check as the 409 on
+             *     `addCollectionItem`.
+             */
+            inCollection: boolean;
+            label: string | null;
+            /**
+             * Format: uri
+             * @description Hotlinked Discogs thumbnail. Never stored; subject to `expiresAt`.
+             */
+            thumbUrl: string | null;
+            title: string;
+            year: number | null;
         };
         User: {
             discogsUsername: string;
@@ -723,6 +796,68 @@ export interface operations {
             401: components["responses"]["Problem"];
         };
     };
+    addCollectionItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    allowDuplicate?: boolean;
+                    discogsId: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Added; the new copy as it now appears on the shelf. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionItem"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            /** @description Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: components["responses"]["ForbiddenOrigin"];
+            /** @description No such release on Discogs (`code: release_not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /**
+             * @description Already on the shelf and `allowDuplicate` was not set
+             *     (`code: already_in_collection`).
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Problem"];
+        };
+    };
     getHealth: {
         parameters: {
             query?: never;
@@ -943,18 +1078,27 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Search results. */
+            /** @description One page of search results. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        results: components["schemas"]["ReleaseSummary"][];
-                    };
+                    "application/json": components["schemas"]["SearchPage"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            /** @description Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             429: components["responses"]["RateLimited"];
+            503: components["responses"]["Problem"];
         };
     };
 }

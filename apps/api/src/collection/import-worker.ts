@@ -8,7 +8,7 @@
  */
 import type { Problem } from '@vinylshelf/contract';
 import type { FastifyBaseLogger } from 'fastify';
-import { and, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import type { UserRepository } from '../auth/users.js';
 import { TokenDecryptionError } from '../crypto/token-cipher.js';
 import type { DatabaseHandle } from '../db/client.js';
@@ -153,6 +153,8 @@ export async function runImport(
         );
         return;
       }
+      // A copy added through the app after this import began (ADR 0009) may sit on a
+      // page we had already read; it is new, not removed.
       await tx.db
         .delete(collectionItems)
         .where(
@@ -162,6 +164,7 @@ export async function runImport(
               isNull(collectionItems.lastSeenImportId),
               ne(collectionItems.lastSeenImportId, importJobId),
             ),
+            lt(collectionItems.dateAdded, row.createdAt),
           ),
         );
     });

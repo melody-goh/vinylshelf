@@ -106,6 +106,7 @@ docs/domain-model.md
 | [ADR 0006](docs/adr/0006-sessions-tokens-and-shelf-references.md) | Sessions, token storage and shelf references |
 | [ADR 0007](docs/adr/0007-same-origin-api-in-production.md) | Same-origin API in production (proposed) |
 | [ADR 0008](docs/adr/0008-taste-engine-embeddings-evals-and-llm.md) | Taste engine: semantic search, evals and free-by-default LLM (proposed) |
+| [ADR 0009](docs/adr/0009-writing-to-the-discogs-collection.md) | Search, and writing to the user's Discogs collection |
 
 ## Roadmap
 

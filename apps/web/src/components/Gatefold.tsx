@@ -1,6 +1,6 @@
 import type { CollectionItem, Release } from '@vinylshelf/contract';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Star } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ApiError } from '../api/client';
@@ -40,20 +40,67 @@ export function Gatefold({ item }: { item: CollectionItem }) {
     : { open: { opacity: 1 }, closed: { opacity: 1, transition: { when: 'afterChildren' } } };
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.article
-        key={item.instanceId}
-        aria-labelledby={`record-${String(item.instanceId)}`}
-        variants={sleeve}
-        initial="closed"
-        animate="open"
-        exit="closed"
-        transition={fold}
-        className="grid w-full shadow-photo [perspective:2400px] md:grid-cols-2"
-      >
-        <OpenGatefold item={item} board={board} />
-      </motion.article>
-    </AnimatePresence>
+    <div className="flex w-full flex-col gap-3">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.article
+          key={item.instanceId}
+          aria-labelledby={`record-${String(item.instanceId)}`}
+          variants={sleeve}
+          initial="closed"
+          animate="open"
+          exit="closed"
+          transition={fold}
+          className="grid w-full shadow-photo [perspective:2400px] md:grid-cols-2"
+        >
+          <OpenGatefold item={item} board={board} />
+        </motion.article>
+      </AnimatePresence>
+      <Community discogsId={item.release.discogsId} discogsUrl={item.release.discogsUrl} />
+    </div>
+  );
+}
+
+const COUNT = new Intl.NumberFormat();
+
+/**
+ * What the Discogs community says about the open record: its rating and how many own
+ * and want it. Set as plain text on the ground under the sleeve, outside it, since it
+ * is about the record's standing rather than its liner notes. "Discogs" links to the
+ * release there: the attribution this data needs (ADR 0004).
+ */
+function Community({ discogsId, discogsUrl }: { discogsId: number; discogsUrl: string }) {
+  const { data } = useRelease(discogsId);
+  if (!data) return <p aria-hidden="true" className="min-h-5" />;
+  const { rating, have, want } = data.community;
+
+  return (
+    <p className="numerals flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
+      {rating.count > 0 ? (
+        <span className="inline-flex items-center gap-1.5 text-ink">
+          <Star aria-hidden="true" className="size-3.5 fill-current" />
+          <span>
+            <span className="font-semibold">{rating.average.toFixed(2)}</span>
+            <span className="text-ink-soft">
+              {' '}
+              from {COUNT.format(rating.count)} {rating.count === 1 ? 'rating' : 'ratings'}
+            </span>
+          </span>
+        </span>
+      ) : (
+        <span>No ratings yet</span>
+      )}
+      <span aria-hidden="true">·</span>
+      <span>{COUNT.format(have)} have it</span>
+      <span aria-hidden="true">·</span>
+      <span>{COUNT.format(want)} want it</span>
+      <span aria-hidden="true">·</span>
+      <span>
+        on{' '}
+        <a href={discogsUrl} className="underline">
+          Discogs
+        </a>
+      </span>
+    </p>
   );
 }
 

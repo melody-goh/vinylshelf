@@ -19,6 +19,8 @@ import { Gatefold } from '../components/Gatefold';
 import { HypeSticker } from '../components/HypeSticker';
 import { ImportProgress } from '../components/ImportProgress';
 import { ScoredText } from '../components/ScoredText';
+import { SearchField } from '../components/SearchField';
+import { SearchResults } from '../components/SearchResults';
 
 const SORT_LABELS: Record<CollectionSort, string> = {
   added_desc: 'Recently added',
@@ -44,6 +46,9 @@ export function Shelf({ user }: { user: User }) {
   // An import the user started from this screen, followed until it succeeds.
   const [startedImportId, setStartedImportId] = useState<string | null>(null);
   const [chosenId, setChosenId] = useState<number | null>(null);
+  // While there is a query, search takes the gatefold's place (ADR 0009).
+  const [query, setQuery] = useState('');
+  const searching = query.trim().length > 0;
 
   const reload = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: collectionKey });
@@ -89,6 +94,11 @@ export function Shelf({ user }: { user: User }) {
       <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-rule px-4 py-3 md:px-8">
         <p className="condensed text-sm font-extrabold [font-stretch:62%]">Vinyl Shelf</p>
         <h1 className="sr-only">{user.discogsUsername}&rsquo;s shelf</h1>
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          className="order-last w-full md:order-none md:w-auto md:max-w-sm md:flex-1"
+        />
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
           {totalItems > 0 && (
             <p className="numerals text-ink-soft">
@@ -117,6 +127,18 @@ export function Shelf({ user }: { user: User }) {
               />
             </label>
           )}
+          {!isEmpty && (
+            // Changes made on discogs.com reach the shelf by re-importing; this does it now
+            // rather than waiting for the automatic refresh (ADR 0004 §4).
+            <button
+              type="button"
+              onClick={begin}
+              disabled={startImport.isPending || importing}
+              className="underline disabled:no-underline disabled:opacity-60"
+            >
+              {importing ? 'Syncing…' : 'Sync with Discogs'}
+            </button>
+          )}
           <span className="hidden text-ink-soft md:inline">{user.discogsUsername}</span>
           <button
             type="button"
@@ -144,7 +166,9 @@ export function Shelf({ user }: { user: User }) {
         </p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(16rem,28%)]">
-          <main className="order-2 flex min-h-0 flex-col gap-6 overflow-y-auto p-4 md:order-1 md:items-center md:justify-center md:p-8">
+          <main
+            className={`order-2 flex min-h-0 flex-col gap-6 overflow-y-auto p-4 md:order-1 md:items-center md:p-8 ${searching ? 'md:justify-start' : 'md:justify-center'}`}
+          >
             {/* Notices and the gatefold share one width; two square panels sized to fit the height available. */}
             <div className="flex w-full flex-col gap-6 md:max-w-[calc((100dvh-10rem)*2)]">
               <Notices
@@ -156,7 +180,15 @@ export function Shelf({ user }: { user: User }) {
                 retryDisabled={startImport.isPending || importing}
               />
 
-              {featured ? (
+              {searching ? (
+                <SearchResults
+                  query={query}
+                  onAdded={(item) => {
+                    setQuery('');
+                    setChosenId(item.instanceId);
+                  }}
+                />
+              ) : featured ? (
                 <Gatefold item={featured} />
               ) : isEmpty ? (
                 <ClosedSleeve
@@ -202,7 +234,8 @@ export function Shelf({ user }: { user: User }) {
           {items.length + refreshingCount > 0 && (
             <aside
               aria-label="Your collection"
-              className="relative order-1 flex min-h-0 flex-col border-b border-rule md:order-2 md:border-b-0 md:border-l"
+              // On phones the row steps aside while searching, so results start at the top.
+              className={`relative order-1 min-h-0 flex-col border-b border-rule md:order-2 md:flex md:border-b-0 md:border-l ${searching ? 'hidden' : 'flex'}`}
             >
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 px-4 pt-3 text-xs text-ink-soft md:px-6">
                 {refreshingCount > 0 && featured && (

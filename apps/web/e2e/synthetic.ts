@@ -3,7 +3,13 @@
  * covers drawn as plain placeholders. Nothing here is a real release or a real user's
  * collection (PRODUCT.md: evidence).
  */
-import type { CollectionItem, CollectionPage, Release, User } from '@vinylshelf/contract';
+import type {
+  CollectionItem,
+  CollectionPage,
+  Release,
+  SearchPage,
+  User,
+} from '@vinylshelf/contract';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -109,5 +115,35 @@ export function release(discogsId: number): Release {
       { position: 'B2', title: 'Salt', duration: '5:01' },
       { position: 'B3', title: 'A Long Way Round (Reprise)', duration: '2:37' },
     ],
+    // Varied per record, and the odd unrated one.
+    community: {
+      rating:
+        index % 5 === 3
+          ? { average: 0, count: 0 }
+          : { average: 3.6 + (index % 7) * 0.2, count: 40 + index * 37 },
+      have: 300 + index * 211,
+      want: 90 + index * 53,
+    },
   };
+}
+
+/** A page of search results built from the synthetic records; the first two are owned. */
+export function searchResults(): SearchPage {
+  const now = Date.now();
+  const results = items().map((item, i) => ({
+    discogsId: item.release.discogsId,
+    title: item.release.title,
+    artists: item.release.artists,
+    year: item.release.year ?? null,
+    country: ['UK', 'US', 'DE', 'JP'][i % 4] ?? null,
+    label: 'Synthetic Records',
+    catalogNumber: `SYN-${String(100 + i)}`,
+    formats: ['Vinyl', 'LP', ...(i % 3 === 0 ? ['Album', 'Reissue'] : ['Album'])],
+    thumbUrl: coverUrl(i),
+    discogsUrl: item.release.discogsUrl,
+    inCollection: i < 2,
+    fetchedAt: new Date(now - HOUR).toISOString(),
+    expiresAt: new Date(now + 5 * HOUR).toISOString(),
+  }));
+  return { results, page: 1, pages: 3, totalResults: 61 };
 }

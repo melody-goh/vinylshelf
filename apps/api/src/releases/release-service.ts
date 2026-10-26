@@ -6,13 +6,8 @@ import type { Release } from '@vinylshelf/contract';
 import type { UserRepository } from '../auth/users.js';
 import type { Database } from '../db/client.js';
 import type { CachedReleaseDetail, DiscogsReleaseCache } from '../discogs/cache.js';
-import {
-  DiscogsAuthError,
-  DiscogsError,
-  DiscogsNotFoundError,
-  DiscogsRateLimitedError,
-} from '../discogs/errors.js';
 import type { DiscogsGateway } from '../discogs/gateway.js';
+import { toProblem } from '../discogs/problems.js';
 import { ProblemError } from '../http/problem.js';
 
 export class ReleaseService {
@@ -39,29 +34,6 @@ export class ReleaseService {
   }
 }
 
-/** Discogs failures as the contract's documented answers (404, 401, 429, 503). */
-function toProblem(error: unknown): unknown {
-  if (error instanceof DiscogsNotFoundError) {
-    return new ProblemError(404, 'release_not_found', 'Release not found on Discogs');
-  }
-  if (error instanceof DiscogsAuthError) {
-    return new ProblemError(
-      401,
-      'discogs_auth_revoked',
-      'Discogs access was revoked. Sign in again to continue.',
-    );
-  }
-  if (error instanceof DiscogsRateLimitedError) {
-    return new ProblemError(429, 'rate_limited', 'Discogs is busy. Try again shortly.', undefined, {
-      'retry-after': String(error.retryAfterSeconds ?? 60),
-    });
-  }
-  if (error instanceof DiscogsError) {
-    return new ProblemError(503, 'discogs_unavailable', 'Discogs is unavailable. Try again later.');
-  }
-  return error;
-}
-
 /** The contract's Release shape. */
 export function toReleaseDto(release: CachedReleaseDetail): Release {
   return {
@@ -79,6 +51,7 @@ export function toReleaseDto(release: CachedReleaseDetail): Release {
     formats: release.formats,
     credits: release.credits,
     tracklist: release.tracklist,
+    community: release.community,
     fetchedAt: release.fetchedAt.toISOString(),
     expiresAt: release.expiresAt.toISOString(),
   };

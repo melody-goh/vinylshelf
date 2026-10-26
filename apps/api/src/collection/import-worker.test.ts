@@ -102,6 +102,21 @@ describe('runImport', () => {
     expect(items).toHaveLength(3);
   });
 
+  it('keeps a copy added through the app after the import began (ADR 0009)', async () => {
+    const started = (await job())?.createdAt ?? new Date(0);
+    await db()
+      .insert(collectionItems)
+      .values({
+        userId,
+        instanceId: 2100000099,
+        releaseId: 9000001,
+        dateAdded: new Date(started.getTime() + 1000),
+      });
+    await run();
+    const items = await db().select().from(collectionItems);
+    expect(items.map((i) => i.instanceId)).toContain(2100000099);
+  });
+
   it('fails without retrying when Discogs access was revoked', async () => {
     mswServer.use(http.get(discogsUrls.collection, () => new HttpResponse(null, { status: 401 })));
     await run(0); // resolves: nothing for pg-boss to retry
