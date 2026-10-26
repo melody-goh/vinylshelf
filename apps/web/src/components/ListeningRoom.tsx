@@ -17,6 +17,7 @@ import {
   useState,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
 import appleMusicBadge from '../design/listen-on-apple-music.svg';
@@ -34,6 +35,8 @@ const RISE = 1.6;
 const STEP_SECONDS = 5;
 
 const press = { type: 'spring', stiffness: 500, damping: 28 } as const;
+/** The tabs' travelling dot, reused for the track that is playing. */
+const trackSlide = { type: 'spring', stiffness: 420, damping: 34 } as const;
 
 export interface Playable {
   position: string;
@@ -263,144 +266,224 @@ export function ListeningRoom({
   const seconds = at.track === index || dragging ? at.seconds : 0;
   const first = tracks[0];
   const last = tracks[count - 1];
+  const playableAt = new Map(tracks.map((t, i) => [t.position, i]));
+
+  const playTrack = (target: number) => {
+    keepPlaying.current = true;
+    progress.set(target / count);
+    if (target === index) {
+      const el = audio.current;
+      if (el) {
+        el.currentTime = 0;
+        void el.play().catch(() => undefined);
+      }
+    } else {
+      setIndex(target);
+    }
+  };
 
   return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Listening to ${release.title}`}
+      aria-label={`Listening Room: ${release.title}`}
       onKeyDown={onKeyDown}
-      className="fixed inset-0 z-50 overflow-y-auto bg-ground"
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-ground"
     >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute right-4 top-4 grid size-10 place-items-center rounded-full text-ink-soft hover:text-ink md:right-8 md:top-6"
-        aria-label="Close the listening room"
-      >
-        <X aria-hidden="true" className="size-5" />
-      </button>
+      <header className="flex items-center justify-between px-4 py-3 md:px-8">
+        <p className="condensed text-sm font-extrabold [font-stretch:62%]">Listening Room</p>
+        <button
+          type="button"
+          onClick={onClose}
+          className="-mr-2 grid size-10 place-items-center rounded-full text-ink-soft hover:text-ink"
+          aria-label="Close the listening room"
+        >
+          <X aria-hidden="true" className="size-5" />
+        </button>
+      </header>
 
-      <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center gap-6 px-6 py-10 md:gap-7">
-        {/* The record, floating over its own shadow on the seamless ground. */}
-        <div className="flex w-[min(36vh,72vw,24rem)] flex-col items-center">
-          <motion.div className="w-full" style={{ rotate: rotation }}>
-            <Disc
-              vinylColors={release.vinylColors}
-              labelImageUrl={release.coverImageUrl ?? null}
-              seed={release.discogsId}
-              className="w-full"
-            />
-          </motion.div>
-          <div
-            aria-hidden="true"
-            className="mt-6 h-5 w-[78%] rounded-[50%] bg-[radial-gradient(closest-side,rgb(20_20_20/0.22),transparent)] blur-[6px]"
-          />
-        </div>
-
-        <div className="text-center">
-          <h2 className="text-[clamp(1.75rem,4vw,2.5rem)] font-bold leading-tight tracking-[-0.02em] [text-wrap:balance]">
-            {shown.title}
-          </h2>
-          <p className="mt-1 text-base text-ink-soft">
-            <span className="condensed numerals text-[0.7rem]">{shown.position}</span>
-            {' · '}
-            {release.artists.join(', ')}
-            {' · '}
-            {release.title}
-          </p>
-        </div>
-
-        <div className="w-full max-w-xl">
-          <div
-            ref={ruler}
-            role="slider"
-            tabIndex={0}
-            aria-label="Position in the record"
-            aria-valuemin={0}
-            aria-valuemax={count * PREVIEW_SECONDS}
-            aria-valuenow={at.track * PREVIEW_SECONDS + seconds}
-            aria-valuetext={`${shown.title}, ${clock(seconds)} of ${clock(PREVIEW_SECONDS)}`}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            className="relative h-12 cursor-ew-resize touch-none select-none"
-          >
-            {Array.from({ length: TICKS }, (_, i) => (
-              <Tick key={i} at={i / (TICKS - 1)} progress={progress} still={reduced} />
-            ))}
-            {/* Where each track begins. */}
-            {tracks.slice(1).map((track, i) => (
-              <Tick
-                key={track.position}
-                at={(i + 1) / count}
-                progress={progress}
-                still={reduced}
-                major
+      <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-6 pb-12 pt-4 md:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)] md:gap-16 md:px-10">
+        <div className="flex flex-col items-center gap-6 md:gap-7">
+          {/* The record, floating over its own shadow on the seamless ground. */}
+          <div className="flex w-[min(40vh,72vw,26rem)] flex-col items-center">
+            <motion.div className="w-full" style={{ rotate: rotation }}>
+              <Disc
+                vinylColors={release.vinylColors}
+                labelImageUrl={release.coverImageUrl ?? null}
+                seed={release.discogsId}
+                className="w-full"
               />
-            ))}
-            <Cursor progress={progress} />
+            </motion.div>
+            <div
+              aria-hidden="true"
+              className="mt-6 h-5 w-[78%] rounded-[50%] bg-[radial-gradient(closest-side,rgb(20_20_20/0.22),transparent)] blur-[6px]"
+            />
           </div>
-          <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-baseline gap-4 text-xs">
-            <span className="truncate text-ink-soft">{first?.title}</span>
-            <span className="numerals text-ink">
-              {clock(seconds)} <span className="text-ink-soft">/ {clock(PREVIEW_SECONDS)}</span>
+
+          <p className="text-center text-lg font-semibold leading-snug [text-wrap:balance]">
+            <span className="condensed numerals mr-2 text-[0.7rem] font-normal text-ink-soft">
+              {shown.position}
             </span>
-            <span className="truncate text-right text-ink-soft">{last?.title}</span>
+            {shown.title}
+          </p>
+
+          <div className="w-full max-w-xl">
+            <div
+              ref={ruler}
+              role="slider"
+              tabIndex={0}
+              aria-label="Position in the record"
+              aria-valuemin={0}
+              aria-valuemax={count * PREVIEW_SECONDS}
+              aria-valuenow={at.track * PREVIEW_SECONDS + seconds}
+              aria-valuetext={`${shown.title}, ${clock(seconds)} of ${clock(PREVIEW_SECONDS)}`}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              className="relative h-12 cursor-ew-resize touch-none select-none"
+            >
+              {Array.from({ length: TICKS }, (_, i) => (
+                <Tick key={i} at={i / (TICKS - 1)} progress={progress} still={reduced} />
+              ))}
+              {/* Where each track begins. */}
+              {tracks.slice(1).map((track, i) => (
+                <Tick
+                  key={track.position}
+                  at={(i + 1) / count}
+                  progress={progress}
+                  still={reduced}
+                  major
+                />
+              ))}
+              <Cursor progress={progress} />
+            </div>
+            <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-baseline gap-4 text-xs">
+              <span className="truncate text-ink-soft">{first?.title}</span>
+              <span className="numerals text-ink">
+                {clock(seconds)} <span className="text-ink-soft">/ {clock(PREVIEW_SECONDS)}</span>
+              </span>
+              <span className="truncate text-right text-ink-soft">{last?.title}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6">
+            <button
+              type="button"
+              onClick={() => {
+                step(-1);
+              }}
+              disabled={index === 0}
+              aria-label="Previous track"
+              className="grid size-10 place-items-center rounded-full text-ink disabled:opacity-30"
+            >
+              <SkipBack aria-hidden="true" className="size-5 fill-current" />
+            </button>
+            <motion.button
+              type="button"
+              onClick={toggle}
+              aria-label={playing ? 'Pause' : 'Play'}
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.95 }}
+              transition={press}
+              className="grid size-14 place-items-center rounded-full bg-sticker text-sticker-ink shadow-photo"
+            >
+              {playing ? (
+                <Pause aria-hidden="true" className="size-6 fill-current" />
+              ) : (
+                <Play aria-hidden="true" className="ml-0.5 size-6 fill-current" />
+              )}
+            </motion.button>
+            <button
+              type="button"
+              onClick={() => {
+                step(1);
+              }}
+              disabled={index === count - 1}
+              aria-label="Next track"
+              className="grid size-10 place-items-center rounded-full text-ink disabled:opacity-30"
+            >
+              <SkipForward aria-hidden="true" className="size-5 fill-current" />
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
-          <button
-            type="button"
-            onClick={() => {
-              step(-1);
-            }}
-            disabled={index === 0}
-            aria-label="Previous track"
-            className="grid size-10 place-items-center rounded-full text-ink disabled:opacity-30"
-          >
-            <SkipBack aria-hidden="true" className="size-5 fill-current" />
-          </button>
-          <motion.button
-            type="button"
-            onClick={toggle}
-            aria-label={playing ? 'Pause' : 'Play'}
-            whileHover={{ scale: 1.06 }}
-            whileTap={{ scale: 0.95 }}
-            transition={press}
-            className="grid size-14 place-items-center rounded-full bg-sticker text-sticker-ink shadow-photo"
-          >
-            {playing ? (
-              <Pause aria-hidden="true" className="size-6 fill-current" />
-            ) : (
-              <Play aria-hidden="true" className="ml-0.5 size-6 fill-current" />
+        {/* The liner notes: what is on the platter, and what is playing. */}
+        <aside className="flex flex-col">
+          <h2 className="text-[clamp(1.75rem,3.2vw,2.75rem)] font-bold leading-[1.02] tracking-[-0.02em] [text-wrap:balance]">
+            {release.title}
+          </h2>
+          <dl className="mt-5">
+            <Note label="Artist">
+              {release.artists.map((artist) => (
+                <span key={artist} className="block">
+                  {artist}
+                </span>
+              ))}
+            </Note>
+            {release.year != null && (
+              <Note label="Year">
+                <span className="numerals">{release.year}</span>
+              </Note>
             )}
-          </motion.button>
-          <button
-            type="button"
-            onClick={() => {
-              step(1);
-            }}
-            disabled={index === count - 1}
-            aria-label="Next track"
-            className="grid size-10 place-items-center rounded-full text-ink disabled:opacity-30"
-          >
-            <SkipForward aria-hidden="true" className="size-5 fill-current" />
-          </button>
-        </div>
+            {release.label && (
+              <Note label="Label">
+                {release.label}
+                {release.catalogNumber && (
+                  <span className="block text-ink-soft">{release.catalogNumber}</span>
+                )}
+              </Note>
+            )}
+          </dl>
+          <div className="border-t border-ink/70 pt-2">
+            <h3 className="condensed text-[0.7rem] text-ink-soft">Tracks</h3>
+            <ol className="mt-1">
+              {release.tracklist.map((track) => {
+                const playable = playableAt.get(track.position);
+                const isShown = track.position === shown.position;
+                return (
+                  <li key={`${track.position}-${track.title}`}>
+                    <button
+                      type="button"
+                      disabled={playable === undefined}
+                      aria-current={isShown ? 'true' : undefined}
+                      onClick={() => {
+                        if (playable !== undefined) playTrack(playable);
+                      }}
+                      className={`relative flex w-full items-baseline gap-3 py-1 text-left text-sm ${
+                        isShown ? 'text-ink' : 'text-ink-soft enabled:hover:text-ink'
+                      }`}
+                    >
+                      {isShown && (
+                        <motion.span
+                          layoutId="playing-dot"
+                          aria-hidden="true"
+                          transition={reduced ? { duration: 0 } : trackSlide}
+                          className="absolute -left-3 top-1/2 -mt-0.5 size-1 rounded-full bg-ink"
+                        />
+                      )}
+                      <span className="condensed numerals w-6 shrink-0 text-[0.7rem]">
+                        {track.position}
+                      </span>
+                      <span className="flex-1 text-right">{track.title}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
 
-        <footer className="mt-2 flex flex-col items-center gap-3 text-xs text-ink-soft">
-          <p>{previews.attribution}</p>
-          {/* The room covers the page footer, so it carries the Discogs credit itself. */}
-          <DiscogsCredit href={release.discogsUrl} />
-          {previews.albumUrl && (
-            <a href={previews.albumUrl} target="_blank" rel="noreferrer">
-              <img src={appleMusicBadge} alt="Listen on Apple Music" className="h-10 w-auto" />
-            </a>
-          )}
-        </footer>
+          <footer className="mt-6 flex flex-col items-start gap-3 border-t border-rule pt-4 text-xs text-ink-soft">
+            <p>{previews.attribution}</p>
+            {/* The room covers the page footer, so it carries the Discogs credit itself. */}
+            <DiscogsCredit href={release.discogsUrl} />
+            {previews.albumUrl && (
+              <a href={previews.albumUrl} target="_blank" rel="noreferrer">
+                <img src={appleMusicBadge} alt="Listen on Apple Music" className="h-10 w-auto" />
+              </a>
+            )}
+          </footer>
+        </aside>
       </div>
 
       {/* Streamed from Apple, never stored (ADR 0010 §4). */}
@@ -466,5 +549,15 @@ function Cursor({ progress }: { progress: MotionValue<number> }) {
     <motion.span aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ x }}>
       <span className="absolute bottom-0 left-0 h-12 w-0.5 -translate-x-1/2 rounded-full bg-ink" />
     </motion.span>
+  );
+}
+
+/** One line of the liner notes: a small-caps label, its value set right, a hairline above. */
+function Note({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-6 border-t border-ink/70 py-2">
+      <dt className="condensed text-[0.7rem] text-ink-soft">{label}</dt>
+      <dd className="text-right text-sm">{children}</dd>
+    </div>
   );
 }

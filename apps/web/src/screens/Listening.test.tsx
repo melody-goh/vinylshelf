@@ -48,8 +48,10 @@ describe('Listening: previews of a record’s tracks', () => {
       await screen.findByRole('button', { name: 'Play a preview of Undertow' }, AFTER_DWELL),
     );
 
-    const room = await screen.findByRole('dialog', { name: 'Listening to Record 1' });
-    expect(within(room).getByRole('heading', { name: 'Undertow' })).toBeInTheDocument();
+    const room = await screen.findByRole('dialog', { name: 'Listening Room: Record 1' });
+    expect(
+      within(room).getByRole('button', { current: true, name: /Undertow/ }),
+    ).toBeInTheDocument();
     const ruler = within(room).getByRole('slider', { name: 'Position in the record' });
     expect(ruler).toHaveAttribute('aria-valuetext', 'Undertow, 0:00 of 0:30');
     expect(ruler).toHaveAttribute('aria-valuemax', '60');
@@ -74,9 +76,13 @@ describe('Listening: previews of a record’s tracks', () => {
     const room = await screen.findByRole('dialog');
 
     await user.keyboard(']');
-    expect(within(room).getByRole('heading', { name: 'Undertow' })).toBeInTheDocument();
+    expect(
+      within(room).getByRole('button', { current: true, name: /Undertow/ }),
+    ).toBeInTheDocument();
     await user.keyboard('[[');
-    expect(within(room).getByRole('heading', { name: 'Shoreline' })).toBeInTheDocument();
+    expect(
+      within(room).getByRole('button', { current: true, name: /Shoreline/ }),
+    ).toBeInTheDocument();
 
     await waitFor(() => {
       expect(within(room).getByRole('button', { name: 'Pause' })).toBeInTheDocument();
@@ -88,6 +94,24 @@ describe('Listening: previews of a record’s tracks', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     // Focus goes back to where the listener was.
     expect(play).toHaveFocus();
+  });
+
+  it('plays a track picked from the liner notes', async () => {
+    const { user } = renderWithQueries(<App />);
+    await user.click(
+      await screen.findByRole('button', { name: 'Play a preview of Shoreline' }, AFTER_DWELL),
+    );
+    const room = await screen.findByRole('dialog');
+
+    await user.click(within(room).getByRole('button', { name: /Undertow/ }));
+
+    expect(
+      within(room).getByRole('button', { current: true, name: /Undertow/ }),
+    ).toBeInTheDocument();
+    expect(within(room).getByRole('slider')).toHaveAttribute(
+      'aria-valuetext',
+      'Undertow, 0:00 of 0:30',
+    );
   });
 
   it('says plainly when a record has no previews, and offers no player', async () => {
