@@ -45,3 +45,8 @@ certs/
 **/.impeccable/review/
 **/.impeccable/build/
 **/.impeccable/live/
+
+# Embedding model weights, fetched by models:fetch (ADR 0012)
+apps/api/.models/
+# Local catalogue builds
+apps/api/catalogue-out/

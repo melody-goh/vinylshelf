@@ -81,6 +81,28 @@ pnpm dev                  # API on :3000, web app on http://localhost:5173
 Tests never call live third-party APIs: Discogs is served from fixtures through MSW, and
 any unmocked request fails the test.
 
+### The taste catalogue
+
+Discovery runs on a catalogue of up to 150,000 vinyl albums built from Discogs' monthly
+CC0 data dumps, each with a text embedding (ADR 0008). It is built in the cloud and
+published as a GitHub Release (ADR 0012), so a machine only ever downloads the finished
+file (about 150 MB), never the 11 GB of dumps.
+
+```sh
+pnpm --filter @vinylshelf/api models:fetch     # once: the embedding model's weights (34 MB)
+pnpm --filter @vinylshelf/api catalogue:load   # the newest catalogue release into Postgres
+```
+
+| Command | What it does |
+|---|---|
+| `models:fetch` | Downloads `bge-small-en-v1.5` into `apps/api/.models` (git-ignored); the API never downloads at runtime |
+| `catalogue:load [--tag catalogue-YYYYMM \| --dir path]` | Verifies a built catalogue against its manifest and replaces the loaded one in a single transaction |
+| `catalogue:build --dump YYYYMM01 [--cap N] [--out dir]` | Builds a catalogue from a month's dumps, streaming them (normally run by the workflow below) |
+
+To publish a new catalogue: Actions, **Catalogue**, Run workflow (the dump month and the
+cap are inputs). It streams both dumps, embeds the selected albums and attaches
+`manifest.json` and `catalogue.jsonl.gz` to a `catalogue-YYYYMM` release.
+
 ## Repository layout
 
 ```
@@ -105,10 +127,11 @@ docs/domain-model.md
 | [ADR 0005](docs/adr/0005-free-tier-constraints-as-design-inputs.md) | Free-tier constraints |
 | [ADR 0006](docs/adr/0006-sessions-tokens-and-shelf-references.md) | Sessions, token storage and shelf references |
 | [ADR 0007](docs/adr/0007-same-origin-api-in-production.md) | Same-origin API in production (proposed) |
-| [ADR 0008](docs/adr/0008-taste-engine-embeddings-evals-and-llm.md) | Taste engine: semantic search, evals and free-by-default LLM (proposed) |
+| [ADR 0008](docs/adr/0008-taste-engine-embeddings-evals-and-llm.md) | Taste engine: semantic search, evals and free-by-default LLM |
 | [ADR 0009](docs/adr/0009-writing-to-the-discogs-collection.md) | Search, and writing to the user's Discogs collection |
 | [ADR 0010](docs/adr/0010-track-previews-from-itunes.md) | Track previews from the iTunes Search API |
 | [ADR 0011](docs/adr/0011-the-wantlist.md) | The wantlist, read live from Discogs |
+| [ADR 0012](docs/adr/0012-catalogue-as-a-build-artifact.md) | The taste catalogue is a versioned build artifact |
 
 ## Roadmap
 

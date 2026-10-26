@@ -7,6 +7,8 @@ const TABLES = [
   'discogs_release_cache',
   'discogs_release_detail_cache',
   'itunes_preview_cache',
+  'catalogue_masters',
+  'catalogue_meta',
   'import_jobs',
   'sessions',
   'users',

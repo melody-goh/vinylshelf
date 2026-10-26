@@ -5,3 +5,9 @@ allowBuilds:
   core-js: false
   esbuild: true
   protobufjs: false
+  # Embedding runtime (ADR 0008). Its install script only downloads CUDA binaries; the
+  # CPU runtime we use ships inside the package, for Linux, macOS and Windows.
+  onnxruntime-node: false
+  # Image processing pulled in by transformers.js; we embed text only, and sharp's
+  # install script is just a fallback build when no prebuilt binary matches.
+  sharp: false
