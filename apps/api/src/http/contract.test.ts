@@ -194,6 +194,7 @@ describe('contract: responses validate against openapi.yaml', () => {
         year: null,
         vinylColors: ['Blue Marbled'],
         formatNames: ['Vinyl'],
+        masterId: 7001,
         genres: ['Jazz'],
         styles: ['Modal'],
         coverImageUrl: 'https://i.discogs.com/fixture/cover-1.jpg',

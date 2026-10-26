@@ -128,6 +128,8 @@ export const discogsReleaseCache = pgTable(
   'discogs_release_cache',
   {
     discogsId: integer('discogs_id').primaryKey(),
+    /** The release's master; null when it has none, or for rows cached before 0.8. */
+    masterId: integer('master_id'),
     title: text('title').notNull(),
     artists: jsonb('artists').$type<string[]>().notNull(),
     /** Lower-cased first artist, for the `artist_asc` sort. */
@@ -259,4 +261,25 @@ export const catalogueMeta = pgTable(
     loadedAt: timestamptz('loaded_at').notNull(),
   },
   (t) => [check('catalogue_meta_single_row', sql`${t.id} = 1`)],
+);
+
+export const tasteVerdict = pgEnum('taste_verdict', ['more', 'less']);
+export type TasteVerdict = (typeof tasteVerdict.enumValues)[number];
+
+/**
+ * How a user has steered their recommendations (ADR 0008): "more like this" or "not
+ * for me" on a catalogue master. Keyed by catalogue id (CC0), so it holds no Discogs
+ * API data; it is the user's own signal and goes with their account.
+ */
+export const tasteFeedback = pgTable(
+  'taste_feedback',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    masterId: integer('master_id').notNull(),
+    verdict: tasteVerdict('verdict').notNull(),
+    createdAt: timestamptz('created_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.masterId] })],
 );

@@ -79,6 +79,7 @@ export class DiscogsReleaseCache {
     const expiresAt = new Date(fetchedAt.getTime() + this.ttlSeconds * 1000);
     const rows = unique.map((r) => ({
       discogsId: r.discogsId,
+      masterId: r.masterId,
       title: r.title,
       artists: r.artists,
       artistSort: (r.artists[0] ?? '').toLocaleLowerCase('en'),
@@ -100,6 +101,7 @@ export class DiscogsReleaseCache {
       .onConflictDoUpdate({
         target: discogsReleaseCache.discogsId,
         set: {
+          masterId: sqlExcluded('master_id'),
           title: sqlExcluded('title'),
           artists: sqlExcluded('artists'),
           artistSort: sqlExcluded('artist_sort'),
@@ -131,6 +133,7 @@ export class DiscogsReleaseCache {
         row.discogsId,
         {
           discogsId: row.discogsId,
+          masterId: row.masterId,
           title: row.title,
           artists: row.artists,
           year: row.year,
