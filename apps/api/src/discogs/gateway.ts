@@ -24,6 +24,8 @@ export interface ReleaseSummaryData {
   title: string;
   artists: string[];
   year: number | null;
+  /** Colourways named by Discogs; empty means unnamed (shown as black). */
+  vinylColors: string[];
   /** A hotlinked Discogs image URL, never downloaded (ADR 0004 §6). */
   coverImageUrl: string | null;
   discogsUrl: string;
@@ -43,6 +45,18 @@ export interface CollectionPageResult {
   entries: CollectionEntry[];
 }
 
+/** Full detail of one release, as the record view needs it. */
+export interface ReleaseDetailData extends ReleaseSummaryData {
+  label: string | null;
+  catalogNumber: string | null;
+  genres: string[];
+  styles: string[];
+  /** Format lines as Discogs shows them, e.g. "Vinyl, LP, Album, Blue Marbled". */
+  formats: string[];
+  credits: { name: string; role: string }[];
+  tracklist: { position: string; title: string; duration: string | null }[];
+}
+
 export interface DiscogsGateway {
   /** Step 1 of OAuth 1.0a: obtain a request token bound to our callback URL. */
   getRequestToken(callbackUrl: string): Promise<RequestToken>;
@@ -55,4 +69,6 @@ export interface DiscogsGateway {
     username: string,
     page: number,
   ): Promise<CollectionPageResult>;
+  /** One release in full, fetched on behalf of a signed-in user. */
+  getRelease(accessToken: TokenPair, releaseId: number): Promise<ReleaseDetailData>;
 }

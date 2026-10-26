@@ -10,6 +10,7 @@ import type {
   CollectionRefresh,
   ImportJob,
   Problem,
+  Release,
   ReleaseSummary,
   User,
 } from '@vinylshelf/contract';
@@ -32,6 +33,7 @@ import type {
   collectionRefreshSchema,
   importJobSchema,
   problemSchema,
+  releaseSchema,
   releaseSummarySchema,
   userSchema,
 } from './schemas.js';
@@ -45,7 +47,8 @@ const typesMatch: [
   Equivalent<z.infer<typeof releaseSummarySchema>, ReleaseSummary>,
   Equivalent<z.infer<typeof collectionRefreshSchema>, CollectionRefresh>,
   Equivalent<z.infer<typeof collectionPageSchema>, CollectionPage>,
-] = [true, true, true, true, true, true];
+  Equivalent<z.infer<typeof releaseSchema>, Release>,
+] = [true, true, true, true, true, true, true];
 
 const { db, handle } = useTestDatabase();
 const EVIL = 'https://evil.example';
@@ -174,6 +177,7 @@ describe('contract: responses validate against openapi.yaml', () => {
         title: 'Kind of Blue',
         artists: ['Miles Davis'],
         year: null,
+        vinylColors: ['Blue Marbled'],
         coverImageUrl: 'https://i.discogs.com/fixture/cover-1.jpg',
         discogsUrl: 'https://www.discogs.com/release/1',
       },
@@ -193,6 +197,25 @@ describe('contract: responses validate against openapi.yaml', () => {
 
     expect((await call('get', items, { query: 'cursor=bad' })).statusCode).toBe(400);
     expect((await call('get', items, { signedIn: false })).statusCode).toBe(401);
+  });
+
+  it('GET /releases/{discogsId}: 200, 404, 401, 429 and 503', async () => {
+    const byId = '/releases/{discogsId}';
+    expect((await call('get', byId, { path: '/releases/9000001' })).statusCode).toBe(200);
+    expect((await call('get', byId, { path: '/releases/1' })).statusCode).toBe(404);
+    expect(
+      (await call('get', byId, { path: '/releases/9000001', signedIn: false })).statusCode,
+    ).toBe(401);
+
+    (deps.clock as Clock & { time: number }).time += testConfig.discogs.cacheTtlSeconds * 1000;
+    mswServer.use(
+      http.get(discogsUrls.release, () =>
+        HttpResponse.json({}, { status: 429, headers: { 'Retry-After': '5' } }),
+      ),
+    );
+    expect((await call('get', byId, { path: '/releases/9000001' })).statusCode).toBe(429);
+    mswServer.use(http.get(discogsUrls.release, () => new HttpResponse(null, { status: 500 })));
+    expect((await call('get', byId, { path: '/releases/9000001' })).statusCode).toBe(503);
   });
 });
 

@@ -15,4 +15,5 @@ export type CollectionPage = Schemas['CollectionPage'];
 export type CollectionRefresh = Schemas['CollectionRefresh'];
 export type CollectionItem = Schemas['CollectionItem'];
 export type ReleaseSummary = Schemas['ReleaseSummary'];
+export type Release = Schemas['Release'];
 export type LoginErrorCode = Schemas['LoginErrorCode'];

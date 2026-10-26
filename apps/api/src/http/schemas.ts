@@ -39,6 +39,7 @@ export const releaseSummarySchema = z.object({
   title: z.string(),
   artists: z.array(z.string()),
   year: z.number().int().nullable().optional(),
+  vinylColors: z.array(z.string()),
   coverImageUrl: z.url().nullable().optional(),
   discogsUrl: z.url(),
   fetchedAt: z.iso.datetime(),
@@ -60,6 +61,7 @@ export const collectionRefreshSchema = z.object({
 
 export const collectionPageSchema = z.object({
   items: z.array(collectionItemSchema),
+  totalItems: z.number().int().min(0),
   nextCursor: z.string().nullable().optional(),
   refresh: collectionRefreshSchema,
 });
@@ -77,4 +79,20 @@ export const collectionItemsQuery = z.object({
   cursor: z.string().min(1).max(512).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   sort: z.enum(COLLECTION_SORTS).default('added_desc'),
+});
+
+export const releaseSchema = releaseSummarySchema.extend({
+  label: z.string().nullable(),
+  catalogNumber: z.string().nullable(),
+  genres: z.array(z.string()),
+  styles: z.array(z.string()),
+  formats: z.array(z.string()),
+  credits: z.array(z.object({ name: z.string(), role: z.string() })),
+  tracklist: z.array(
+    z.object({
+      position: z.string(),
+      title: z.string(),
+      duration: z.string().nullable().optional(),
+    }),
+  ),
 });

@@ -7,14 +7,24 @@
  *   other queries joining this table must use too;
  * - a scheduled job deletes expired rows (`purgeExpired`).
  */
-import { and, gt, inArray, lte, sql, type SQL } from 'drizzle-orm';
+import { and, eq, gt, inArray, lte, sql, type SQL } from 'drizzle-orm';
 import { MAX_DISCOGS_TTL_SECONDS } from '../config.js';
 import type { Database } from '../db/client.js';
-import { discogsReleaseCache, type DiscogsClassification } from '../db/schema.js';
+import {
+  discogsReleaseCache,
+  discogsReleaseDetailCache,
+  type DiscogsClassification,
+} from '../db/schema.js';
 import type { Clock } from '../lib/clock.js';
-import type { ReleaseSummaryData } from './gateway.js';
+import type { ReleaseDetailData, ReleaseSummaryData } from './gateway.js';
 
 export interface CachedRelease extends ReleaseSummaryData {
+  classification: DiscogsClassification;
+  fetchedAt: Date;
+  expiresAt: Date;
+}
+
+export interface CachedReleaseDetail extends ReleaseDetailData {
   classification: DiscogsClassification;
   fetchedAt: Date;
   expiresAt: Date;
@@ -65,6 +75,7 @@ export class DiscogsReleaseCache {
       artists: r.artists,
       artistSort: (r.artists[0] ?? '').toLocaleLowerCase('en'),
       year: r.year,
+      vinylColors: r.vinylColors,
       coverImageUrl: r.coverImageUrl,
       discogsUrl: r.discogsUrl,
       classification: classifyRelease(r),
@@ -82,6 +93,7 @@ export class DiscogsReleaseCache {
           artists: sqlExcluded('artists'),
           artistSort: sqlExcluded('artist_sort'),
           year: sqlExcluded('year'),
+          vinylColors: sqlExcluded('vinyl_colors'),
           coverImageUrl: sqlExcluded('cover_image_url'),
           discogsUrl: sqlExcluded('discogs_url'),
           classification: sqlExcluded('classification'),
@@ -108,6 +120,7 @@ export class DiscogsReleaseCache {
           title: row.title,
           artists: row.artists,
           year: row.year,
+          vinylColors: row.vinylColors,
           coverImageUrl: row.coverImageUrl,
           discogsUrl: row.discogsUrl,
           classification: row.classification,
@@ -118,17 +131,64 @@ export class DiscogsReleaseCache {
     );
   }
 
+  /** Stores one release's full detail, restarting its TTL. */
+  async storeDetail(db: Database, detail: ReleaseDetailData): Promise<CachedReleaseDetail> {
+    const fetchedAt = this.now();
+    const expiresAt = new Date(fetchedAt.getTime() + this.ttlSeconds * 1000);
+    const row = {
+      discogsId: detail.discogsId,
+      detail,
+      classification: classifyRelease(detail),
+      fetchedAt,
+      expiresAt,
+    };
+    await db
+      .insert(discogsReleaseDetailCache)
+      .values(row)
+      .onConflictDoUpdate({
+        target: discogsReleaseDetailCache.discogsId,
+        set: { detail, classification: row.classification, fetchedAt, expiresAt },
+      });
+    return { ...detail, classification: row.classification, fetchedAt, expiresAt };
+  }
+
+  /** A release's full detail if it is still fresh; null when missing or expired. */
+  async getFreshDetail(db: Database, discogsId: number): Promise<CachedReleaseDetail | null> {
+    const [row] = await db
+      .select()
+      .from(discogsReleaseDetailCache)
+      .where(
+        and(
+          eq(discogsReleaseDetailCache.discogsId, discogsId),
+          gt(discogsReleaseDetailCache.expiresAt, this.now()),
+        ),
+      )
+      .limit(1);
+    if (!row) return null;
+    return {
+      ...row.detail,
+      classification: row.classification,
+      fetchedAt: row.fetchedAt,
+      expiresAt: row.expiresAt,
+    };
+  }
+
   /**
-   * Deletes rows past their deadline (ADR 0004 §3). Reads never return them anyway;
-   * this keeps us from storing data longer than needed, and keeps the free-tier
-   * database small (ADR 0005).
+   * Deletes rows past their deadline from both caches (ADR 0004 §3). Reads never
+   * return them anyway; this keeps us from storing data longer than needed, and keeps
+   * the free-tier database small (ADR 0005).
    */
   async purgeExpired(db: Database): Promise<number> {
-    const deleted = await db
+    const now = this.now();
+    const summaries = await db
       .delete(discogsReleaseCache)
-      .where(lte(discogsReleaseCache.expiresAt, this.now()))
+      .where(lte(discogsReleaseCache.expiresAt, now))
       .returning({ id: discogsReleaseCache.discogsId });
-    return deleted.length;
+    const details = await db
+      .delete(discogsReleaseDetailCache)
+      .where(lte(discogsReleaseDetailCache.expiresAt, now))
+      .returning({ id: discogsReleaseDetailCache.discogsId });
+    return summaries.length + details.length;
   }
 }
 

@@ -295,7 +295,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Release detail */
+        /**
+         * Release detail
+         * @description Full detail for one Discogs release (tracklist, credits, formats, colourways),
+         *     served from the TTL-bound cache and fetched from Discogs when missing or
+         *     expired (ADR 0004). Like every Discogs-sourced response it carries
+         *     `fetchedAt` and `expiresAt`.
+         */
         get: operations["getRelease"];
         put?: never;
         post?: never;
@@ -348,6 +354,11 @@ export interface components {
             items: components["schemas"]["CollectionItem"][];
             nextCursor?: string | null;
             refresh: components["schemas"]["CollectionRefresh"];
+            /**
+             * @description Records on the user's shelf, including any withheld while their data
+             *     refreshes (`refresh.hiddenCount`). The same on every page.
+             */
+            totalItems: number;
         };
         /**
          * @description Freshness of the user's shelf. Describes the whole shelf, not just this page.
@@ -444,18 +455,22 @@ export interface components {
             };
         };
         Release: components["schemas"]["ReleaseSummary"] & {
-            catalogNumber?: string | null;
-            formats?: string[];
-            genres?: string[];
-            label?: string | null;
-            styles?: string[];
-            tracklist?: {
+            catalogNumber: string | null;
+            /** @description Release-level credits (the liner notes), in Discogs order. */
+            credits: {
+                name: string;
+                role: string;
+            }[];
+            /** @description Format lines as Discogs describes them, e.g. "Vinyl, LP, Album". */
+            formats: string[];
+            genres: string[];
+            label: string | null;
+            styles: string[];
+            tracklist: {
                 duration?: string | null;
                 position: string;
                 title: string;
             }[];
-            /** @description Colourway descriptors parsed from format descriptions, e.g. "Blue, Marbled". */
-            vinylColors?: string[];
         };
         ReleaseSummary: {
             artists: string[];
@@ -478,6 +493,12 @@ export interface components {
             /** Format: date-time */
             fetchedAt: string;
             title: string;
+            /**
+             * @description Colourways named in the release's Discogs format text, e.g. ["Blue Marbled"].
+             *     Empty when Discogs names none; clients must not invent a colour (render
+             *     standard black).
+             */
+            vinylColors: string[];
             year?: number | null;
         };
         User: {
@@ -904,8 +925,10 @@ export interface operations {
                     "application/json": components["schemas"]["Release"];
                 };
             };
+            401: components["responses"]["Problem"];
             404: components["responses"]["Problem"];
             429: components["responses"]["RateLimited"];
+            503: components["responses"]["Problem"];
         };
     };
     searchReleases: {

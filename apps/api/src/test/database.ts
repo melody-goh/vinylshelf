@@ -5,6 +5,7 @@ import { createDatabase, type Database, type DatabaseHandle } from '../db/client
 const TABLES = [
   'collection_items',
   'discogs_release_cache',
+  'discogs_release_detail_cache',
   'import_jobs',
   'sessions',
   'users',

@@ -40,3 +40,8 @@ Thumbs.db
 *.pem
 *.key
 certs/
+# Impeccable design tooling: scratch output only (briefs and DESIGN.md stay tracked)
+**/.impeccable/mocks/
+**/.impeccable/review/
+**/.impeccable/build/
+**/.impeccable/live/

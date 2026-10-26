@@ -14,6 +14,7 @@ export const discogsFixtures = {
   requestToken: () => fixture('request-token.txt').trim(),
   accessToken: () => fixture('access-token.txt').trim(),
   identity: () => JSON.parse(fixture('identity.json')) as Record<string, unknown>,
+  release: (id: number) => JSON.parse(fixture(`release-${id}.json`)) as Record<string, unknown>,
   collectionPage: (page: number) =>
     JSON.parse(fixture(`collection-page-${page}.json`)) as {
       pagination: Record<string, unknown>;
@@ -26,6 +27,7 @@ export const discogsUrls = {
   accessToken: `${DISCOGS_API_BASE}/oauth/access_token`,
   identity: `${DISCOGS_API_BASE}/oauth/identity`,
   collection: `${DISCOGS_API_BASE}/users/:username/collection/folders/0/releases`,
+  release: `${DISCOGS_API_BASE}/releases/:id`,
 };
 
 /** Discogs answers unsigned or anonymous requests with an error; so do we. */
@@ -43,7 +45,7 @@ function rejectUnlessSigned(request: Request): Response | undefined {
 const form = (body: string): Response =>
   new HttpResponse(body, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
 
-/** Happy-path Discogs: tokens, identity and a two-page collection. */
+/** Happy-path Discogs: tokens, identity, a two-page collection and one release. */
 export function discogsHandlers(): HttpHandler[] {
   return [
     http.get(
@@ -58,6 +60,14 @@ export function discogsHandlers(): HttpHandler[] {
       discogsUrls.identity,
       ({ request }) => rejectUnlessSigned(request) ?? HttpResponse.json(discogsFixtures.identity()),
     ),
+    http.get(discogsUrls.release, ({ request, params }) => {
+      const rejected = rejectUnlessSigned(request);
+      if (rejected) return rejected;
+      if (params.id !== '9000001') {
+        return HttpResponse.json({ message: 'Release not found.' }, { status: 404 });
+      }
+      return HttpResponse.json(discogsFixtures.release(9000001));
+    }),
     http.get(discogsUrls.collection, ({ request }) => {
       const rejected = rejectUnlessSigned(request);
       if (rejected) return rejected;

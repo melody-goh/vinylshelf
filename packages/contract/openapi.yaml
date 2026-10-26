@@ -249,6 +249,11 @@ paths:
       tags: [Releases]
       operationId: getRelease
       summary: Release detail
+      description: |
+        Full detail for one Discogs release (tracklist, credits, formats, colourways),
+        served from the TTL-bound cache and fetched from Discogs when missing or
+        expired (ADR 0004). Like every Discogs-sourced response it carries
+        `fetchedAt` and `expiresAt`.
       parameters:
         - name: discogsId
           in: path
@@ -261,10 +266,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Release'
+        '401':
+          $ref: '#/components/responses/Problem'
         '404':
           $ref: '#/components/responses/Problem'
         '429':
           $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Problem'
 
   /search/releases:
     get:
@@ -522,12 +531,18 @@ components:
 
     CollectionPage:
       type: object
-      required: [items, refresh]
+      required: [items, totalItems, refresh]
       properties:
         items:
           type: array
           items:
             $ref: '#/components/schemas/CollectionItem'
+        totalItems:
+          type: integer
+          minimum: 0
+          description: |
+            Records on the user's shelf, including any withheld while their data
+            refreshes (`refresh.hiddenCount`). The same on every page.
         nextCursor:
           type: [string, 'null']
         refresh:
@@ -578,7 +593,7 @@ components:
 
     ReleaseSummary:
       type: object
-      required: [discogsId, title, artists, discogsUrl, fetchedAt, expiresAt]
+      required: [discogsId, title, artists, vinylColors, discogsUrl, fetchedAt, expiresAt]
       properties:
         discogsId: { type: integer }
         title: { type: string }
@@ -586,6 +601,13 @@ components:
           type: array
           items: { type: string }
         year: { type: [integer, 'null'] }
+        vinylColors:
+          type: array
+          items: { type: string }
+          description: |
+            Colourways named in the release's Discogs format text, e.g. ["Blue Marbled"].
+            Empty when Discogs names none; clients must not invent a colour (render
+            standard black).
         coverImageUrl:
           type: [string, 'null']
           format: uri
@@ -604,6 +626,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/ReleaseSummary'
         - type: object
+          required: [label, catalogNumber, genres, styles, formats, tracklist, credits]
           properties:
             label: { type: [string, 'null'] }
             catalogNumber: { type: [string, 'null'] }
@@ -616,10 +639,16 @@ components:
             formats:
               type: array
               items: { type: string }
-            vinylColors:
+              description: Format lines as Discogs describes them, e.g. "Vinyl, LP, Album".
+            credits:
               type: array
-              items: { type: string }
-              description: Colourway descriptors parsed from format descriptions, e.g. "Blue, Marbled".
+              description: Release-level credits (the liner notes), in Discogs order.
+              items:
+                type: object
+                required: [name, role]
+                properties:
+                  name: { type: string }
+                  role: { type: string }
             tracklist:
               type: array
               items:

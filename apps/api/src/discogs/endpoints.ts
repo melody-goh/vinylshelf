@@ -14,6 +14,7 @@ export const discogsEndpoints = {
   /** Folder 0 is Discogs' built-in "All" folder. */
   collectionReleases: (username: string) =>
     `${DISCOGS_API_BASE}/users/${encodeURIComponent(username)}/collection/folders/0/releases`,
+  release: (releaseId: number) => `${DISCOGS_API_BASE}/releases/${releaseId}`,
   /** Public page for a release: the link target for the mandatory credit. */
   releasePage: (releaseId: number) => `${DISCOGS_WEB_BASE}/release/${releaseId}`,
 } as const;

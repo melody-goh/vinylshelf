@@ -7,5 +7,5 @@
     "jsx": "react-jsx",
     "types": ["vite/client", "@testing-library/jest-dom/vitest"]
   },
-  "include": ["src", "*.ts"]
+  "include": ["src", "e2e", "scripts", "*.ts"]
 }

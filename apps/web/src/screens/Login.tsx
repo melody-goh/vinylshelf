@@ -1,6 +1,9 @@
 import type { LoginErrorCode } from '@vinylshelf/contract';
 import { useEffect, useState } from 'react';
 import { LOGIN_URL } from '../api/session';
+import { ClosedSleeve } from '../components/ClosedSleeve';
+import { Disc } from '../components/Disc';
+import { HypeSticker } from '../components/HypeSticker';
 
 /** Messages for the `?loginError=` codes the OAuth callback redirects with. */
 const LOGIN_ERRORS: Record<LoginErrorCode, string> = {
@@ -8,6 +11,9 @@ const LOGIN_ERRORS: Record<LoginErrorCode, string> = {
   invalid_request_token: 'That sign-in link expired or was already used. Please try again.',
   discogs_unavailable: 'Discogs is not responding right now. Please try again in a few minutes.',
 };
+
+/** Illustration only: a few plain discs fanned beside the sleeve, standing for no record. */
+const FANNED: string[][] = [['Black'], ['Blue Marbled'], ['Red'], ['Orange'], ['Bone']];
 
 function isLoginErrorCode(value: string | null): value is LoginErrorCode {
   return value !== null && value in LOGIN_ERRORS;
@@ -29,20 +35,36 @@ export function Login() {
   }, []);
 
   return (
-    <section className="space-y-4">
-      <h1 className="text-2xl font-semibold">Vinyl Shelf</h1>
-      <p>Browse your Discogs collection. Sign in with your Discogs account to begin.</p>
-      {error && (
-        <p role="alert" className="rounded border border-red-300 bg-red-50 p-3 text-red-800">
-          {error}
-        </p>
-      )}
-      <a
-        href={LOGIN_URL}
-        className="inline-block rounded bg-neutral-900 px-4 py-2 text-white hover:bg-neutral-700"
-      >
-        Sign in with Discogs
-      </a>
-    </section>
+    <main className="flex flex-1 items-center justify-center gap-16 px-6 py-12 md:px-12">
+      <div className="flex w-full max-w-[34rem] flex-col gap-6">
+        {error && (
+          <p role="alert" className="border-l border-sticker pl-3 text-sm leading-relaxed">
+            {error}
+          </p>
+        )}
+        <ClosedSleeve
+          title="Vinyl Shelf"
+          sticker={<HypeSticker href={LOGIN_URL}>Sign in with Discogs</HypeSticker>}
+        >
+          <p className="text-base text-ground">
+            Your Discogs collection, one record at a time. Open a sleeve, read its liner notes, and
+            thumb through the rest.
+          </p>
+          <p>We only read your collection. It stays here and is never shared.</p>
+        </ClosedSleeve>
+      </div>
+
+      <div aria-hidden="true" className="hidden w-[18rem] shrink-0 flex-col lg:flex">
+        {FANNED.map((colours, i) => (
+          <div
+            key={colours.join()}
+            className="relative [&:not(:first-child)]:-mt-[14.5rem]"
+            style={{ zIndex: i }}
+          >
+            <Disc vinylColors={colours} seed={i} className="w-[18rem]" />
+          </div>
+        ))}
+      </div>
+    </main>
   );
 }

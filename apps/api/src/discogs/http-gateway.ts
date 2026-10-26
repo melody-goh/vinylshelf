@@ -11,18 +11,22 @@ import type {
   CollectionPageResult,
   DiscogsGateway,
   DiscogsIdentity,
+  ReleaseDetailData,
   ReleaseSummaryData,
   RequestToken,
   TokenPair,
 } from './gateway.js';
 import { authorizationHeader, type ConsumerCredentials } from './oauth1.js';
+import { vinylColorsOf } from './vinyl-colors.js';
 import type { Lane, RateLimiter } from './rate-limiter.js';
 import {
   accessTokenResponse,
   collectionReleasesResponse,
   identityResponse,
+  releaseResponse,
   requestTokenResponse,
   type CollectionReleasesResponse,
+  type ReleaseResponse,
 } from './schemas.js';
 
 /** Discogs' maximum page size; fewer pages means fewer rate-limited calls. */
@@ -130,6 +134,18 @@ export class HttpDiscogsGateway implements DiscogsGateway {
     return toCollectionPage(parse(collectionReleasesResponse, parseJson(body, endpoint), endpoint));
   }
 
+  async getRelease(accessToken: TokenPair, releaseId: number): Promise<ReleaseDetailData> {
+    const endpoint = 'releases/:id';
+    const body = await this.send({
+      method: 'GET',
+      url: discogsEndpoints.release(releaseId),
+      endpoint,
+      token: accessToken,
+      lane: 'interactive',
+    });
+    return toReleaseDetail(parse(releaseResponse, parseJson(body, endpoint), endpoint));
+  }
+
   private async send(request: SignedRequest, attempt = 0): Promise<string> {
     const { limiter, consumer, userAgent } = this.options;
     await limiter.acquire(request.lane ?? 'interactive');
@@ -226,6 +242,7 @@ function toCollectionPage(response: CollectionReleasesResponse): CollectionPageR
         artists: info.artists.map((a) => displayArtistName(a.name)),
         // Discogs reports an unknown year as 0.
         year: info.year > 0 ? info.year : null,
+        vinylColors: vinylColorsOf(info.formats),
         coverImageUrl: coverImage(info.cover_image),
         discogsUrl: discogsEndpoints.releasePage(info.id),
       };
@@ -236,5 +253,41 @@ function toCollectionPage(response: CollectionReleasesResponse): CollectionPageR
         release,
       };
     }),
+  };
+}
+
+/** "2 × Vinyl, LP, Album, Blue Marbled": quantity, format, descriptions, free text. */
+function formatLine(format: ReleaseResponse['formats'][number]): string {
+  const qty = Number.parseInt(format.qty ?? '1', 10);
+  const parts = [
+    format.name,
+    ...(format.descriptions ?? []),
+    ...(format.text ? [format.text] : []),
+  ];
+  return `${qty > 1 ? `${qty} × ` : ''}${parts.join(', ')}`;
+}
+
+function toReleaseDetail(response: ReleaseResponse): ReleaseDetailData {
+  const primary = response.images.find((i) => i.type === 'primary') ?? response.images[0];
+  const label = response.labels[0];
+  return {
+    discogsId: response.id,
+    title: response.title,
+    artists: response.artists.map((a) => displayArtistName(a.name)),
+    year: response.year !== undefined && response.year > 0 ? response.year : null,
+    vinylColors: vinylColorsOf(response.formats),
+    coverImageUrl: coverImage(primary?.uri),
+    discogsUrl: discogsEndpoints.releasePage(response.id),
+    label: label?.name ?? null,
+    // Discogs writes "none" for releases without a catalogue number.
+    catalogNumber: label?.catno && label.catno.toLowerCase() !== 'none' ? label.catno : null,
+    genres: response.genres,
+    styles: response.styles,
+    formats: response.formats.map(formatLine),
+    credits: response.extraartists.map((c) => ({ name: displayArtistName(c.name), role: c.role })),
+    // Headings ("Side One") structure the list on Discogs but are not tracks.
+    tracklist: response.tracklist
+      .filter((t) => t.type_ === undefined || t.type_ === 'track')
+      .map((t) => ({ position: t.position, title: t.title, duration: t.duration || null })),
   };
 }

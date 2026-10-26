@@ -32,3 +32,28 @@ export function useUnexpired(items: CollectionItem[], onExpire: () => void): Col
 
   return fresh;
 }
+
+/**
+ * Whether a single Discogs-sourced value is past its `expiresAt`, re-rendering at the
+ * deadline so the value disappears on time (ADR 0004), and calling `onExpire` then.
+ */
+export function useExpired(expiresAt: string | undefined, onExpire: () => void): boolean {
+  const [now, setNow] = useState(() => Date.now());
+  const deadline = expiresAt ? Date.parse(expiresAt) : Number.NaN;
+
+  useEffect(() => {
+    if (!Number.isFinite(deadline) || deadline <= Date.now()) return;
+    const timer = setTimeout(
+      () => {
+        setNow(Date.now());
+        onExpire();
+      },
+      Math.min(deadline - Date.now(), MAX_TIMEOUT_MS),
+    );
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [deadline, onExpire]);
+
+  return Number.isFinite(deadline) && deadline <= now;
+}
