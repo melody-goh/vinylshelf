@@ -16,6 +16,8 @@ import type {
   RequestToken,
   SearchPageData,
   TokenPair,
+  WantData,
+  WantlistPageData,
 } from './gateway.js';
 import { authorizationHeader, type ConsumerCredentials } from './oauth1.js';
 import { vinylColorsOf } from './vinyl-colors.js';
@@ -28,9 +30,13 @@ import {
   releaseResponse,
   requestTokenResponse,
   searchResponse,
+  wantlistResponse,
+  wantResponse,
+  type BasicInformation,
   type CollectionReleasesResponse,
   type ReleaseResponse,
   type SearchResponse,
+  type WantResponse,
 } from './schemas.js';
 
 /** Discogs' maximum page size; fewer pages means fewer rate-limited calls. */
@@ -49,7 +55,7 @@ export interface HttpDiscogsGatewayOptions {
 }
 
 interface SignedRequest {
-  method: 'GET' | 'POST';
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   url: string;
   endpoint: string;
   token?: TokenPair;
@@ -197,6 +203,62 @@ export class HttpDiscogsGateway implements DiscogsGateway {
     return { instanceId: parsed.instance_id };
   }
 
+  async getWantlistPage(
+    accessToken: TokenPair,
+    username: string,
+    page: number,
+  ): Promise<WantlistPageData> {
+    const url = new URL(discogsEndpoints.wants(username));
+    url.searchParams.set('page', String(page));
+    url.searchParams.set('per_page', String(COLLECTION_PAGE_SIZE));
+    const endpoint = 'users/:username/wants';
+    const body = await this.send({
+      method: 'GET',
+      url: url.toString(),
+      endpoint,
+      token: accessToken,
+      lane: 'interactive',
+    });
+    const parsed = parse(wantlistResponse, parseJson(body, endpoint), endpoint);
+    return {
+      page: parsed.pagination.page,
+      pages: parsed.pagination.pages,
+      totalItems: parsed.pagination.items,
+      wants: parsed.wants.map(toWant),
+    };
+  }
+
+  async addToWantlist(
+    accessToken: TokenPair,
+    username: string,
+    releaseId: number,
+  ): Promise<WantData> {
+    const endpoint = 'users/:username/wants/:id';
+    // Idempotent on Discogs (a release is wanted or not), so a 429 may be retried.
+    const body = await this.send({
+      method: 'PUT',
+      url: discogsEndpoints.want(username, releaseId),
+      endpoint,
+      token: accessToken,
+      lane: 'interactive',
+    });
+    return toWant(parse(wantResponse, parseJson(body, endpoint), endpoint));
+  }
+
+  async removeFromWantlist(
+    accessToken: TokenPair,
+    username: string,
+    releaseId: number,
+  ): Promise<void> {
+    await this.send({
+      method: 'DELETE',
+      url: discogsEndpoints.want(username, releaseId),
+      endpoint: 'users/:username/wants/:id',
+      token: accessToken,
+      lane: 'interactive',
+    });
+  }
+
   private async send(request: SignedRequest, attempt = 0): Promise<string> {
     const { limiter, consumer, userAgent } = this.options;
     await limiter.acquire(request.lane ?? 'interactive');
@@ -282,33 +344,42 @@ function coverImage(url: string | undefined): string | null {
   return url;
 }
 
+/** A release summary from the `basic_information` Discogs embeds in list entries. */
+function summaryOf(info: BasicInformation): ReleaseSummaryData {
+  return {
+    discogsId: info.id,
+    title: info.title,
+    artists: info.artists.map((a) => displayArtistName(a.name)),
+    // Discogs reports an unknown year as 0.
+    year: info.year > 0 ? info.year : null,
+    vinylColors: vinylColorsOf(info.formats),
+    formatNames: formatNamesOf(info.formats),
+    genres: info.genres,
+    styles: info.styles,
+    coverImageUrl: coverImage(info.cover_image),
+    discogsUrl: discogsEndpoints.releasePage(info.id),
+  };
+}
+
+function toWant(want: WantResponse): WantData {
+  return {
+    releaseId: want.id,
+    dateAdded: new Date(want.date_added),
+    release: summaryOf(want.basic_information),
+  };
+}
+
 function toCollectionPage(response: CollectionReleasesResponse): CollectionPageResult {
   return {
     page: response.pagination.page,
     pages: response.pagination.pages,
     totalItems: response.pagination.items,
-    entries: response.releases.map((item) => {
-      const info = item.basic_information;
-      const release: ReleaseSummaryData = {
-        discogsId: info.id,
-        title: info.title,
-        artists: info.artists.map((a) => displayArtistName(a.name)),
-        // Discogs reports an unknown year as 0.
-        year: info.year > 0 ? info.year : null,
-        vinylColors: vinylColorsOf(info.formats),
-        formatNames: formatNamesOf(info.formats),
-        genres: info.genres,
-        styles: info.styles,
-        coverImageUrl: coverImage(info.cover_image),
-        discogsUrl: discogsEndpoints.releasePage(info.id),
-      };
-      return {
-        instanceId: item.instance_id,
-        releaseId: item.id,
-        dateAdded: new Date(item.date_added),
-        release,
-      };
-    }),
+    entries: response.releases.map((item) => ({
+      instanceId: item.instance_id,
+      releaseId: item.id,
+      dateAdded: new Date(item.date_added),
+      release: summaryOf(item.basic_information),
+    })),
   };
 }
 
@@ -399,6 +470,7 @@ function toSearchPage(response: SearchResponse): SearchPageData {
           formats: r.format,
           thumbUrl: coverImage(r.thumb),
           discogsUrl: discogsEndpoints.releasePage(r.id),
+          inWantlist: r.user_data?.in_wantlist ?? false,
         };
       }),
   };

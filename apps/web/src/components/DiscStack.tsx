@@ -1,4 +1,4 @@
-import type { CollectionItem } from '@vinylshelf/contract';
+import type { CollectionItem, ReleaseSummary } from '@vinylshelf/contract';
 import { motion, type Transition } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { useWideScreen } from '../design/media';
@@ -22,7 +22,8 @@ interface DiscStackProps {
   onLoadMore: () => void;
 }
 
-export function describeRecord(item: CollectionItem): string {
+/** A record's accessible name: title, artists and year. */
+export function describeRecord(item: { release: ReleaseSummary }): string {
   const { release } = item;
   return `${release.title}, ${release.artists.join(', ')}, ${release.year ?? 'year unknown'}`;
 }

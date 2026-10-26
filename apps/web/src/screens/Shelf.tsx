@@ -18,10 +18,14 @@ import { Gatefold } from '../components/Gatefold';
 import { HypeSticker } from '../components/HypeSticker';
 import { ImportProgress } from '../components/ImportProgress';
 import { Library } from '../components/Library';
+import { LiquidButton } from '../components/LiquidButton';
 import { ScoredText } from '../components/ScoredText';
 import { SearchField } from '../components/SearchField';
 import { SearchResults } from '../components/SearchResults';
 import { TextSelect } from '../components/TextSelect';
+import { Wantlist } from '../components/Wantlist';
+
+const VIEW_NAMES = { shelf: 'Shelf', library: 'Library', wantlist: 'Wantlist' } as const;
 
 const RETRY_TIME = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
 
@@ -41,7 +45,7 @@ export function Shelf({ user }: { user: User }) {
   // The record chosen on the stack, in search or in the library. Kept whole, because a
   // record chosen in the library may not be among the shelf's loaded pages.
   const [chosen, setChosen] = useState<CollectionItem | null>(null);
-  const [view, setView] = useState<'shelf' | 'library'>('shelf');
+  const [view, setView] = useState<'shelf' | 'library' | 'wantlist'>('shelf');
   // While there is a query, search takes the gatefold's place (ADR 0009).
   const [query, setQuery] = useState('');
   const searching = query.trim().length > 0;
@@ -94,7 +98,7 @@ export function Shelf({ user }: { user: User }) {
           <p className="condensed text-sm font-extrabold [font-stretch:62%]">Vinyl Shelf</p>
           {!isEmpty && (
             <nav aria-label="Views" className="flex gap-4 text-sm">
-              {(['shelf', 'library'] as const).map((name) => (
+              {(['shelf', 'library', 'wantlist'] as const).map((name) => (
                 <button
                   key={name}
                   type="button"
@@ -106,14 +110,14 @@ export function Shelf({ user }: { user: User }) {
                     view === name ? 'font-medium text-ink' : 'text-ink-soft hover:text-ink'
                   }
                 >
-                  {name === 'shelf' ? 'Shelf' : 'Library'}
+                  {VIEW_NAMES[name]}
                 </button>
               ))}
             </nav>
           )}
         </div>
         <h1 className="sr-only">
-          {user.discogsUsername}&rsquo;s {view === 'library' ? 'library' : 'shelf'}
+          {user.discogsUsername}&rsquo;s {VIEW_NAMES[view].toLowerCase()}
         </h1>
         <SearchField
           value={query}
@@ -140,26 +144,19 @@ export function Shelf({ user }: { user: User }) {
           {!isEmpty && (
             // Changes made on discogs.com reach the shelf by re-importing; this does it now
             // rather than waiting for the automatic refresh (ADR 0004 §4).
-            <button
-              type="button"
-              onClick={begin}
-              disabled={startImport.isPending || importing}
-              className="underline disabled:no-underline disabled:opacity-60"
-            >
+            <LiquidButton onClick={begin} disabled={startImport.isPending || importing}>
               {importing ? 'Syncing…' : 'Sync with Discogs'}
-            </button>
+            </LiquidButton>
           )}
           <span className="hidden text-ink-soft md:inline">{user.discogsUsername}</span>
-          <button
-            type="button"
+          <LiquidButton
             onClick={() => {
               logout.mutate();
             }}
             disabled={logout.isPending}
-            className="underline"
           >
             Sign out
-          </button>
+          </LiquidButton>
         </div>
       </header>
 
@@ -174,6 +171,13 @@ export function Shelf({ user }: { user: User }) {
         <p role="alert" className="p-8">
           Your shelf couldn&rsquo;t be loaded. Try again in a moment.
         </p>
+      ) : view === 'wantlist' && !searching ? (
+        <Wantlist
+          onAcquired={(item) => {
+            if (item) setChosen(item);
+            setView('shelf');
+          }}
+        />
       ) : view === 'library' && !isEmpty && !searching ? (
         <Library
           onOpen={(item) => {

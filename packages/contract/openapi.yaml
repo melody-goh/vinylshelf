@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.6.0
+  version: 0.7.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -23,6 +23,8 @@ tags:
     description: Importing and browsing the user's Discogs collection.
   - name: Releases
     description: Release detail and manual search.
+  - name: Wantlist
+    description: The records the user is looking for, read live from Discogs.
   - name: Recognition
     description: Listen sessions, audio upload and recognition results.
   - name: Meta
@@ -337,6 +339,99 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Problem'
+
+  /wantlist:
+    get:
+      tags: [Wantlist]
+      operationId: listWantlist
+      summary: One page of the user's Discogs wantlist, newest first
+      description: |
+        Read live from Discogs and never stored as a list
+        (docs/adr/0011-the-wantlist.md). Each release carries `fetchedAt` and
+        `expiresAt` like any Discogs data. All formats are included.
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+      responses:
+        '200':
+          description: One page of the wantlist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WantlistPage'
+        '401':
+          description: |
+            Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Problem'
+
+  /wantlist/{discogsId}:
+    parameters:
+      - name: discogsId
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    put:
+      tags: [Wantlist]
+      operationId: addToWantlist
+      summary: Add a release to the user's Discogs wantlist
+      description: |
+        Idempotent: adding a release already wanted returns it unchanged (ADR 0011).
+      responses:
+        '200':
+          description: The release as it now stands on the wantlist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WantlistItem'
+        '401':
+          description: |
+            Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+        '404':
+          description: |
+            No such release on Discogs (`code: release_not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/Problem'
+    delete:
+      tags: [Wantlist]
+      operationId: removeFromWantlist
+      summary: Remove a release from the user's Discogs wantlist
+      description: Removing a release that is not wanted is treated as done.
+      responses:
+        '204':
+          description: No longer on the wantlist.
+        '401':
+          description: |
+            Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
         '429':
           $ref: '#/components/responses/RateLimited'
         '503':
@@ -941,6 +1036,29 @@ components:
           format: date-time
           description: When the match is looked up again (24 hours after `fetchedAt`).
 
+    WantlistPage:
+      type: object
+      required: [items, page, pages, totalItems]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WantlistItem'
+        page: { type: integer, minimum: 1 }
+        pages: { type: integer, minimum: 0 }
+        totalItems:
+          type: integer
+          minimum: 0
+          description: Releases on the wantlist, all formats.
+
+    WantlistItem:
+      type: object
+      required: [release, dateAdded]
+      properties:
+        release:
+          $ref: '#/components/schemas/ReleaseSummary'
+        dateAdded: { type: string, format: date-time }
+
     SearchPage:
       type: object
       required: [results, page, pages, totalResults]
@@ -971,6 +1089,7 @@ components:
           thumbUrl,
           discogsUrl,
           inCollection,
+          inWantlist,
           fetchedAt,
           expiresAt,
         ]
@@ -1002,6 +1121,9 @@ components:
             At least one copy is already on the user's shelf (as of their last import),
             so adding it needs `allowDuplicate`. Same check as the 409 on
             `addCollectionItem`.
+        inWantlist:
+          type: boolean
+          description: On the user's Discogs wantlist, as Discogs reports with the result.
         fetchedAt: { type: string, format: date-time }
         expiresAt:
           type: string

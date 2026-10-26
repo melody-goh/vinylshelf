@@ -396,6 +396,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wantlist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One page of the user's Discogs wantlist, newest first
+         * @description Read live from Discogs and never stored as a list
+         *     (docs/adr/0011-the-wantlist.md). Each release carries `fetchedAt` and
+         *     `expiresAt` like any Discogs data. All formats are included.
+         */
+        get: operations["listWantlist"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/wantlist/{discogsId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                discogsId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Add a release to the user's Discogs wantlist
+         * @description Idempotent: adding a release already wanted returns it unchanged (ADR 0011).
+         */
+        put: operations["addToWantlist"];
+        post?: never;
+        /**
+         * Remove a release from the user's Discogs wantlist
+         * @description Removing a release that is not wanted is treated as done.
+         */
+        delete: operations["removeFromWantlist"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -691,6 +739,8 @@ export interface components {
              *     `addCollectionItem`.
              */
             inCollection: boolean;
+            /** @description On the user's Discogs wantlist, as Discogs reports with the result. */
+            inWantlist: boolean;
             label: string | null;
             /**
              * Format: uri
@@ -704,6 +754,18 @@ export interface components {
             discogsUsername: string;
             /** Format: uuid */
             id: string;
+        };
+        WantlistItem: {
+            /** Format: date-time */
+            dateAdded: string;
+            release: components["schemas"]["ReleaseSummary"];
+        };
+        WantlistPage: {
+            items: components["schemas"]["WantlistItem"][];
+            page: number;
+            pages: number;
+            /** @description Releases on the wantlist, all formats. */
+            totalItems: number;
         };
     };
     responses: {
@@ -1311,6 +1373,114 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    listWantlist: {
+        parameters: {
+            query?: {
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of the wantlist. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WantlistPage"];
+                };
+            };
+            /** @description Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    addToWantlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                discogsId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The release as it now stands on the wantlist. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WantlistItem"];
+                };
+            };
+            /** @description Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: components["responses"]["ForbiddenOrigin"];
+            /** @description No such release on Discogs (`code: release_not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Problem"];
+        };
+    };
+    removeFromWantlist: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                discogsId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No longer on the wantlist. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: components["responses"]["ForbiddenOrigin"];
             429: components["responses"]["RateLimited"];
             503: components["responses"]["Problem"];
         };

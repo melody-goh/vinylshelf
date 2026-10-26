@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ApiError } from '../api/client';
 import { LOGIN_URL } from '../api/session';
 import { MIN_QUERY, useAddToShelf, useDebounced, useSearch } from '../api/search';
+import { useWant } from '../api/wantlist';
 
 const press = { type: 'spring', stiffness: 500, damping: 28 } as const;
 
@@ -213,7 +214,48 @@ function ResultRow({
             {add.isPending ? 'Adding' : onShelf ? 'Add copy' : 'Add'}
           </motion.button>
         )}
+        {/* Nobody wants what is already on their shelf. */}
+        {!onShelf && <WantToggle result={result} />}
       </div>
     </li>
+  );
+}
+
+/**
+ * Puts a result on the Discogs wantlist, or takes it off (ADR 0011). Shows the new state
+ * as soon as Discogs agrees, before the results are refetched.
+ */
+function WantToggle({ result }: { result: SearchResult }) {
+  const { add, remove } = useWant();
+  const [override, setOverride] = useState<boolean | null>(null);
+  const wanted = override ?? result.inWantlist;
+  const busy = add.isPending || remove.isPending;
+
+  return (
+    <button
+      type="button"
+      aria-pressed={wanted}
+      aria-label={`Want ${result.title}`}
+      disabled={busy}
+      onClick={() => {
+        const id = result.discogsId;
+        if (wanted) {
+          remove.mutate(id, {
+            onSuccess: () => {
+              setOverride(false);
+            },
+          });
+        } else {
+          add.mutate(id, {
+            onSuccess: () => {
+              setOverride(true);
+            },
+          });
+        }
+      }}
+      className={`text-xs underline disabled:opacity-50 ${wanted ? 'font-semibold text-ink' : 'text-ink-soft'}`}
+    >
+      {wanted ? 'Wanted' : 'Want'}
+    </button>
   );
 }

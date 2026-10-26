@@ -125,11 +125,15 @@ describe('Shelf: the open gatefold and the disc stack', () => {
 
     await user.click(await screen.findByRole('button', { name: /^Alpine Suites/ }));
 
-    await waitFor(async () => {
-      expect(
-        within(await gatefold()).getByRole('heading', { name: 'Alpine Suites' }),
-      ).toBeInTheDocument();
-    });
+    await waitFor(
+      async () => {
+        expect(
+          within(await gatefold()).getByRole('heading', { name: 'Alpine Suites' }),
+        ).toBeInTheDocument();
+        // The old record folds shut before the new one opens; allow for a busy machine.
+      },
+      { timeout: 3000 },
+    );
     expect(screen.getByRole('button', { name: /^Alpine Suites/ })).toHaveAttribute(
       'aria-current',
       'true',

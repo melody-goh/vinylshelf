@@ -32,7 +32,7 @@ function makeGateway(clock = fakeClock()) {
 }
 
 /** Captures the next request to a URL while still serving the default handlers. */
-function capture(method: 'get' | 'post', url: string) {
+function capture(method: 'get' | 'post' | 'put' | 'delete', url: string) {
   const seen: Request[] = [];
   mswServer.use(
     http[method](url, ({ request }) => {
@@ -360,6 +360,7 @@ describe('HttpDiscogsGateway: search', () => {
         formats: ['Vinyl', 'LP', 'Album', 'Limited Edition'],
         thumbUrl: 'https://i.discogs.com/fixture/thumb-9000001.jpg',
         discogsUrl: 'https://www.discogs.com/release/9000001',
+        inWantlist: false,
       },
       {
         // The name-variation "*" and the "(2)" suffix go; only the first " - " splits.
@@ -373,6 +374,7 @@ describe('HttpDiscogsGateway: search', () => {
         formats: ['Vinyl', 'LP'],
         thumbUrl: null,
         discogsUrl: 'https://www.discogs.com/release/9000099',
+        inWantlist: true,
       },
     ]);
   });
@@ -406,5 +408,54 @@ describe('HttpDiscogsGateway: adding to the collection', () => {
       makeGateway().gateway.addToCollection(accessToken, 'fixture_collector', 9000001),
     ).rejects.toBeInstanceOf(DiscogsRateLimitedError);
     expect(calls).toBe(1);
+  });
+});
+
+describe('HttpDiscogsGateway: the wantlist (ADR 0011)', () => {
+  it('reads a page of the wantlist, every format, as clean entries', async () => {
+    const seen = capture('get', discogsUrls.wantlist);
+    const page = await makeGateway().gateway.getWantlistPage(accessToken, 'fixture_collector', 1);
+
+    expect(new URL(seen[0]?.url ?? '').searchParams.get('per_page')).toBe(
+      String(COLLECTION_PAGE_SIZE),
+    );
+    expect(page).toMatchObject({ page: 1, pages: 1, totalItems: 2 });
+    expect(
+      page.wants.map((w) => [
+        w.releaseId,
+        w.release.title,
+        w.release.artists,
+        w.release.year,
+        w.release.formatNames,
+        w.release.coverImageUrl,
+      ]),
+    ).toEqual([
+      [
+        9000101,
+        'Signal Fires',
+        ['The Paper Moons'],
+        2016,
+        ['Vinyl'],
+        'https://i.discogs.com/fixture/cover-9000101.jpg',
+      ],
+      [9000102, 'Low Tide Radio', ['Ana Ferreira'], null, ['CD'], null],
+    ]);
+    expect(page.wants[0]?.dateAdded).toEqual(new Date('2026-10-20T16:00:00Z'));
+  });
+
+  it('adds with PUT and removes with DELETE, signed', async () => {
+    const puts = capture('put', discogsUrls.want);
+    const { gateway } = makeGateway();
+
+    const added = await gateway.addToWantlist(accessToken, 'fixture_collector', 9000101);
+    expect(added.release.title).toBe('Signal Fires');
+    expect(puts[0]?.url).toBe('https://api.discogs.com/users/fixture_collector/wants/9000101');
+
+    await expect(
+      gateway.removeFromWantlist(accessToken, 'fixture_collector', 9000101),
+    ).resolves.toBeUndefined();
+    await expect(
+      gateway.removeFromWantlist(accessToken, 'fixture_collector', 1),
+    ).rejects.toBeInstanceOf(DiscogsNotFoundError);
   });
 });

@@ -1,5 +1,7 @@
-import type { CollectionItem } from '@vinylshelf/contract';
+import type { ReleaseSummary } from '@vinylshelf/contract';
 import { motion } from 'motion/react';
+import type { ReactNode } from 'react';
+import { HOLO_GROUND, HOLO_WASHES } from '../design/holo';
 
 /** A slow, never-ending drift: a spring with no bounce, mirrored back and forth. */
 const drift = {
@@ -10,16 +12,7 @@ const drift = {
   repeatType: 'mirror',
 } as const;
 
-/**
- * A holographic wash, like light across iridescent foil: broad pastel fields from round
- * the rainbow that overlap and melt into each other. Two layers drift past each other at
- * different speeds, so the blend keeps changing and never settles into a pattern.
- */
-const WASHES = [
-  'radial-gradient(38% 160% at 8% 40%, #f9c6a6, transparent 70%), radial-gradient(38% 160% at 40% 65%, #f2e397, transparent 70%), radial-gradient(38% 160% at 70% 35%, #b2daf3, transparent 70%), radial-gradient(38% 160% at 96% 60%, #c8bcf3, transparent 70%)',
-  'radial-gradient(34% 150% at 24% 30%, #f1badb, transparent 70%), radial-gradient(34% 150% at 56% 55%, #b1e6c8, transparent 70%), radial-gradient(34% 150% at 86% 40%, #e9c3ea, transparent 70%)',
-];
-
+/** Each wash layer drifts at its own pace, so the blend never settles into a pattern. */
 const DRIFTS = [
   {
     from: { x: '-9%', y: '-6%' },
@@ -39,36 +32,59 @@ const DRIFTS = [
  * the accessible name, so this is for sighted readers only. Before anything is leaned
  * it says how.
  */
-export function Readout({ leaning, wide }: { leaning: CollectionItem | null; wide: boolean }) {
+export function Readout({
+  leaning,
+  wide,
+  hint,
+  actions,
+}: {
+  leaning: { release: ReleaseSummary } | null;
+  wide: boolean;
+  /** What to say before anything is leaned; defaults to how to lean. */
+  hint?: string;
+  /** Things to do with the record named; the strip is then a control, not decoration. */
+  actions?: ReactNode;
+}) {
   return (
-    <div aria-hidden="true" className="relative shrink-0 overflow-hidden border-t border-rule">
-      {/* Oversized layers, moved, never repainted: transform only. */}
-      <div className="absolute inset-0 bg-[#eef0f7]" />
-      {WASHES.map((background, i) => (
-        <motion.div
-          key={background}
-          className={`absolute -inset-[45%] ${i === 1 ? 'opacity-75' : ''}`}
-          style={{ background }}
-          initial={DRIFTS[i]?.from}
-          animate={DRIFTS[i]?.to}
-          transition={{ ...drift, visualDuration: DRIFTS[i]?.seconds ?? 12 }}
-        />
-      ))}
-      <p className="relative min-h-11 px-4 py-2 text-sm leading-tight md:px-6 md:py-3">
-        {leaning ? (
-          <>
-            <span className="block font-semibold">{leaning.release.title}</span>
-            <span className="block text-xs text-ink-soft">
-              {leaning.release.artists.join(', ')}
-              {leaning.release.year ? ` · ${String(leaning.release.year)}` : ''}
+    <div
+      aria-hidden={actions ? undefined : true}
+      className="relative shrink-0 border-t border-rule"
+    >
+      {/* Oversized layers, moved, never repainted: transform only. Clipped on their own,
+          so liquid buttons in the strip can bulge past its edges. */}
+      <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0" style={{ backgroundColor: HOLO_GROUND }} />
+        {HOLO_WASHES.map((background, i) => (
+          <motion.div
+            key={background}
+            className={`absolute -inset-[45%] ${i === 1 ? 'opacity-75' : ''}`}
+            style={{ background }}
+            initial={DRIFTS[i]?.from}
+            animate={DRIFTS[i]?.to}
+            transition={{ ...drift, visualDuration: DRIFTS[i]?.seconds ?? 12 }}
+          />
+        ))}
+      </div>
+      <div className="relative flex min-h-11 items-center justify-between gap-4 px-4 py-2 text-sm leading-tight md:px-6 md:py-3">
+        <p>
+          {leaning ? (
+            <>
+              <span className="block font-semibold">{leaning.release.title}</span>
+              <span className="block text-xs text-ink-soft">
+                {leaning.release.artists.join(', ')}
+                {leaning.release.year ? ` · ${String(leaning.release.year)}` : ''}
+              </span>
+            </>
+          ) : (
+            <span className="block pt-1.5 text-xs text-ink-soft">
+              {hint ?? (wide ? 'Hover over a record to see what it is' : 'Tap a record to open it')}
             </span>
-          </>
-        ) : (
-          <span className="block pt-1.5 text-xs text-ink-soft">
-            {wide ? 'Hover over a record to see what it is' : 'Tap a record to open it'}
-          </span>
+          )}
+        </p>
+        {actions && (
+          <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-1">{actions}</div>
         )}
-      </p>
+      </div>
     </div>
   );
 }

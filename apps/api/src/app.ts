@@ -29,6 +29,8 @@ import { ProblemError, registerProblemHandlers } from './http/problem.js';
 import type { JobQueue } from './jobs/queue.js';
 import type { Clock } from './lib/clock.js';
 import { healthRoutes, type HealthProbe } from './meta/health.js';
+import { wantlistRoutes } from './wantlist/routes.js';
+import { WantlistService } from './wantlist/service.js';
 
 /** Prefix from the `servers` entry in openapi.yaml. */
 export const API_PREFIX = '/api/v1';
@@ -122,6 +124,12 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
         }),
       );
       await api.register(releaseRoutes({ sessions, releases, search, previews }));
+      await api.register(
+        wantlistRoutes({
+          sessions,
+          wantlist: new WantlistService(database.db, deps.releaseCache, deps.gateway, users),
+        }),
+      );
     },
     { prefix: API_PREFIX },
   );

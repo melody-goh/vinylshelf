@@ -54,7 +54,7 @@
       },
       "format_quantity": 1,
       "user_data": {
-        "in_wantlist": false,
+        "in_wantlist": true,
         "in_collection": false
       }
     },
