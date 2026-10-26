@@ -1,7 +1,8 @@
 # ADR 0008: Taste engine with embeddings, offline evaluation and LLM-assisted search
 
-- **Status:** Proposed (work starts after the first vertical slice; decisions marked
-  *open* below must be settled first)
+- **Status:** Accepted 2026-10-26 (proposed 2026-10-23). Open questions 1 and 2 are
+  settled by the investigation recorded under Notes; 3 to 5 stay open until the phase
+  that needs them.
 - **Date:** 2026-10-23
 - **Related:** ADR 0003 (queue), ADR 0004 (Discogs data lifecycle), ADR 0005 (free-tier
   constraints)
@@ -176,3 +177,61 @@ calling an LLM with the whole collection.
   unsuitable.
 - **Running an LLM on the API host:** the free host has about 512 MB of memory, too
   little for a useful language model.
+
+## Notes
+
+### 2026-10-26: investigation (open questions 1 and 2), and what the engine is for
+
+**Dump terms.** data.discogs.com publishes the monthly dumps "under the CC0 No Rights
+Reserved license". We may store them and derive from them without the 6-hour limit that
+applies to API data (ADR 0004). Images are not in the dumps, and none are kept.
+
+**Sizes (October 2026 dump).** Masters 600 MB gzipped, 2,598,586 masters. Releases
+10.5 GB gzipped, about 15 million releases (extrapolated from a streamed 30 MB sample of
+44,950). A master carries its main release, artists, genres, styles, year, title and
+videos, but **no formats, labels or credits**; only releases do.
+
+**Catalogue decision.** The catalogue unit is the **master** (an album across its
+pressings), restricted to masters with at least one vinyl release, ranked by their
+number of versions in any format and capped by configuration (default 150,000). How
+often a record has been pressed and reissued is the best notability signal the dumps
+offer; they carry no have/want counts. A build pipeline makes one streaming pass over
+the releases dump (bandwidth only; nothing large is written to disk) to collect, per
+master: vinyl availability, version count, labels, countries and release credits
+(producers, engineers, players), then joins the masters dump.
+
+**Embedding model.** `bge-small-en-v1.5`, quantised (q8, 34 MB), 384 dimensions, run
+with transformers.js (ONNX) both in the batch job and in the API. Measured on the
+development machine: 2.3 s to load, about 170 MB of resident memory once loaded (about
+250 MB for the whole process, within the free host's 512 MB as long as live queries are
+embedded one at a time), 3 ms per query, about 500 texts a second in batches (about five
+minutes for 150,000 masters). Sanity check: "moody 1970s jazz with lush strings" scores
+0.74 against an Alice Coltrane description and 0.53 against a thrash metal one. Weights
+are fetched once by a setup script and loaded from disk at runtime; the API never
+downloads models.
+
+**Storage estimate.** 150,000 vectors as `halfvec(384)` (768 bytes) plus an HNSW index
+and compact metadata: roughly 250 MB, inside the 0.5 GB free database.
+
+**Cloudflare Workers AI (open question 2).** The free plan includes 10,000 neurons a day;
+past that, calls fail until 00:00 UTC, so the fallback to semantic search and template
+explanations is part of normal operation, not an edge case. Cloudflare "does not use
+Customer Content processed by Workers AI to train AI models" and "does not retain inputs
+or outputs after they are no longer needed to process the request". Acceptable; the
+privacy notice will say queries are processed by Cloudflare.
+
+**What the engine is for.** Accuracy is necessary, not sufficient; a collector should
+want to open it. So, beyond ranked nearest neighbours:
+
+- **Rooms, not a blur.** A collection has sides (the jazz side, the ambient side). A
+  single centroid averages them into something the user does not own. The taste profile
+  is a few clusters, and recommendations come per room ("For your ambient side").
+- **Reasons you can check.** Every pick names what it shares with records on the shelf:
+  styles, era, label, and above all people (the same producer, engineer or players),
+  which is how collectors actually dig.
+- **Near and far.** A choice between picks close to home and picks further afield
+  (diversity re-ranking with a stronger or weaker pull to the rooms).
+- **Steering.** "More like this" and "not for me" on any pick, kept in our database as
+  catalogue ids (CC0), and folded into the next ranking.
+- **Act on it.** A pick can be previewed (ADR 0010), wanted (ADR 0011) or searched for
+  pressings (ADR 0009) without leaving it.
