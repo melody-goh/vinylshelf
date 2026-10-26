@@ -23,6 +23,7 @@ import { ScoredText } from '../components/ScoredText';
 import { SearchField } from '../components/SearchField';
 import { SearchResults } from '../components/SearchResults';
 import { TextSelect } from '../components/TextSelect';
+import { ViewTabs } from '../components/ViewTabs';
 import { Wantlist } from '../components/Wantlist';
 
 const VIEW_NAMES = { shelf: 'Shelf', library: 'Library', wantlist: 'Wantlist' } as const;
@@ -97,23 +98,12 @@ export function Shelf({ user }: { user: User }) {
         <div className="flex items-baseline gap-6">
           <p className="condensed text-sm font-extrabold [font-stretch:62%]">Vinyl Shelf</p>
           {!isEmpty && (
-            <nav aria-label="Views" className="flex gap-4 text-sm">
-              {(['shelf', 'library', 'wantlist'] as const).map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  aria-current={view === name ? 'page' : undefined}
-                  onClick={() => {
-                    setView(name);
-                  }}
-                  className={
-                    view === name ? 'font-medium text-ink' : 'text-ink-soft hover:text-ink'
-                  }
-                >
-                  {VIEW_NAMES[name]}
-                </button>
-              ))}
-            </nav>
+            <ViewTabs
+              views={['shelf', 'library', 'wantlist'] as const}
+              names={VIEW_NAMES}
+              current={view}
+              onChange={setView}
+            />
           )}
         </div>
         <h1 className="sr-only">

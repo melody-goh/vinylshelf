@@ -298,3 +298,30 @@ test('liquid button captures', async ({ page }) => {
     });
   }
 });
+
+test('tab captures', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.goto('/');
+  await settle(page);
+  const header = { x: 0, y: 0, width: 520, height: 56 };
+  await page.screenshot({ path: `${OUT}/desktop-tabs.png`, clip: header });
+  // Record the dot's x for 30 frames after the click, to see it travel.
+  const track = page.evaluate(
+    () =>
+      new Promise<number[]>((resolve) => {
+        const xs: number[] = [];
+        const tick = () => {
+          const dot = document.querySelector('nav[aria-label="Views"] span[aria-hidden]');
+          xs.push(Math.round(dot?.getBoundingClientRect().x ?? -1));
+          if (xs.length < 30) requestAnimationFrame(tick);
+          else resolve(xs);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+  await page.getByRole('button', { name: 'Wantlist' }).click();
+  console.log('dot x by frame:', (await track).join(' '));
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${OUT}/desktop-tabs-wantlist.png`, clip: header });
+});
