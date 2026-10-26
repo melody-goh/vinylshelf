@@ -40,6 +40,8 @@ export function Library({
   const [sort, setSort] = useState<CollectionSort>('added_desc');
   const [filters, setFilters] = useState<ShelfFilters>({});
   const [leaning, setLeaning] = useState<CollectionItem | null>(null);
+  /** The record in the middle of the view while scrolling; a hovered one takes over. */
+  const [centred, setCentred] = useState<CollectionItem | null>(null);
   const collection = useCollection(sort, filters, PAGE_SIZE);
   const facets = useFacets().data;
   const scroller = useRef<HTMLDivElement>(null);
@@ -206,6 +208,8 @@ export function Library({
             keyOf={(item) => item.instanceId}
             onChoose={onOpen}
             onLean={setLeaning}
+            scroller={scroller}
+            onCentre={setCentred}
             scatter={scatter}
             placeholders={Math.min(refreshingCount, PLACEHOLDERS)}
           />
@@ -213,7 +217,7 @@ export function Library({
         <div ref={sentinel} className="h-px" />
       </div>
 
-      <Readout leaning={leaning} wide={wide} />
+      <Readout leaning={leaning ?? centred} wide={wide} />
     </section>
   );
 }

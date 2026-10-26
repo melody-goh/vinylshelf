@@ -347,3 +347,24 @@ test('tab captures', async ({ page }) => {
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${OUT}/desktop-tabs-wantlist.png`, clip: header });
 });
+
+test('library scroll captures', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.route('**/api/v1/collection/items**', (route) =>
+    route.fulfill({ json: libraryPage(180) }),
+  );
+  await page.goto('/');
+  await settle(page);
+  await page.getByRole('button', { name: 'Library' }).click();
+  await page.waitForTimeout(2200);
+  await page.mouse.move(720, 450);
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(120);
+  await page.screenshot({ path: `${OUT}/desktop-library-scrolling.png` });
+  await page.waitForTimeout(900);
+  // Park the pointer on the readout so no cover is hovered.
+  await page.mouse.move(720, 880);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}/desktop-library-scrolled.png` });
+});
