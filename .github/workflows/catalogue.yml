@@ -1,0 +1,81 @@
+# Builds the taste catalogue from a month of Discogs' CC0 data dumps and publishes it as
+# a GitHub Release (ADR 0012). Run by hand from the Actions tab; load the result with
+# `pnpm --filter @vinylshelf/api catalogue:load`.
+name: Catalogue
+
+on:
+  workflow_dispatch:
+    inputs:
+      dump:
+        description: Dump date, YYYYMM01 (Discogs publishes on the 1st). Empty means this month.
+        required: false
+        default: ''
+      cap:
+        description: Most masters to keep (ADR 0008).
+        required: false
+        default: '150000'
+
+permissions:
+  # Creating the Release is the only write.
+  contents: write
+
+concurrency:
+  group: catalogue
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Streaming 11 GB and embedding 150,000 masters; generous so a slow mirror day passes.
+    timeout-minutes: 240
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The model's weights, once per version, so rebuilds do not refetch them.
+      - uses: actions/cache@v4
+        with:
+          path: apps/api/.models
+          key: embedding-model-bge-small-en-v1.5-q8
+
+      - run: pnpm --filter @vinylshelf/api models:fetch
+
+      - name: Build
+        id: build
+        env:
+          DUMP: ${{ inputs.dump }}
+          CAP: ${{ inputs.cap }}
+        run: |
+          dump="${DUMP:-$(date -u +%Y%m01)}"
+          echo "dump=$dump" >> "$GITHUB_OUTPUT"
+          # The build streams the dumps; its memory is a typed array of counts and the
+          # selected masters (ADR 0012 §2), well under the runner's 16 GB.
+          NODE_OPTIONS=--max-old-space-size=8192 pnpm --filter @vinylshelf/api catalogue:build -- \
+            --dump "$dump" --cap "$CAP" --out "$RUNNER_TEMP/catalogue"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DUMP: ${{ steps.build.outputs.dump }}
+        run: |
+          tag="catalogue-${DUMP:0:6}"
+          rows=$(node -p "require('$RUNNER_TEMP/catalogue/manifest.json').rows")
+          notes="Taste catalogue: ${rows} vinyl masters from the Discogs data dump of ${DUMP}, embedded with bge-small-en-v1.5 (ADR 0008, ADR 0012).
+
+          Data provided by Discogs (https://www.discogs.com), published by Discogs under CC0 at https://data.discogs.com/. Load it with: pnpm --filter @vinylshelf/api catalogue:load -- --tag ${tag}"
+          # A rebuild of the same month replaces its files rather than failing.
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$RUNNER_TEMP/catalogue/manifest.json" "$RUNNER_TEMP/catalogue/catalogue.jsonl.gz" --clobber
+          else
+            gh release create "$tag" "$RUNNER_TEMP/catalogue/manifest.json" "$RUNNER_TEMP/catalogue/catalogue.jsonl.gz" \
+              --title "Catalogue ${DUMP:0:4}-${DUMP:4:2}" --notes "$notes"
+          fi
