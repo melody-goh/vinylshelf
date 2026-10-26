@@ -188,3 +188,50 @@ export const wantlistPageSchema = z.object({
 export const wantlistQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
 });
+
+export const catalogueMasterSchema = z.object({
+  masterId: z.number().int(),
+  mainReleaseId: z.number().int(),
+  title: z.string(),
+  artists: z.array(z.string()),
+  year: z.number().int().nullable(),
+  genres: z.array(z.string()),
+  styles: z.array(z.string()),
+  labels: z.array(z.string()),
+  discogsUrl: z.url(),
+});
+
+export const tasteRecommendationsSchema = z.object({
+  status: z.enum(['ready', 'no_catalogue', 'too_few_records']),
+  catalogue: z.object({ dump: z.string(), rows: z.number().int().min(0) }).nullable(),
+  basedOn: z.object({
+    shelfRecords: z.number().int().min(0),
+    inCatalogue: z.number().int().min(0),
+  }),
+  rooms: z.array(
+    z.object({
+      id: z.string(),
+      styles: z.array(z.string()),
+      size: z.number().int().min(1),
+      picks: z.array(
+        z.object({
+          master: catalogueMasterSchema,
+          reason: z.object({
+            kind: z.enum(['people', 'label', 'styles', 'sound']),
+            text: z.string(),
+            shelfTitles: z.array(z.string()).max(3),
+          }),
+        }),
+      ),
+    }),
+  ),
+});
+
+export const tasteRecommendationsQuery = z.object({
+  distance: z.enum(['near', 'far']).default('near'),
+});
+
+export const tasteFeedbackBody = z.object({
+  masterId: z.number().int().min(1),
+  verdict: z.enum(['more', 'less']),
+});

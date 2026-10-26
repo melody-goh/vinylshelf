@@ -284,3 +284,27 @@ evaluation must revisit it.
 names and labels as plain words. It therefore tests the ranking logic, not the real
 model's sense of sound. The real model is judged by `taste:eval` against the loaded
 catalogue and the developer's own shelf, run by hand and printed, never committed.
+
+### 2026-10-27: serving recommendations
+
+`GET /taste/recommendations` and `/taste/feedback` (contract 0.8.0) serve the engine.
+
+- **Shelf to catalogue.** Shelf records join the catalogue by master id, kept on the shelf
+  reference (ADR 0006, note of 2026-10-27). Records the catalogue does not know still
+  count as owned. "Far" also keeps their artists out of its picks, reading them from the
+  release cache only while it is fresh (ADR 0004).
+- **When there is nothing to say.** The response states why: no catalogue loaded, or
+  fewer than three shelf records in it. Clients do not have to guess from an empty list.
+- **Retrieval.** pgvector's HNSW index returns at most `hnsw.ef_search` rows (40 by
+  default) and filters after searching. Excluding a 200-record shelf could therefore
+  return far fewer candidates than asked for, or none: measured, 0 of 50. Each query
+  raises `ef_search` to its limit and turns on pgvector 0.8's strict-order iterative
+  scan, inside its own transaction. A test runs on a connection that forbids sequential
+  scans, so the index path is what it checks.
+- **Steering.** "More like this" adds the record to the rooms as if owned. "Not for me"
+  removes it and pushes down near-duplicates (ADR 0008, Notes 2026-10-27). Verdicts are
+  catalogue ids, kept with the account, and replaced by a newer verdict.
+- **Real shelves.** `taste:eval` scores the engine against the signed-in user's own
+  shelf, holding out one fold at a time and comparing against the same baselines as CI.
+  It prints to the terminal and writes nothing. A collection is the user's data, so
+  real-shelf numbers are never committed; only the synthetic evaluation gates CI.

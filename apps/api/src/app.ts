@@ -29,6 +29,8 @@ import { ProblemError, registerProblemHandlers } from './http/problem.js';
 import type { JobQueue } from './jobs/queue.js';
 import type { Clock } from './lib/clock.js';
 import { healthRoutes, type HealthProbe } from './meta/health.js';
+import { tasteRoutes } from './taste/routes.js';
+import { TasteService } from './taste/service.js';
 import { wantlistRoutes } from './wantlist/routes.js';
 import { WantlistService } from './wantlist/service.js';
 
@@ -128,6 +130,12 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
         wantlistRoutes({
           sessions,
           wantlist: new WantlistService(database.db, deps.releaseCache, deps.gateway, users),
+        }),
+      );
+      await api.register(
+        tasteRoutes({
+          sessions,
+          taste: new TasteService(database, deps.releaseCache, clock),
         }),
       );
     },
