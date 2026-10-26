@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.3.0
+  version: 0.4.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -334,6 +334,59 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Problem'
+
+  /releases/{discogsId}/previews:
+    get:
+      tags: [Releases]
+      operationId: getReleasePreviews
+      summary: 30-second previews for a release's tracks
+      description: |
+        Matches the release's tracklist to songs in the iTunes Store and returns a
+        30-second preview URL for each track that matched with confidence
+        (docs/adr/0010-track-previews-from-itunes.md). Looked up on first request and
+        cached for 24 hours, including "no match". The audio streams from Apple to the
+        client and is never stored.
+
+        Clients MUST show `attribution` and a link to `albumUrl` (with Apple's approved
+        badge) wherever previews play. A release with no match returns 200 with
+        `albumUrl: null` and every `previewUrl` null.
+      parameters:
+        - name: discogsId
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: The release's previews, as far as they could be matched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleasePreviews'
+        '401':
+          description: |
+            Not signed in, or Discogs access was revoked (`code: discogs_auth_revoked`)
+            while fetching the tracklist to match.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: |
+            No such release on Discogs (`code: release_not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          description: |
+            The iTunes Store or Discogs is unavailable (`code: previews_unavailable` or
+            `discogs_unavailable`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 
   /search/releases:
     get:
@@ -749,6 +802,44 @@ components:
                   position: { type: string }
                   title: { type: string }
                   duration: { type: [string, 'null'] }
+
+    ReleasePreviews:
+      type: object
+      required: [discogsId, albumUrl, attribution, tracks, fetchedAt, expiresAt]
+      properties:
+        discogsId: { type: integer }
+        albumUrl:
+          type: [string, 'null']
+          format: uri
+          description: |
+            The matched album in the iTunes Store, the target of Apple's badge. Null when
+            nothing matched.
+        attribution:
+          type: string
+          description: Text Apple requires beside previews, shown as given.
+        tracks:
+          type: array
+          description: One entry per track of `Release.tracklist`, in the same order.
+          items:
+            type: object
+            required: [position, previewUrl, storeUrl]
+            properties:
+              position:
+                type: string
+                description: The track's `position` in `Release.tracklist`.
+              previewUrl:
+                type: [string, 'null']
+                format: uri
+                description: 30 seconds of audio, streamed only. Null when unmatched.
+              storeUrl:
+                type: [string, 'null']
+                format: uri
+                description: The matched song in the iTunes Store.
+        fetchedAt: { type: string, format: date-time }
+        expiresAt:
+          type: string
+          format: date-time
+          description: When the match is looked up again (24 hours after `fetchedAt`).
 
     SearchPage:
       type: object

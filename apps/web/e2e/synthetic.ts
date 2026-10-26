@@ -7,6 +7,7 @@ import type {
   CollectionItem,
   CollectionPage,
   Release,
+  ReleasePreviews,
   SearchPage,
   User,
 } from '@vinylshelf/contract';
@@ -146,4 +147,41 @@ export function searchResults(): SearchPage {
     expiresAt: new Date(now + 5 * HOUR).toISOString(),
   }));
   return { results, page: 1, pages: 3, totalResults: 61 };
+}
+
+/** Previews for a synthetic record: every track but the fourth (left silent, unmatched). */
+export function previews(discogsId: number): ReleasePreviews {
+  const now = Date.now();
+  return {
+    discogsId,
+    albumUrl: `https://music.apple.com/album/synthetic-${String(discogsId)}`,
+    attribution: 'Previews provided courtesy of iTunes',
+    tracks: release(discogsId).tracklist.map((track, i) => ({
+      position: track.position,
+      previewUrl:
+        i === 3 ? null : `https://audio.example/synthetic/${String(discogsId)}-${String(i)}.wav`,
+      storeUrl: i === 3 ? null : `https://music.apple.com/song/synthetic-${String(i)}`,
+    })),
+    fetchedAt: new Date(now - HOUR).toISOString(),
+    expiresAt: new Date(now + 23 * HOUR).toISOString(),
+  };
+}
+
+/** Thirty seconds of silence as a WAV, so the browser really plays something. */
+export function silentWav(seconds = 30, rate = 8000): Buffer {
+  const samples = seconds * rate;
+  const buffer = Buffer.alloc(44 + samples * 2);
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + samples * 2, 4);
+  buffer.write('WAVEfmt ', 8);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(rate, 24);
+  buffer.writeUInt32LE(rate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(samples * 2, 40);
+  return buffer;
 }

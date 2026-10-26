@@ -19,7 +19,7 @@ import type {
 } from './gateway.js';
 import { authorizationHeader, type ConsumerCredentials } from './oauth1.js';
 import { vinylColorsOf } from './vinyl-colors.js';
-import type { Lane, RateLimiter } from './rate-limiter.js';
+import type { Lane, RateLimiter } from '../lib/rate-limiter.js';
 import {
   accessTokenResponse,
   addToCollectionResponse,

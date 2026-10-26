@@ -11,6 +11,7 @@ import type {
   ImportJob,
   Problem,
   Release,
+  ReleasePreviews,
   ReleaseSummary,
   SearchPage,
   User,
@@ -20,12 +21,13 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { API_PREFIX, buildApp, type AppDependencies } from '../app.js';
-import { collectionItems, importJobs } from '../db/schema.js';
+import { collectionItems, importJobs, itunesPreviewCache } from '../db/schema.js';
 import type { Clock } from '../lib/clock.js';
 import { testConfig, testDependencies } from '../test/app.js';
 import { expectToMatchContract, spec, type HttpMethod } from '../test/contract.js';
 import { useTestDatabase } from '../test/database.js';
 import { discogsHandlers, discogsUrls } from '../test/discogs-handlers.js';
+import { itunesHandlers, itunesUrls } from '../test/itunes-handlers.js';
 import { createUser, sessionFor } from '../test/factories.js';
 import { mswServer } from '../test/msw.js';
 import { LOGIN_STARTS_PER_MINUTE } from '../auth/routes.js';
@@ -34,6 +36,7 @@ import type {
   collectionRefreshSchema,
   importJobSchema,
   problemSchema,
+  releasePreviewsSchema,
   releaseSchema,
   releaseSummarySchema,
   searchPageSchema,
@@ -51,7 +54,8 @@ const typesMatch: [
   Equivalent<z.infer<typeof collectionPageSchema>, CollectionPage>,
   Equivalent<z.infer<typeof releaseSchema>, Release>,
   Equivalent<z.infer<typeof searchPageSchema>, SearchPage>,
-] = [true, true, true, true, true, true, true, true];
+  Equivalent<z.infer<typeof releasePreviewsSchema>, ReleasePreviews>,
+] = [true, true, true, true, true, true, true, true, true];
 
 const { db, handle } = useTestDatabase();
 const EVIL = 'https://evil.example';
@@ -262,6 +266,23 @@ describe('contract: search and adding (ADR 0009)', () => {
       http.post(discogsUrls.addToCollection, () => new HttpResponse(null, { status: 500 })),
     );
     expect((await call('post', path, { body: again })).statusCode).toBe(503);
+  });
+});
+
+describe('contract: previews (ADR 0010)', () => {
+  it('GET /releases/{discogsId}/previews: 200, 404, 401, 429 and 503', async () => {
+    mswServer.use(...itunesHandlers());
+    const path = '/releases/{discogsId}/previews';
+    const id9000001 = '/releases/9000001/previews';
+    expect((await call('get', path, { path: id9000001 })).statusCode).toBe(200);
+    expect((await call('get', path, { path: '/releases/1/previews' })).statusCode).toBe(404);
+    expect((await call('get', path, { path: id9000001, signedIn: false })).statusCode).toBe(401);
+
+    await db().delete(itunesPreviewCache);
+    mswServer.use(http.get(itunesUrls.search, () => new HttpResponse(null, { status: 403 })));
+    expect((await call('get', path, { path: id9000001 })).statusCode).toBe(429);
+    mswServer.use(http.get(itunesUrls.search, () => new HttpResponse(null, { status: 500 })));
+    expect((await call('get', path, { path: id9000001 })).statusCode).toBe(503);
   });
 });
 

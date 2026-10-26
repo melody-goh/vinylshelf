@@ -34,7 +34,12 @@ describe('RateLimiter', () => {
 
   it('trusts Discogs when it reports fewer requests remaining', async () => {
     const clock = fakeClock();
-    const limiter = new RateLimiter({ limit: 60, windowMs: 60_000, clock });
+    const limiter = new RateLimiter({
+      limit: 60,
+      windowMs: 60_000,
+      clock,
+      remainingHeader: 'x-discogs-ratelimit-remaining',
+    });
     limiter.observe(200, new Headers({ 'x-discogs-ratelimit-remaining': '1' }));
     await limiter.acquire();
     expect(clock.time).toBe(0);
@@ -44,7 +49,12 @@ describe('RateLimiter', () => {
 
   it('does not double-count requests Discogs already reported', async () => {
     const clock = fakeClock();
-    const limiter = new RateLimiter({ limit: 60, windowMs: 60_000, clock });
+    const limiter = new RateLimiter({
+      limit: 60,
+      windowMs: 60_000,
+      clock,
+      remainingHeader: 'x-discogs-ratelimit-remaining',
+    });
     for (let i = 0; i < 10; i++) await limiter.acquire();
     limiter.observe(200, new Headers({ 'x-discogs-ratelimit-remaining': '50' }));
     for (let i = 0; i < 50; i++) await limiter.acquire();

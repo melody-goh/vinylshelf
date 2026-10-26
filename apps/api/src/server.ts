@@ -12,6 +12,7 @@ import { TokenCipher } from './crypto/token-cipher.js';
 import { createDatabase } from './db/client.js';
 import { DiscogsReleaseCache } from './discogs/cache.js';
 import { createDiscogsGateway } from './discogs/index.js';
+import { createITunesGateway } from './itunes/index.js';
 import { scheduleCachePurge } from './jobs/cache-purge.js';
 import { PgBossQueue, QUEUES } from './jobs/queue.js';
 import { systemClock } from './lib/clock.js';
@@ -25,6 +26,10 @@ const clock = systemClock;
 const database = createDatabase(config.databaseUrl);
 const gateway = createDiscogsGateway({
   consumer: { key: config.discogs.consumerKey, secret: config.discogs.consumerSecret },
+  userAgent: config.discogs.userAgent,
+});
+const itunes = createITunesGateway({
+  country: config.itunes.country,
   userAgent: config.discogs.userAgent,
 });
 const cipher = new TokenCipher(config.tokenEncryptionKey);
@@ -41,6 +46,7 @@ const app = await buildApp({
   config,
   database,
   gateway,
+  itunes,
   cipher,
   queue,
   releaseCache,

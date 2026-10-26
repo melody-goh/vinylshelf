@@ -3,7 +3,13 @@ import { z } from 'zod';
 import { currentUserId, requireUser } from '../auth/guard.js';
 import type { SessionStore } from '../auth/sessions.js';
 import { ProblemError } from '../http/problem.js';
-import { releaseSchema, searchPageSchema, searchQuery } from '../http/schemas.js';
+import {
+  releasePreviewsSchema,
+  releaseSchema,
+  searchPageSchema,
+  searchQuery,
+} from '../http/schemas.js';
+import type { PreviewService } from './previews-service.js';
 import { toReleaseDto, type ReleaseService } from './release-service.js';
 import type { SearchService } from './search-service.js';
 
@@ -18,6 +24,7 @@ export interface ReleaseRouteDependencies {
   sessions: SessionStore;
   releases: ReleaseService;
   search: SearchService;
+  previews: PreviewService;
 }
 
 /** Release detail and search (openapi.yaml, tag Releases). */
@@ -38,6 +45,24 @@ export const releaseRoutes =
           throw new ProblemError(404, 'release_not_found', 'Release not found on Discogs');
         }
         return toReleaseDto(await deps.releases.get(currentUserId(request), id));
+      },
+    );
+
+    app.get(
+      '/releases/:discogsId/previews',
+      {
+        preHandler: requireUser(deps.sessions),
+        schema: {
+          params: z.object({ discogsId: z.string() }),
+          response: { 200: releasePreviewsSchema },
+        },
+      },
+      async (request) => {
+        const id = Number(request.params.discogsId);
+        if (!Number.isSafeInteger(id) || id < 1) {
+          throw new ProblemError(404, 'release_not_found', 'Release not found on Discogs');
+        }
+        return deps.previews.get(currentUserId(request), id);
       },
     );
 

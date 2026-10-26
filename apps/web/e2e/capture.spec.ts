@@ -4,7 +4,15 @@
  * e2e:capture`; images land in .impeccable/review/ (git-ignored).
  */
 import { expect, test, type Page } from '@playwright/test';
-import { coverSvg, page as shelfPage, release, searchResults, user } from './synthetic';
+import {
+  coverSvg,
+  page as shelfPage,
+  previews,
+  release,
+  searchResults,
+  silentWav,
+  user,
+} from './synthetic';
 
 const OUT = '.impeccable/review';
 
@@ -56,6 +64,13 @@ async function mockApi(page: Page, state: State): Promise<void> {
         updatedAt: new Date().toISOString(),
       },
     }),
+  );
+  await page.route('**/api/v1/releases/*/previews', (route) => {
+    const id = Number(route.request().url().split('/').at(-2));
+    return route.fulfill({ json: previews(id) });
+  });
+  await page.route('https://audio.example/**', (route) =>
+    route.fulfill({ contentType: 'audio/wav', body: silentWav() }),
   );
   await page.route('**/api/v1/search/releases**', (route) =>
     route.fulfill({ json: searchResults() }),
@@ -166,4 +181,30 @@ test('loading captures', async ({ page }) => {
   await page.setViewportSize(phone);
   await page.waitForTimeout(600);
   await page.screenshot({ path: `${OUT}/mobile-loading.png` });
+});
+
+test('listening room captures', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.goto('/');
+  await settle(page);
+
+  await page.getByRole('button', { name: 'Play a preview of Undertow' }).click({ timeout: 6000 });
+  await page.waitForTimeout(1600);
+  await page.screenshot({ path: `${OUT}/desktop-listening.png` });
+
+  // Cue by hand: drag the cursor across the ruler and hold mid-drag.
+  const ruler = page.getByRole('slider', { name: 'Position in the record' });
+  const box = await ruler.boundingBox();
+  if (box) {
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.55, box.y + box.height / 2, { steps: 12 });
+    await page.screenshot({ path: `${OUT}/desktop-listening-scrub.png` });
+    await page.mouse.up();
+  }
+
+  await page.setViewportSize(phone);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${OUT}/mobile-listening.png` });
 });

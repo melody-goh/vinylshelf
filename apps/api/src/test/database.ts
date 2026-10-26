@@ -6,6 +6,7 @@ const TABLES = [
   'collection_items',
   'discogs_release_cache',
   'discogs_release_detail_cache',
+  'itunes_preview_cache',
   'import_jobs',
   'sessions',
   'users',

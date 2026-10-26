@@ -16,12 +16,13 @@ import {
   SEARCH_PAGE_SIZE,
   displayArtistName,
 } from './http-gateway.js';
-import { RateLimiter, type Lane } from './rate-limiter.js';
+import { RateLimiter, type Lane } from '../lib/rate-limiter.js';
+import { DISCOGS_REMAINING_HEADER } from './index.js';
 
 const accessToken = { token: 'acc-token', secret: 'acc-secret' };
 
 function makeGateway(clock = fakeClock()) {
-  const limiter = new RateLimiter({ clock });
+  const limiter = new RateLimiter({ clock, remainingHeader: DISCOGS_REMAINING_HEADER });
   const gateway = new HttpDiscogsGateway({
     consumer: { key: 'ckey', secret: 'csecret' },
     userAgent: 'VinylShelfTest/0.0',

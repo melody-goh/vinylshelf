@@ -134,3 +134,18 @@ export const addCollectionItemBody = z.strictObject({
   discogsId: z.number().int().min(1),
   allowDuplicate: z.boolean().default(false),
 });
+
+export const releasePreviewsSchema = z.object({
+  discogsId: z.number().int(),
+  albumUrl: z.url().nullable(),
+  attribution: z.string(),
+  tracks: z.array(
+    z.object({
+      position: z.string(),
+      previewUrl: z.url().nullable(),
+      storeUrl: z.url().nullable(),
+    }),
+  ),
+  fetchedAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
+});

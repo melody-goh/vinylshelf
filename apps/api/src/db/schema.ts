@@ -19,6 +19,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import type { Problem } from '@vinylshelf/contract';
+import type { MatchedTrack } from '../itunes/match.js';
 import type { ReleaseDetailData } from '../discogs/gateway.js';
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
@@ -169,6 +170,34 @@ export const discogsReleaseDetailCache = pgTable(
     check(
       'discogs_release_detail_cache_ttl_max_6h',
       sql`${t.expiresAt} > ${t.fetchedAt} and ${t.expiresAt} <= ${t.fetchedAt} + interval '6 hours'`,
+    ),
+  ],
+);
+
+/** What a preview lookup found, as cached: one entry per track, or nulls (ADR 0010 §4). */
+export interface StoredPreviews {
+  albumUrl: string | null;
+  tracks: MatchedTrack[];
+}
+
+/**
+ * Cached iTunes matches per release, including "no match", so Apple is asked at most
+ * once a day per record. Only the match is kept; preview audio never touches our
+ * servers (Apple's terms). The CHECK caps a row's lifetime at 24 hours.
+ */
+export const itunesPreviewCache = pgTable(
+  'itunes_preview_cache',
+  {
+    discogsId: integer('discogs_id').primaryKey(),
+    previews: jsonb('previews').$type<StoredPreviews>().notNull(),
+    fetchedAt: timestamptz('fetched_at').notNull(),
+    expiresAt: timestamptz('expires_at').notNull(),
+  },
+  (t) => [
+    index('itunes_preview_cache_expires_idx').on(t.expiresAt),
+    check(
+      'itunes_preview_cache_ttl_max_24h',
+      sql`${t.expiresAt} > ${t.fetchedAt} and ${t.expiresAt} <= ${t.fetchedAt} + interval '24 hours'`,
     ),
   ],
 );

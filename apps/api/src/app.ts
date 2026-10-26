@@ -16,12 +16,14 @@ import { CollectionItemsService } from './collection/items.js';
 import { collectionRoutes } from './collection/routes.js';
 import { ReleaseService } from './releases/release-service.js';
 import { releaseRoutes } from './releases/routes.js';
+import { PreviewService } from './releases/previews-service.js';
 import { SearchService } from './releases/search-service.js';
 import type { Config } from './config.js';
 import type { TokenCipher } from './crypto/token-cipher.js';
 import type { DatabaseHandle } from './db/client.js';
 import type { DiscogsReleaseCache } from './discogs/cache.js';
 import type { DiscogsGateway } from './discogs/gateway.js';
+import type { ITunesGateway } from './itunes/gateway.js';
 import { ProblemError, registerProblemHandlers } from './http/problem.js';
 import type { JobQueue } from './jobs/queue.js';
 import type { Clock } from './lib/clock.js';
@@ -46,6 +48,7 @@ export interface AppDependencies {
   config: Config;
   database: DatabaseHandle;
   gateway: DiscogsGateway;
+  itunes: ITunesGateway;
   cipher: TokenCipher;
   queue: JobQueue;
   releaseCache: DiscogsReleaseCache;
@@ -95,6 +98,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     clock,
     config.discogs.cacheTtlSeconds,
   );
+  const previews = new PreviewService(database.db, releases, deps.itunes, clock);
   const add = new CollectionAddService(database, deps.releaseCache, deps.gateway, users, clock);
   const items = new CollectionItemsService(database, imports, clock, {
     refreshAfterMs: config.discogs.refreshAfterSeconds * 1000,
@@ -108,7 +112,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
         authRoutes({ config, gateway: deps.gateway, cipher: deps.cipher, users, sessions, clock }),
       );
       await api.register(collectionRoutes({ sessions, imports, items, add }));
-      await api.register(releaseRoutes({ sessions, releases, search }));
+      await api.register(releaseRoutes({ sessions, releases, search, previews }));
     },
     { prefix: API_PREFIX },
   );
