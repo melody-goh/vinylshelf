@@ -11,6 +11,7 @@ import { authRoutes } from './auth/routes.js';
 import { SessionStore } from './auth/sessions.js';
 import { UserRepository } from './auth/users.js';
 import { CollectionAddService } from './collection/add.js';
+import { CollectionFacetsService } from './collection/facets.js';
 import { ImportService } from './collection/imports.js';
 import { CollectionItemsService } from './collection/items.js';
 import { collectionRoutes } from './collection/routes.js';
@@ -111,7 +112,15 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
       await api.register(
         authRoutes({ config, gateway: deps.gateway, cipher: deps.cipher, users, sessions, clock }),
       );
-      await api.register(collectionRoutes({ sessions, imports, items, add }));
+      await api.register(
+        collectionRoutes({
+          sessions,
+          imports,
+          items,
+          add,
+          facets: new CollectionFacetsService(database.db, clock),
+        }),
+      );
       await api.register(releaseRoutes({ sessions, releases, search, previews }));
     },
     { prefix: API_PREFIX },

@@ -6,6 +6,7 @@
  * 3. Every route the app serves is documented in the spec.
  */
 import type {
+  CollectionFacets,
   CollectionPage,
   CollectionRefresh,
   ImportJob,
@@ -32,6 +33,7 @@ import { createUser, sessionFor } from '../test/factories.js';
 import { mswServer } from '../test/msw.js';
 import { LOGIN_STARTS_PER_MINUTE } from '../auth/routes.js';
 import type {
+  collectionFacetsSchema,
   collectionPageSchema,
   collectionRefreshSchema,
   importJobSchema,
@@ -55,7 +57,8 @@ const typesMatch: [
   Equivalent<z.infer<typeof releaseSchema>, Release>,
   Equivalent<z.infer<typeof searchPageSchema>, SearchPage>,
   Equivalent<z.infer<typeof releasePreviewsSchema>, ReleasePreviews>,
-] = [true, true, true, true, true, true, true, true, true];
+  Equivalent<z.infer<typeof collectionFacetsSchema>, CollectionFacets>,
+] = [true, true, true, true, true, true, true, true, true, true];
 
 const { db, handle } = useTestDatabase();
 const EVIL = 'https://evil.example';
@@ -188,6 +191,8 @@ describe('contract: responses validate against openapi.yaml', () => {
         year: null,
         vinylColors: ['Blue Marbled'],
         formatNames: ['Vinyl'],
+        genres: ['Jazz'],
+        styles: ['Modal'],
         coverImageUrl: 'https://i.discogs.com/fixture/cover-1.jpg',
         discogsUrl: 'https://www.discogs.com/release/1',
       },
@@ -205,6 +210,7 @@ describe('contract: responses validate against openapi.yaml', () => {
       .values({ userId, status: 'failed', createdAt: now, updatedAt: now, finishedAt: now });
     expect((await call('get', items)).json()).toMatchObject({ refresh: { status: 'backoff' } });
 
+    expect((await call('get', items, { query: 'genre=Jazz&decade=1950' })).statusCode).toBe(200);
     expect((await call('get', items, { query: 'cursor=bad' })).statusCode).toBe(400);
     expect((await call('get', items, { signedIn: false })).statusCode).toBe(401);
   });
@@ -226,6 +232,13 @@ describe('contract: responses validate against openapi.yaml', () => {
     expect((await call('get', byId, { path: '/releases/9000001' })).statusCode).toBe(429);
     mswServer.use(http.get(discogsUrls.release, () => new HttpResponse(null, { status: 500 })));
     expect((await call('get', byId, { path: '/releases/9000001' })).statusCode).toBe(503);
+  });
+});
+
+describe('contract: library facets', () => {
+  it('GET /collection/facets: 200 and 401', async () => {
+    expect((await call('get', '/collection/facets')).statusCode).toBe(200);
+    expect((await call('get', '/collection/facets', { signedIn: false })).statusCode).toBe(401);
   });
 });
 

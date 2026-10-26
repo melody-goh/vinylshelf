@@ -139,6 +139,9 @@ export const discogsReleaseCache = pgTable(
      * as vinyl until the next import rewrites them.
      */
     formatNames: jsonb('format_names').$type<string[]>(),
+    /** Discogs genres and styles; null for rows cached before they were kept. */
+    genres: jsonb('genres').$type<string[]>(),
+    styles: jsonb('styles').$type<string[]>(),
     /** A Discogs URL we hotlink. The image itself is never stored (ADR 0004 §6). */
     coverImageUrl: text('cover_image_url'),
     discogsUrl: text('discogs_url').notNull(),

@@ -251,6 +251,15 @@ The rest of the collection, fanned. The open record's disc is nudged 10% out of 
 ### Closed Sleeve
 The front of the gatefold before anything is open: a carbon square (max 34rem) in the Photo shadow, the display title at the top, up to 24rem of body-small copy at 80% Studio White at the bottom, and an optional hype sticker. Used for sign-in, the empty shelf and the "Back in a moment" refresh state.
 
+### Tabs and the Library
+"Shelf" and "Library" sit as plain text tabs beside the wordmark: the current one in Ink at medium weight, the other in Soft Ink. The Shelf is for lingering with one record; the Library is for finding one.
+
+The Library is the whole vinyl shelf as a contact sheet on the studio ground: square covers (min 6rem, 4.5rem on phones, filling the row), 1rem gaps (0.75rem on phones), each in the Photo shadow, nothing printed under them. A record without a cover is a carbon square with its title in label-size condensed caps. Hover or focus lifts a cover 3px and 5% on a spring, and the holographic readout at the foot names it. Arrow keys move through the grid by its real columns. More covers load as the grid nears its end.
+
+Above the grid sits one row of text menus: Genre, Style, Decade, Colour and Sort by. Each is a Soft Ink label, the chosen value in Ink and a chevron, with an invisible native select laid over it (`TextSelect`), so it is only as wide as what it says; counts appear inside the menus, never in the row. Once anything is filtered the row ends with "48 of 220" and Clear; otherwise it says nothing more. On phones the row is one line that scrolls sideways.
+
+Arriving, the first screenful of covers scatters in from seeded positions across the viewport (tilted up to ±18°, scaled 55 to 85%, transparent) and settles into place on a soft spring (110/17) with a slight stagger; under reduced motion they simply appear. Choosing a cover returns to the Shelf with that record open in the gatefold.
+
 ### Search
 A search field sits in the header between the wordmark and the controls: text straight on the ground over a hairline (25% Ink), a Search icon, placeholder "Find a record on Discogs", a clear button once there is text; Escape clears it. On phones it takes its own row under the header controls. While there is a query, results take the gatefold's place (top-aligned), and on phones the disc row steps aside. Results are a ruled list: a square thumbnail in the Photo shadow (carbon when Discogs has none), the title in semibold, the artists, a condensed caps pressing line (year · country · label and catalogue number) and the formats in Soft Ink. The action is a small hype sticker (3.5rem, 4rem from 48rem) reading ADD. A record already on the shelf shows "On your shelf" and an "I have another copy" text action; only after that does an ADD COPY sticker appear (ADR 0009). Pages turn with Previous and Next. Adding closes search and opens the new record in the gatefold.
 

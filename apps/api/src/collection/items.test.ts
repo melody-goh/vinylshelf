@@ -39,6 +39,9 @@ interface Seed {
   added: string;
   /** Discogs format names; vinyl when omitted. */
   formats?: string[] | null;
+  genres?: string[];
+  styles?: string[];
+  colours?: string[];
 }
 
 const SHELF: Seed[] = [
@@ -86,8 +89,10 @@ async function seed(items: Seed[] = SHELF, owner = userId): Promise<void> {
     title: s.title,
     artists: [s.artist],
     year: s.year,
-    vinylColors: [],
+    vinylColors: s.colours ?? [],
     formatNames: s.formats === undefined ? ['Vinyl'] : (s.formats ?? ['Vinyl']),
+    genres: s.genres ?? [],
+    styles: s.styles ?? [],
     coverImageUrl: null,
     discogsUrl: `https://www.discogs.com/release/${100 + s.instanceId}`,
   }));
@@ -112,6 +117,7 @@ interface PageBody {
   nextCursor: string | null;
   totalItems: number;
   otherFormatsCount: number;
+  matchedItems: number;
   refresh: { status: string; importId: string | null; hiddenCount: number; retryAt: string | null };
 }
 
@@ -247,6 +253,131 @@ describe('GET /collection/items: vinyl only', () => {
     const body = await listBody();
     expect(body.items.map((i) => i.release.title)).toEqual(['Cached Before']);
     expect(body.otherFormatsCount).toBe(0);
+  });
+});
+
+describe('GET /collection/items and /collection/facets: the library', () => {
+  const LIBRARY: Seed[] = [
+    {
+      instanceId: 1,
+      title: 'Blue Train',
+      artist: 'A',
+      year: 1957,
+      added: '2026-01-01T00:00:00Z',
+      genres: ['Jazz'],
+      styles: ['Hard Bop'],
+      colours: [],
+    },
+    {
+      instanceId: 2,
+      title: 'Kind of Blue',
+      artist: 'B',
+      year: 1959,
+      added: '2026-01-02T00:00:00Z',
+      genres: ['Jazz'],
+      styles: ['Modal'],
+      colours: ['Blue Marbled'],
+    },
+    {
+      instanceId: 3,
+      title: 'Selected Ambient',
+      artist: 'C',
+      year: 1992,
+      added: '2026-01-03T00:00:00Z',
+      genres: ['Electronic'],
+      styles: ['Ambient'],
+      colours: [],
+    },
+    {
+      instanceId: 4,
+      title: 'Unknown Year',
+      artist: 'D',
+      year: null,
+      added: '2026-01-04T00:00:00Z',
+      genres: ['Jazz', 'Electronic'],
+      styles: ['Fusion'],
+      colours: ['Clear'],
+    },
+    {
+      instanceId: 5,
+      title: 'A CD',
+      artist: 'E',
+      year: 1958,
+      added: '2026-01-05T00:00:00Z',
+      genres: ['Jazz'],
+      styles: ['Hard Bop'],
+      formats: ['CD'],
+    },
+  ];
+
+  it('filters by genre, style, decade and colourway, combined, and counts the matches', async () => {
+    await seed(LIBRARY);
+    const titles = async (query: string) => {
+      const body = await listBody(query);
+      return {
+        titles: body.items.map((i) => i.release.title),
+        matched: body.matchedItems,
+        total: body.totalItems,
+      };
+    };
+
+    expect(await titles('')).toEqual({
+      titles: ['Unknown Year', 'Selected Ambient', 'Kind of Blue', 'Blue Train'],
+      matched: 4,
+      total: 4,
+    });
+    expect(await titles('genre=Jazz')).toMatchObject({
+      titles: ['Unknown Year', 'Kind of Blue', 'Blue Train'],
+      matched: 3,
+      total: 4,
+    });
+    expect((await titles('style=Hard%20Bop')).titles).toEqual(['Blue Train']);
+    expect((await titles('decade=1950')).titles).toEqual(['Kind of Blue', 'Blue Train']);
+    expect((await titles('colourway=coloured')).titles).toEqual(['Unknown Year', 'Kind of Blue']);
+    expect((await titles('genre=Jazz&decade=1950&colourway=black')).titles).toEqual(['Blue Train']);
+    expect(await titles('genre=Polka')).toMatchObject({ titles: [], matched: 0, total: 4 });
+  });
+
+  it('rejects a decade that is not one', async () => {
+    expect((await list('decade=1975')).statusCode).toBe(400);
+    expect((await list('colourway=red')).statusCode).toBe(400);
+  });
+
+  it('lists what the shelf can be filtered by, with counts, vinyl only', async () => {
+    await seed(LIBRARY);
+    const res = await app.inject({ url: `${API_PREFIX}/collection/facets`, cookies: { sid } });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      genres: [
+        { name: 'Jazz', count: 3 },
+        { name: 'Electronic', count: 2 },
+      ],
+      styles: [
+        { name: 'Ambient', count: 1 },
+        { name: 'Fusion', count: 1 },
+        { name: 'Hard Bop', count: 1 },
+        { name: 'Modal', count: 1 },
+      ],
+      decades: [
+        { decade: 1950, count: 2 },
+        { decade: 1990, count: 1 },
+      ],
+      colourways: { coloured: 2, black: 2 },
+      expiresAt: new Date(TEST_NOW + testConfig.discogs.cacheTtlSeconds * 1000).toISOString(),
+    });
+  });
+
+  it('describes an empty shelf as empty, and needs a session', async () => {
+    const res = await app.inject({ url: `${API_PREFIX}/collection/facets`, cookies: { sid } });
+    expect(res.json()).toEqual({
+      genres: [],
+      styles: [],
+      decades: [],
+      colourways: { coloured: 0, black: 0 },
+      expiresAt: null,
+    });
+    expect((await app.inject({ url: `${API_PREFIX}/collection/facets` })).statusCode).toBe(401);
   });
 });
 

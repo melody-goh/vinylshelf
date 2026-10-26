@@ -63,6 +63,7 @@ export const collectionPageSchema = z.object({
   items: z.array(collectionItemSchema),
   totalItems: z.number().int().min(0),
   otherFormatsCount: z.number().int().min(0),
+  matchedItems: z.number().int().min(0),
   nextCursor: z.string().nullable().optional(),
   refresh: collectionRefreshSchema,
 });
@@ -80,6 +81,26 @@ export const collectionItemsQuery = z.object({
   cursor: z.string().min(1).max(512).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   sort: z.enum(COLLECTION_SORTS).default('added_desc'),
+  genre: z.string().min(1).max(100).optional(),
+  style: z.string().min(1).max(100).optional(),
+  decade: z.coerce
+    .number()
+    .int()
+    .min(1900)
+    .max(2090)
+    .refine((d) => d % 10 === 0, 'must be the first year of a decade')
+    .optional(),
+  colourway: z.enum(['coloured', 'black']).optional(),
+});
+
+export const facetCountSchema = z.object({ name: z.string(), count: z.number().int().min(1) });
+
+export const collectionFacetsSchema = z.object({
+  genres: z.array(facetCountSchema),
+  styles: z.array(facetCountSchema),
+  decades: z.array(z.object({ decade: z.number().int(), count: z.number().int().min(1) })),
+  colourways: z.object({ coloured: z.number().int().min(0), black: z.number().int().min(0) }),
+  expiresAt: z.iso.datetime().nullable(),
 });
 
 export const releaseSchema = releaseSummarySchema.extend({

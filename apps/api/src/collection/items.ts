@@ -65,11 +65,44 @@ function decodeCursor(value: string, sort: CollectionSort): Cursor {
   return parsed.data;
 }
 
-export interface ListItemsInput {
+/** The library's filters (openapi.yaml, listCollectionItems). All optional, combined with AND. */
+export interface ShelfFilters {
+  genre?: string | undefined;
+  style?: string | undefined;
+  /** First year of the decade, e.g. 1970. */
+  decade?: number | undefined;
+  colourway?: 'coloured' | 'black' | undefined;
+}
+
+export interface ListItemsInput extends ShelfFilters {
   userId: string;
   sort: CollectionSort;
   limit: number;
   cursor?: string | undefined;
+}
+
+/** The filters as one SQL condition over the release cache, or undefined for none. */
+export function filterCondition(filters: ShelfFilters): SQL | undefined {
+  const parts: SQL[] = [];
+  if (filters.genre !== undefined) {
+    parts.push(sql`${discogsReleaseCache.genres} @> ${JSON.stringify([filters.genre])}::jsonb`);
+  }
+  if (filters.style !== undefined) {
+    parts.push(sql`${discogsReleaseCache.styles} @> ${JSON.stringify([filters.style])}::jsonb`);
+  }
+  if (filters.decade !== undefined) {
+    parts.push(
+      sql`${discogsReleaseCache.year} >= ${filters.decade} and ${discogsReleaseCache.year} < ${filters.decade + 10}`,
+    );
+  }
+  if (filters.colourway !== undefined) {
+    parts.push(
+      filters.colourway === 'coloured'
+        ? sql`${discogsReleaseCache.vinylColors} <> '[]'::jsonb`
+        : sql`${discogsReleaseCache.vinylColors} = '[]'::jsonb`,
+    );
+  }
+  return parts.length === 0 ? undefined : and(...parts);
 }
 
 export class CollectionItemsService {
@@ -82,10 +115,11 @@ export class CollectionItemsService {
 
   async list(input: ListItemsInput): Promise<CollectionPage> {
     const now = this.clock.now();
-    const [page, freshness, latest] = await Promise.all([
+    const [page, freshness, latest, matchedItems] = await Promise.all([
       this.page(input, new Date(now)),
       this.freshness(input.userId, new Date(now)),
       this.imports.latest(input.userId),
+      this.matched(input, new Date(now)),
     ]);
 
     const decision = decideRefresh(freshness, latest, now, this.policy);
@@ -103,6 +137,7 @@ export class CollectionItemsService {
       ...page,
       totalItems: freshness.totalItems,
       otherFormatsCount: freshness.otherFormatsCount,
+      matchedItems,
       refresh,
     };
   }
@@ -145,7 +180,14 @@ export class CollectionItemsService {
           freshReleaseCondition(now),
         ),
       )
-      .where(and(eq(collectionItems.userId, input.userId), vinylReleaseCondition(), after))
+      .where(
+        and(
+          eq(collectionItems.userId, input.userId),
+          vinylReleaseCondition(),
+          filterCondition(input),
+          after,
+        ),
+      )
       .orderBy(sql`${spec.key} ${dir}`, sql`${collectionItems.instanceId} ${dir}`)
       .limit(input.limit + 1);
 
@@ -168,6 +210,28 @@ export class CollectionItemsService {
           ? encodeCursor({ s: input.sort, k: cursorKey(last.sortKey), i: last.instanceId })
           : null,
     };
+  }
+
+  /** Visible shelf records that match the filters, for "N of M". */
+  private async matched(input: ListItemsInput, now: Date): Promise<number> {
+    const [row] = await this.database.db
+      .select({ count: sql<number>`count(*)`.mapWith(Number) })
+      .from(collectionItems)
+      .innerJoin(
+        discogsReleaseCache,
+        and(
+          eq(discogsReleaseCache.discogsId, collectionItems.releaseId),
+          freshReleaseCondition(now),
+        ),
+      )
+      .where(
+        and(
+          eq(collectionItems.userId, input.userId),
+          vinylReleaseCondition(),
+          filterCondition(input),
+        ),
+      );
+    return row?.count ?? 0;
   }
 
   private async freshness(userId: string, now: Date): Promise<ShelfFreshness> {

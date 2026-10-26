@@ -28,6 +28,9 @@ export interface ReleaseSummaryData {
   vinylColors: string[];
   /** Format names as Discogs lists them ("Vinyl", "CD", "Box Set"): what the shelf keeps. */
   formatNames: string[];
+  /** Discogs genres and styles, for the library's filters. */
+  genres: string[];
+  styles: string[];
   /** A hotlinked Discogs image URL, never downloaded (ADR 0004 §6). */
   coverImageUrl: string | null;
   discogsUrl: string;
@@ -51,8 +54,6 @@ export interface CollectionPageResult {
 export interface ReleaseDetailData extends ReleaseSummaryData {
   label: string | null;
   catalogNumber: string | null;
-  genres: string[];
-  styles: string[];
   /** Format lines as Discogs shows them, e.g. "Vinyl, LP, Album, Blue Marbled". */
   formats: string[];
   credits: { name: string; role: string }[];
