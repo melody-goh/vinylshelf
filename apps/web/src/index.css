@@ -35,6 +35,15 @@
     scrollbar-width: thin;
   }
 
+  /*
+   * The app's layers stay inside the app. The disc stack orders its discs with one
+   * z-index per record (220 on a 220-record shelf); isolating the root keeps every one
+   * of them under the layers portalled to <body>, such as the Listening Room.
+   */
+  #root {
+    isolation: isolate;
+  }
+
   ::selection {
     background: var(--color-ink);
     color: var(--color-ground);

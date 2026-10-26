@@ -194,6 +194,14 @@ test('loading captures', async ({ page }) => {
 test('listening room captures', async ({ page }) => {
   await page.setViewportSize(desktop);
   await mockApi(page, 'shelf');
+  // A shelf of 120, so the stack's per-disc z-indexes climb well past the room's.
+  await page.route('**/api/v1/collection/items**', (route) => {
+    const base = shelfPage();
+    const items = Array.from({ length: 10 }, (_, copy) =>
+      base.items.map((item) => ({ ...item, instanceId: item.instanceId + copy * 1000 })),
+    ).flat();
+    return route.fulfill({ json: shelfPage({ items, totalItems: items.length }) });
+  });
   await page.goto('/');
   await settle(page);
 
