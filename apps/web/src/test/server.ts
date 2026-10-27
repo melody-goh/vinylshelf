@@ -262,7 +262,7 @@ export function recommendations(
   return {
     status: 'ready',
     catalogue: { dump: '20261001', rows: 150000 },
-    basedOn: { shelfRecords: 12, inCatalogue: 10 },
+    basedOn: { shelfRecords: 12, inCatalogue: 10, wanted: 4 },
     rooms: rooms.map((room, i) => ({
       id: `room-${String(i)}`,
       styles: room.styles,

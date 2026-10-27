@@ -459,8 +459,9 @@ export interface paths {
          *     says why there are no rooms, when there are none:
          *
          *     - `no_catalogue`: no taste catalogue is loaded on this server;
-         *     - `too_few_records`: fewer than three shelf records are in the catalogue
-         *       (`basedOn` says how many are), for example straight after the first import.
+         *     - `too_few_records`: fewer than three shelf or wanted records are in the
+         *       catalogue (`basedOn` says how many are), for example straight after the
+         *       first import.
          */
         get: operations["getTasteRecommendations"];
         put?: never;
@@ -888,6 +889,13 @@ export interface components {
                 inCatalogue: number;
                 /** @description Records on the shelf. */
                 shelfRecords: number;
+                /**
+                 * @description Records on the user's Discogs wantlist that the catalogue knows: they shape
+                 *     the picks like "more like this" and are never suggested back. Read live
+                 *     for this answer and not kept (ADR 0011, note of 2026-10-28). Null when
+                 *     the wantlist could not be read; the picks then come from the shelf alone.
+                 */
+                wanted: number | null;
             };
             /** @description The loaded taste catalogue; null when none is. */
             catalogue: {

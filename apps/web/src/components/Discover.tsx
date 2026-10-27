@@ -205,8 +205,8 @@ export function Discover() {
   if (data.status === 'too_few_records') {
     return (
       <Quiet>
-        Discover needs at least three of your records in its catalogue. It knows{' '}
-        {data.basedOn.inCatalogue} so far.
+        Discover needs at least three of your records, or records you want, in its catalogue. It
+        knows {data.basedOn.inCatalogue + (data.basedOn.wanted ?? 0)} so far.
       </Quiet>
     );
   }

@@ -36,3 +36,15 @@ does not need sorting, filtering or a refresh state: it is a list to look throug
 - Moving a record from the wantlist to the collection when it is bought is two calls
   (add to collection, remove from wantlist); there is no transaction across them, so a
   failure between them leaves it in both, which is visible and harmless.
+
+### 2026-10-28: the wantlist informs recommendations
+
+The taste engine (ADR 0008) reads the wantlist as a signal: a wanted record is close to
+"more like this". Each time recommendations are worked out, the server reads the newest
+three pages of the wantlist (up to 300 records) from Discogs, keeps only their master
+ids, and only for that answer. Nothing is stored, so the decision above (read live, never
+kept as a list) still holds. Wanted records join the shelf's rooms as if owned, are never
+suggested back, and count towards the three records Discover needs, so a new collector
+with a small shelf and a long wantlist still gets picks. "Not for me" on a wanted record
+wins over the want. If Discogs does not answer, the picks come from the shelf alone and
+the response says the wantlist was not read (`basedOn.wanted` is null).

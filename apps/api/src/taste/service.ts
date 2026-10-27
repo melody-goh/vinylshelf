@@ -1,8 +1,9 @@
 /**
  * Recommendations and steering for one user (ADR 0008). It gathers what the engine
- * needs from the database (the shelf's catalogue rows, the user's verdicts, the artists
- * they own), runs the engine with pgvector retrieval, and shapes the answer for the API.
- * Nothing about the shelf leaves our database.
+ * needs (the shelf's catalogue rows, the user's verdicts, the artists they own, and the
+ * records on their Discogs wantlist), runs the engine with pgvector retrieval, and shapes
+ * the answer for the API. Nothing about the shelf leaves our database; the wantlist is
+ * read live for each answer and not kept (ADR 0011, note of 2026-10-28).
  */
 import type {
   CatalogueMaster as CatalogueMasterView,
@@ -13,7 +14,9 @@ import { loadedCatalogue } from '../catalogue/load.js';
 import type { CatalogueRow } from '../catalogue/model.js';
 import type { DatabaseHandle } from '../db/client.js';
 import { collectionItems, tasteFeedback, type TasteVerdict } from '../db/schema.js';
+import type { UserRepository } from '../auth/users.js';
 import type { DiscogsReleaseCache } from '../discogs/cache.js';
+import type { DiscogsGateway } from '../discogs/gateway.js';
 import { ProblemError } from '../http/problem.js';
 import type { Clock } from '../lib/clock.js';
 import { catalogueRows, pgvectorRetrieve } from './catalogue-store.js';
@@ -24,6 +27,8 @@ import type { Distance } from './rank.js';
 export const MIN_SHELF = 3;
 /** Picks per room: enough to browse, few enough that each one is considered. */
 export const PICKS_PER_ROOM = 8;
+/** The newest wants read for each answer: 300 records, three requests to Discogs. */
+export const WANT_PAGES = 3;
 
 const masterUrl = (id: number) => `https://www.discogs.com/master/${String(id)}`;
 
@@ -48,6 +53,8 @@ export class TasteService {
     private readonly database: DatabaseHandle,
     private readonly cache: DiscogsReleaseCache,
     private readonly clock: Clock,
+    private readonly gateway: DiscogsGateway,
+    private readonly users: UserRepository,
   ) {
     this.retrieve = pgvectorRetrieve(database);
   }
@@ -62,11 +69,29 @@ export class TasteService {
       .from(collectionItems)
       .where(eq(collectionItems.userId, userId));
     const ownedMasters = new Set(shelfItems.flatMap((i) => (i.masterId ? [i.masterId] : [])));
-    const shelf = manifest ? await catalogueRows(this.database, [...ownedMasters]) : [];
-    const basedOn = { shelfRecords: shelfItems.length, inCatalogue: shelf.length };
-
-    if (!catalogue) return { status: 'no_catalogue', catalogue, basedOn, rooms: [] };
-    if (shelf.length < MIN_SHELF) {
+    if (!catalogue) {
+      return {
+        status: 'no_catalogue',
+        catalogue,
+        basedOn: { shelfRecords: shelfItems.length, inCatalogue: 0, wanted: null },
+        rooms: [],
+      };
+    }
+    const shelf = await catalogueRows(this.database, [...ownedMasters]);
+    // Wanted records already on the shelf say nothing new.
+    const wantedIds = await this.wantedMasters(userId);
+    const wanted = wantedIds
+      ? await catalogueRows(
+          this.database,
+          wantedIds.filter((id) => !ownedMasters.has(id)),
+        )
+      : [];
+    const basedOn = {
+      shelfRecords: shelfItems.length,
+      inCatalogue: shelf.length,
+      wanted: wantedIds ? wanted.length : null,
+    };
+    if (shelf.length + wanted.length < MIN_SHELF) {
       return { status: 'too_few_records', catalogue, basedOn, rooms: [] };
     }
 
@@ -88,10 +113,16 @@ export class TasteService {
         return row ? [row] : [];
       });
 
+    // Wanting a record is close to "more like this"; "not for me" on it still wins.
+    const disliked = withVerdict('less');
+    const liked = [...withVerdict('more'), ...wanted].filter(
+      (row, i, rows) =>
+        rows.findIndex((r) => r.id === row.id) === i && !disliked.some((d) => d.id === row.id),
+    );
     const results = await recommend({
       shelf,
-      liked: withVerdict('more'),
-      disliked: withVerdict('less'),
+      liked,
+      disliked,
       ownedMasters,
       ownedArtists: await this.ownedArtists(shelf, shelfItems),
       distance,
@@ -112,6 +143,33 @@ export class TasteService {
           picks: picks.map((pick) => ({ master: toView(pick.master), reason: pick.reason })),
         })),
     };
+  }
+
+  /**
+   * Master ids of the newest records on the user's Discogs wantlist, read live and held
+   * only for this answer (ADR 0011). Null when Discogs cannot be asked or does not
+   * answer: the picks then come from the shelf alone, and the answer says so.
+   */
+  private async wantedMasters(userId: string): Promise<number[] | null> {
+    const owner = await this.users.accessToken(userId);
+    if (!owner) return null;
+    const ids: number[] = [];
+    try {
+      for (let page = 1; page <= WANT_PAGES; page++) {
+        const found = await this.gateway.getWantlistPage(
+          owner.token,
+          owner.user.discogsUsername,
+          page,
+        );
+        for (const want of found.wants) {
+          if (want.release.masterId) ids.push(want.release.masterId);
+        }
+        if (found.page >= found.pages) break;
+      }
+    } catch {
+      return null;
+    }
+    return ids;
   }
 
   /** Records "more like this" or "not for me"; a new verdict replaces an old one. */

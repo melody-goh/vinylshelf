@@ -347,3 +347,9 @@ With about 33 held-out records among 150,000 and 20 guesses, one shelf cannot me
 finding new artists. The judge for this change is the picks themselves, and in time the
 best measure will be the users' own verdicts: the rate of "more like this" to "not for
 me" on picks, which the feedback table already records.
+
+### 2026-10-28: the wantlist as a taste signal
+
+Where a collection says where a collector's taste has been, the wantlist says where it is
+going. Wanted records now join the rooms like "more like this" and are excluded from the
+picks (ADR 0011, note of 2026-10-28; contract 0.10.0, `basedOn.wanted`).

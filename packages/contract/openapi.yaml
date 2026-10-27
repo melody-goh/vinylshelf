@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.9.0
+  version: 0.10.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -581,8 +581,9 @@ paths:
         says why there are no rooms, when there are none:
 
         - `no_catalogue`: no taste catalogue is loaded on this server;
-        - `too_few_records`: fewer than three shelf records are in the catalogue
-          (`basedOn` says how many are), for example straight after the first import.
+        - `too_few_records`: fewer than three shelf or wanted records are in the
+          catalogue (`basedOn` says how many are), for example straight after the
+          first import.
       parameters:
         - name: distance
           in: query
@@ -1313,7 +1314,7 @@ components:
             - type: 'null'
         basedOn:
           type: object
-          required: [shelfRecords, inCatalogue]
+          required: [shelfRecords, inCatalogue, wanted]
           properties:
             shelfRecords:
               type: integer
@@ -1323,6 +1324,16 @@ components:
               type: integer
               minimum: 0
               description: Of those, how many the catalogue knows, which the picks come from.
+            wanted:
+              description: |
+                Records on the user's Discogs wantlist that the catalogue knows: they shape
+                the picks like "more like this" and are never suggested back. Read live
+                for this answer and not kept (ADR 0011, note of 2026-10-28). Null when
+                the wantlist could not be read; the picks then come from the shelf alone.
+              oneOf:
+                - type: integer
+                  minimum: 0
+                - type: 'null'
         rooms:
           type: array
           description: Largest room first. Empty unless `status` is `ready`.

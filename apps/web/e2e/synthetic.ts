@@ -273,7 +273,7 @@ export function recommendations(): TasteRecommendations {
   return {
     status: 'ready',
     catalogue: { dump: '20261001', rows: 150000 },
-    basedOn: { shelfRecords: 12, inCatalogue: 12 },
+    basedOn: { shelfRecords: 12, inCatalogue: 12, wanted: 4 },
     rooms: rooms.map(([styles, picks], r) => ({
       id: `room-${String(r)}`,
       styles,

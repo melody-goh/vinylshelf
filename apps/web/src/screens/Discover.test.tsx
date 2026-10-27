@@ -163,7 +163,7 @@ describe('Discover', () => {
   it('says plainly why there is nothing to show', async () => {
     answer = recommendations([], {
       status: 'too_few_records',
-      basedOn: { shelfRecords: 4, inCatalogue: 2 },
+      basedOn: { shelfRecords: 4, inCatalogue: 2, wanted: 0 },
     });
     const { region } = await openDiscover();
     expect(

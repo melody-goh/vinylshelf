@@ -207,6 +207,7 @@ export const tasteRecommendationsSchema = z.object({
   basedOn: z.object({
     shelfRecords: z.number().int().min(0),
     inCatalogue: z.number().int().min(0),
+    wanted: z.number().int().min(0).nullable(),
   }),
   rooms: z.array(
     z.object({
