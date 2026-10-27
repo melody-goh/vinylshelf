@@ -379,8 +379,19 @@ test('discover captures', async ({ page }) => {
   await page.goto('/');
   await settle(page);
   await page.getByRole('button', { name: 'Discover' }).click();
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${OUT}/desktop-discover-loading.png` });
+  await expect(page.getByRole('heading', { level: 2 })).toBeVisible({ timeout: 6000 });
+  await page.waitForTimeout(2000);
   await page.screenshot({ path: `${OUT}/desktop-discover.png` });
+  // Listening carries the disc out of the tilted sleeve.
+  await page.getByRole('button', { name: 'Listen' }).click({ timeout: 6000 });
+  for (const at of [100, 400, 800]) {
+    await page.waitForTimeout(at === 100 ? 100 : at === 400 ? 300 : 400);
+    await page.screenshot({ path: `${OUT}/desktop-discover-listen-${String(at)}.png` });
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(1200);
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(120);
   await page.screenshot({ path: `${OUT}/desktop-discover-moving.png` });

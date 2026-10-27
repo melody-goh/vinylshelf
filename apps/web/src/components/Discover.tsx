@@ -1,6 +1,6 @@
 import type { TastePick, TasteRecommendations, TasteRoom } from '@vinylshelf/contract';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import {
   useEffect,
@@ -12,10 +12,13 @@ import {
   type WheelEvent,
 } from 'react';
 import { useExpired } from '../api/expiry';
+import { useDwell, usePreviews } from '../api/previews';
 import { useRelease } from '../api/releases';
 import { useRecommendations, type Distance } from '../api/taste';
 import { useWideScreen } from '../design/media';
+import { ListeningRoom, playableTracks } from './ListeningRoom';
 import { MissingCover } from './MissingCover';
+import { ScoredText } from './ScoredText';
 import { TextSelect } from './TextSelect';
 
 /** One pick in the row, with the room it was found for. */
@@ -32,6 +35,12 @@ export function placeAll(recommendations: TasteRecommendations | undefined): Pla
 }
 
 const travel = { type: 'spring', stiffness: 170, damping: 24 } as const;
+const press = { type: 'spring', stiffness: 500, damping: 28 } as const;
+
+/** The front sleeve's turn towards the reader; the Listening Room draws the disc from it. */
+const FRONT_TILT = -16;
+/** The loading line is held for one pass of its notes, but never longer than this. */
+const HOLD_LIMIT_MS = 4000;
 
 /** Each sleeve behind the front one is this much smaller than the one before it. */
 const RECEDE = 0.74;
@@ -52,7 +61,7 @@ const WHEEL_REST_MS = 320;
 export function placement(offset: number, size: number, anchor: number) {
   // Every sleeve stands on the same line as the front one, so the smaller ones sit low.
   const standing = (scale: number) => (size * (1 - scale)) / 2;
-  if (offset === 0) return { x: anchor, y: 0, scale: 1, rotateY: -16, opacity: 1, z: 100 };
+  if (offset === 0) return { x: anchor, y: 0, scale: 1, rotateY: FRONT_TILT, opacity: 1, z: 100 };
   if (offset > 0) {
     const scale = offset === 1 ? 0.5 : 0.35;
     return {
@@ -90,6 +99,16 @@ export function Discover() {
   const placed = useMemo(() => placeAll(recommendations.data), [recommendations.data]);
   const [front, setFront] = useState(0);
   const data = recommendations.data;
+  // The first visit holds the loading line for one pass of its notes, so it is seen.
+  const [held, setHeld] = useState(true);
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setHeld(false);
+    }, HOLD_LIMIT_MS);
+    return () => {
+      window.clearTimeout(id);
+    };
+  }, []);
 
   // A new row (another distance, or after feedback) starts from its first pick.
   const [shown, setShown] = useState(placed);
@@ -110,8 +129,18 @@ export function Discover() {
     />
   );
 
-  if (recommendations.isPending) {
-    return <Quiet>Reading your records…</Quiet>;
+  if (recommendations.isPending || held) {
+    return (
+      <section aria-label="Discover" className="grid flex-1 place-items-center p-6">
+        <ScoredText
+          text="Digging through the crates…"
+          className="condensed max-w-[18ch] text-center text-[clamp(2.75rem,8vw,5.5rem)] font-extrabold leading-[0.95] [font-stretch:62%]"
+          onPass={() => {
+            setHeld(false);
+          }}
+        />
+      </section>
+    );
   }
   if (recommendations.isError || !data) {
     return (
@@ -244,6 +273,14 @@ function Row({
     >
       <div className="relative z-[200] flex flex-col gap-4 p-4 md:absolute md:left-8 md:top-6 md:w-[22rem] md:p-0">
         <Notes current={current} />
+        <Listen
+          key={current.pick.master.masterId}
+          current={current}
+          frontBox={() => {
+            const frame = stage.current?.getBoundingClientRect();
+            return frame ? new DOMRect(frame.left + anchor, frame.top + top, size, size) : null;
+          }}
+        />
       </div>
 
       <div ref={stage} className="relative h-[52vh] shrink-0 md:absolute md:inset-0 md:h-auto">
@@ -372,8 +409,10 @@ function Sleeve({
     void queryClient.invalidateQueries({ queryKey: ['release', master.mainReleaseId] });
   });
   const cover = expired ? null : (release.data?.coverImageUrl ?? null);
-  const { z, ...target } = at;
+  const { z, rotateY, ...target } = at;
 
+  // The button moves along the row; the sleeve inside it turns about its own centre, so
+  // every sleeve is foreshortened alike wherever it stands.
   return (
     <motion.button
       type="button"
@@ -382,22 +421,92 @@ function Sleeve({
       tabIndex={isFront ? 0 : -1}
       onClick={onChoose}
       initial={false}
-      animate={reduced ? { ...target, rotateY: 0 } : target}
+      animate={target}
       transition={reduced ? { duration: 0 } : travel}
-      className="absolute left-0 origin-center overflow-hidden bg-carbon shadow-photo"
-      style={{ top, width: size, height: size, zIndex: z, transformPerspective: 1400 }}
+      className="absolute left-0"
+      style={{ top, width: size, height: size, zIndex: z }}
     >
-      {cover ? (
-        <img
-          src={cover}
-          alt=""
-          referrerPolicy="no-referrer"
-          className="h-full w-full object-cover"
-          draggable={false}
-        />
-      ) : (
-        <MissingCover title={master.title} artists={master.artists} />
-      )}
+      <motion.span
+        initial={false}
+        animate={{ rotateY: reduced ? 0 : rotateY }}
+        transition={reduced ? { duration: 0 } : travel}
+        className="block h-full w-full overflow-hidden bg-carbon shadow-photo"
+        style={{ transformPerspective: 1400 }}
+      >
+        {cover ? (
+          <img
+            src={cover}
+            alt=""
+            referrerPolicy="no-referrer"
+            className="h-full w-full object-cover"
+            draggable={false}
+          />
+        ) : (
+          <MissingCover title={master.title} artists={master.artists} />
+        )}
+      </motion.span>
     </motion.button>
+  );
+}
+
+/**
+ * Listening to the front record: its previews are looked up once it has been in front a
+ * moment (ADR 0010), and playing carries its disc out of the tilted sleeve into the
+ * Listening Room.
+ */
+function Listen({
+  current,
+  frontBox,
+}: {
+  current: Placed;
+  /** The front sleeve's box before its turn; the stand-in is turned the same way. */
+  frontBox: () => DOMRect | null;
+}) {
+  const { mainReleaseId } = current.pick.master;
+  const detail = useRelease(mainReleaseId).data;
+  const previews = usePreviews(mainReleaseId, useDwell(mainReleaseId));
+  const [open, setOpen] = useState<{ from: DOMRect | null; startAt: string } | null>(null);
+  const tracks = detail && previews.data ? playableTracks(detail, previews.data) : null;
+  const first = tracks?.[0];
+
+  if (tracks && !first) {
+    return <p className="text-sm text-ink-soft">No previews for this record.</p>;
+  }
+  return (
+    <>
+      <motion.button
+        type="button"
+        disabled={!first}
+        aria-busy={!first}
+        onClick={() => {
+          if (!first) return;
+          setOpen({
+            from: frontBox(),
+            startAt: first.position,
+          });
+        }}
+        whileHover={first ? { scale: 1.04 } : {}}
+        whileTap={first ? { scale: 0.96 } : {}}
+        transition={press}
+        className="flex w-fit items-center gap-3 text-sm font-semibold disabled:opacity-50"
+      >
+        <span className="grid size-11 place-items-center rounded-full bg-sticker text-sticker-ink shadow-photo">
+          <Play aria-hidden="true" className="ml-0.5 size-5 fill-current" />
+        </span>
+        Listen
+      </motion.button>
+      {open && detail && previews.data && (
+        <ListeningRoom
+          release={detail}
+          previews={previews.data}
+          startAt={open.startAt}
+          from={open.from}
+          fromTilt={FRONT_TILT}
+          onClose={() => {
+            setOpen(null);
+          }}
+        />
+      )}
+    </>
   );
 }

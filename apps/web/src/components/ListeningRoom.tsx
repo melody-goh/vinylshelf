@@ -114,6 +114,7 @@ export function ListeningRoom({
   previews,
   startAt,
   from = null,
+  fromTilt = 0,
   onClose,
 }: {
   release: Release;
@@ -122,6 +123,8 @@ export function ListeningRoom({
   startAt: string;
   /** Where the sleeve is on screen; the disc is drawn out of it, and goes back into it. */
   from?: DOMRect | null;
+  /** How far the sleeve is turned (rotateY, degrees), so the stand-in over it matches. */
+  fromTilt?: number;
   onClose: () => void;
 }) {
   const reduced = useReducedMotion() ?? false;
@@ -445,6 +448,8 @@ export function ListeningRoom({
             width: sleeveAt.width,
             height: sleeveAt.height,
             opacity: sleeve,
+            rotateY: fromTilt,
+            transformPerspective: 1400,
           }}
         >
           {release.coverImageUrl ? (
