@@ -42,6 +42,7 @@ interface Seed {
   genres?: string[];
   styles?: string[];
   colours?: string[];
+  masterId?: number;
 }
 
 const SHELF: Seed[] = [
@@ -86,6 +87,7 @@ const SHELF: Seed[] = [
 async function seed(items: Seed[] = SHELF, owner = userId): Promise<void> {
   const releases: ReleaseSummaryData[] = items.map((s) => ({
     discogsId: 100 + s.instanceId,
+    masterId: s.masterId ?? null,
     title: s.title,
     artists: [s.artist],
     year: s.year,

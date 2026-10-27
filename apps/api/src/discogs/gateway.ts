@@ -28,6 +28,11 @@ export interface ReleaseSummaryData {
   vinylColors: string[];
   /** Format names as Discogs lists them ("Vinyl", "CD", "Box Set"): what the shelf keeps. */
   formatNames: string[];
+  /**
+   * The master (album across pressings) this release belongs to, or null. It is how a
+   * shelf record finds its place in the taste catalogue (ADR 0008).
+   */
+  masterId: number | null;
   /** Discogs genres and styles, for the library's filters. */
   genres: string[];
   styles: string[];

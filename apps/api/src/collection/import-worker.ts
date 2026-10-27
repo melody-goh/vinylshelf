@@ -87,6 +87,7 @@ export async function runImport(
                 userId: row.userId,
                 instanceId: e.instanceId,
                 releaseId: e.releaseId,
+                masterId: e.release.masterId,
                 dateAdded: e.dateAdded,
                 lastSeenImportId: importJobId,
               })),
@@ -95,6 +96,7 @@ export async function runImport(
               target: [collectionItems.userId, collectionItems.instanceId],
               set: {
                 releaseId: sql`excluded.release_id`,
+                masterId: sql`excluded.master_id`,
                 dateAdded: sql`excluded.date_added`,
                 lastSeenImportId: sql`excluded.last_seen_import_id`,
               },

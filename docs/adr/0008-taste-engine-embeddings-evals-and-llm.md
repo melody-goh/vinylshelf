@@ -235,3 +235,76 @@ want to open it. So, beyond ranked nearest neighbours:
   catalogue ids (CC0), and folded into the next ranking.
 - **Act on it.** A pick can be previewed (ADR 0010), wanted (ADR 0011) or searched for
   pressings (ADR 0009) without leaving it.
+
+### 2026-10-27: the engine core and its evaluation
+
+**Shape of the engine.** The shelf's catalogue-matched records are clustered into up to
+five rooms (deterministic spherical k-means; rooms under four records are folded into
+their neighbour). Each room retrieves its nearest catalogue masters (pgvector in the app,
+an exact scan in the evaluation; the ranking code is the same), and ranks them by
+closeness to the room's centre, closeness to the nearest owned record and shared people
+(producers, engineers, players), then picks by maximal marginal relevance with one pick
+per artist and no record in two rooms. "Far" skips the closest candidates, trusts shared
+people more, diversifies harder and only suggests artists not on the shelf. Reasons are
+chosen in code, strongest first: shared people, label and era, styles, closeness.
+
+**Evaluation design, and one correction to it.** The first synthetic world had scenes
+(shared styles, labels, era, people) and held out a random quarter of each shelf's
+scenes. A style-overlap baseline then reached the ceiling in one of two worlds (recall
+0.436 against the engine's 0.434): every unowned record in the scene was an equally
+right answer, and styles alone identify a scene. That measured a genre filter, not taste.
+The world now has **circles** inside scenes (a label's roster, a producer's sessions:
+their own label and core people), shelves follow circles, and the held-out answers come
+from the same circles, so the rest of the scene is a set of distractors with the right
+styles. This is how collections grow, and it is what the engine's people and label
+signals exist for.
+
+**Results (two seeded worlds, 40 shelves each, k = 20).**
+
+| | Recall@20 | nDCG@20 |
+|---|---|---|
+| Taste engine, near | 0.67 / 0.74 | 0.46 / 0.54 |
+| Style overlap | 0.20 / 0.21 | 0.13 / 0.12 |
+| Popularity | 0.00 / 0.00 | 0.00 / 0.00 |
+
+Far: recall 0.16 / 0.09, diversity 0.74 against near's 0.62, wider catalogue coverage.
+The build fails if near falls below twice the stronger baseline on recall or nDCG, or if
+far stops being more varied and wider-ranging than near.
+
+**Tuning.** Weights were chosen by sweeping centre, nearest-record, people and
+popularity weights and the diversity trade-off on both worlds; results were stable
+(recall 0.68 to 0.71) and the chosen near setting is centre 0.4, nearest 0.3, people
+0.3, λ 0.85. An explicit style-affinity feature (the share of the room carrying each of a
+candidate's styles) was tried in both worlds and measured no benefit, so it is not in
+the engine. Popularity is weighted 0 because the synthetic world makes popular records
+noise by construction and cannot judge a popularity prior fairly; the real-shelf
+evaluation must revisit it.
+
+**Caveat.** The CI evaluation embeds with a deterministic bag-of-words fake, which sees
+names and labels as plain words. It therefore tests the ranking logic, not the real
+model's sense of sound. The real model is judged by `taste:eval` against the loaded
+catalogue and the developer's own shelf, run by hand and printed, never committed.
+
+### 2026-10-27: serving recommendations
+
+`GET /taste/recommendations` and `/taste/feedback` (contract 0.8.0) serve the engine.
+
+- **Shelf to catalogue.** Shelf records join the catalogue by master id, kept on the shelf
+  reference (ADR 0006, note of 2026-10-27). Records the catalogue does not know still
+  count as owned. "Far" also keeps their artists out of its picks, reading them from the
+  release cache only while it is fresh (ADR 0004).
+- **When there is nothing to say.** The response states why: no catalogue loaded, or
+  fewer than three shelf records in it. Clients do not have to guess from an empty list.
+- **Retrieval.** pgvector's HNSW index returns at most `hnsw.ef_search` rows (40 by
+  default) and filters after searching. Excluding a 200-record shelf could therefore
+  return far fewer candidates than asked for, or none: measured, 0 of 50. Each query
+  raises `ef_search` to its limit and turns on pgvector 0.8's strict-order iterative
+  scan, inside its own transaction. A test runs on a connection that forbids sequential
+  scans, so the index path is what it checks.
+- **Steering.** "More like this" adds the record to the rooms as if owned. "Not for me"
+  removes it and pushes down near-duplicates (ADR 0008, Notes 2026-10-27). Verdicts are
+  catalogue ids, kept with the account, and replaced by a newer verdict.
+- **Real shelves.** `taste:eval` scores the engine against the signed-in user's own
+  shelf, holding out one fold at a time and comparing against the same baselines as CI.
+  It prints to the terminal and writes nothing. A collection is the user's data, so
+  real-shelf numbers are never committed; only the synthetic evaluation gates CI.

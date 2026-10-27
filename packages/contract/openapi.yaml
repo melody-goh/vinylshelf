@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.7.0
+  version: 0.8.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -25,6 +25,10 @@ tags:
     description: Release detail and manual search.
   - name: Wantlist
     description: The records the user is looking for, read live from Discogs.
+  - name: Taste
+    description: |
+      Recommendations from the user's shelf, from the CC0 taste catalogue
+      (docs/adr/0008-taste-engine.md).
   - name: Recognition
     description: Listen sessions, audio upload and recognition results.
   - name: Meta
@@ -561,6 +565,97 @@ paths:
           $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/Problem'
+
+  /taste/recommendations:
+    get:
+      tags: [Taste]
+      operationId: getTasteRecommendations
+      summary: Records the user is likely to love, grouped by the sides of their shelf
+      description: |
+        The shelf is split into rooms, its sides, and each room gets its own picks, each
+        with a reason that names shelf records bearing it out (ADR 0008, Notes
+        2026-10-26). Picks come from the taste catalogue, built from Discogs' CC0 data
+        dumps (ADR 0012), so they carry no `expiresAt`; they still credit Discogs.
+
+        The same shelf, feedback and catalogue always give the same answer. `status`
+        says why there are no rooms, when there are none:
+
+        - `no_catalogue`: no taste catalogue is loaded on this server;
+        - `too_few_records`: fewer than three shelf records are in the catalogue
+          (`basedOn` says how many are), for example straight after the first import.
+      parameters:
+        - name: distance
+          in: query
+          description: |
+            `near` stays close to the shelf; `far` reaches further, trades some accuracy
+            for range and only suggests artists the user does not own.
+          schema:
+            type: string
+            enum: [near, far]
+            default: near
+      responses:
+        '200':
+          description: Recommendations, or why there are none.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TasteRecommendations'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+
+  /taste/feedback:
+    post:
+      tags: [Taste]
+      operationId: giveTasteFeedback
+      summary: Steer recommendations with "more like this" or "not for me"
+      description: |
+        `more` treats the record as if it were on the shelf, so it pulls picks its way;
+        `less` keeps it, and records very like it, out of the picks. Neither is
+        recommended again. A new verdict on the same record replaces the old one. Kept
+        as catalogue ids with the user's account (ADR 0008).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TasteFeedback'
+      responses:
+        '204':
+          description: Recorded; the next recommendations take it into account.
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+        '404':
+          description: |
+            Not a record in the taste catalogue (`code: master_not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /taste/feedback/{masterId}:
+    parameters:
+      - name: masterId
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    delete:
+      tags: [Taste]
+      operationId: withdrawTasteFeedback
+      summary: Take back a verdict
+      description: Withdrawing a verdict that was never given is treated as done.
+      responses:
+        '204':
+          description: No verdict on this record any more.
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
 
   /listen-sessions:
     post:
@@ -1196,3 +1291,129 @@ components:
           description: Vinyl pressings matched on Discogs. May be empty.
           items:
             $ref: '#/components/schemas/ReleaseSummary'
+
+    TasteRecommendations:
+      type: object
+      required: [status, catalogue, basedOn, rooms]
+      properties:
+        status:
+          type: string
+          enum: [ready, no_catalogue, too_few_records]
+        catalogue:
+          description: The loaded taste catalogue; null when none is.
+          oneOf:
+            - type: object
+              required: [dump, rows]
+              properties:
+                dump:
+                  type: string
+                  description: The Discogs data dump it was built from, e.g. "20261001".
+                rows: { type: integer, minimum: 0 }
+            - type: 'null'
+        basedOn:
+          type: object
+          required: [shelfRecords, inCatalogue]
+          properties:
+            shelfRecords:
+              type: integer
+              minimum: 0
+              description: Records on the shelf.
+            inCatalogue:
+              type: integer
+              minimum: 0
+              description: Of those, how many the catalogue knows, which the picks come from.
+        rooms:
+          type: array
+          description: Largest room first. Empty unless `status` is `ready`.
+          items:
+            $ref: '#/components/schemas/TasteRoom'
+
+    TasteRoom:
+      type: object
+      required: [id, styles, size, picks]
+      properties:
+        id:
+          type: string
+          description: Stable while the shelf and feedback stay the same.
+        styles:
+          type: array
+          description: The room's commonest styles, most common first; what it is called.
+          items: { type: string }
+        size:
+          type: integer
+          minimum: 1
+          description: Shelf records in the room, counting those marked "more like this".
+        picks:
+          type: array
+          description: Best first. No record appears in two rooms.
+          items:
+            $ref: '#/components/schemas/TastePick'
+
+    TastePick:
+      type: object
+      required: [master, reason]
+      properties:
+        master:
+          $ref: '#/components/schemas/CatalogueMaster'
+        reason:
+          $ref: '#/components/schemas/TasteReason'
+
+    CatalogueMaster:
+      type: object
+      description: |
+        An album across its pressings (a Discogs master), from the CC0 taste catalogue.
+        It has no image: a client shows a cover through `/releases/{mainReleaseId}`.
+      required: [masterId, mainReleaseId, title, artists, year, genres, styles, labels, discogsUrl]
+      properties:
+        masterId: { type: integer }
+        mainReleaseId:
+          type: integer
+          description: The release Discogs picks to stand for the master.
+        title: { type: string }
+        artists:
+          type: array
+          items: { type: string }
+        year: { type: [integer, 'null'] }
+        genres:
+          type: array
+          items: { type: string }
+        styles:
+          type: array
+          items: { type: string }
+        labels:
+          type: array
+          items: { type: string }
+        discogsUrl:
+          type: string
+          format: uri
+          description: The master's page on Discogs.
+
+    TasteReason:
+      type: object
+      description: |
+        Why the record is picked, chosen by our code, never invented (ADR 0008 §2).
+        Strongest kind first: `people` (someone who made records on the shelf made this
+        one too), `label` (same label and decade), `styles`, `sound` (close to one
+        shelf record).
+      required: [kind, text, shelfTitles]
+      properties:
+        kind:
+          type: string
+          enum: [people, label, styles, sound]
+        text:
+          type: string
+          description: One short line, e.g. "Rudy Van Gelder is on 4 of your records".
+        shelfTitles:
+          type: array
+          maxItems: 3
+          description: Titles of the shelf records that bear the reason out.
+          items: { type: string }
+
+    TasteFeedback:
+      type: object
+      required: [masterId, verdict]
+      properties:
+        masterId: { type: integer, minimum: 1 }
+        verdict:
+          type: string
+          enum: [more, less]

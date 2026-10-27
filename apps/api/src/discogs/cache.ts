@@ -18,7 +18,8 @@ import {
 import type { Clock } from '../lib/clock.js';
 import type { ReleaseDetailData, ReleaseSummaryData } from './gateway.js';
 
-export interface CachedRelease extends ReleaseSummaryData {
+/** The master id is not cached: it lives on the shelf reference (ADR 0006 note). */
+export interface CachedRelease extends Omit<ReleaseSummaryData, 'masterId'> {
   classification: DiscogsClassification;
   fetchedAt: Date;
   expiresAt: Date;
