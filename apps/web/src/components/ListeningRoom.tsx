@@ -49,7 +49,9 @@ const trackSlide = { type: 'spring', stiffness: 420, damping: 34 } as const;
 const draw = { type: 'spring', stiffness: 260, damping: 32 } as const;
 const carry = { type: 'spring', stiffness: 130, damping: 21 } as const;
 const settle = { type: 'spring', stiffness: 150, damping: 11 } as const;
-const turn = { type: 'spring', stiffness: 70, damping: 18 } as const;
+/** Into the edge-on moment firmly, out of it with a little give. */
+const toEdge = { type: 'spring', stiffness: 240, damping: 30, restDelta: 0.5 } as const;
+const toFace = { type: 'spring', stiffness: 150, damping: 17 } as const;
 const fade = { type: 'spring', stiffness: 300, damping: 40 } as const;
 /** Leaving is quicker than arriving: the listener has already decided to go. */
 const back = { type: 'spring', stiffness: 260, damping: 30 } as const;
@@ -78,6 +80,24 @@ function clock(seconds: number): string {
 }
 
 /**
+ * Half a turn about the vertical axis, through a visible edge-on moment: the disc turns
+ * until it is a sliver, then comes round face-on again. The far side is never shown, so
+ * the label never reads backwards.
+ */
+async function flip(rotateY: MotionValue<number>): Promise<void> {
+  await animate(rotateY, 90, toEdge);
+  rotateY.set(-90);
+  await animate(rotateY, 0, toFace);
+}
+
+/** The page under the room: it falls back and fades as the disc comes forward. */
+function recede(page: HTMLElement | null, away: boolean) {
+  if (!page) return;
+  if (away) page.style.transformOrigin = `50% ${String(window.scrollY + window.innerHeight / 2)}px`;
+  void animate(page, away ? { scale: 0.94, opacity: 0 } : { scale: 1, opacity: 1 }, fade);
+}
+
+/**
  * The listening room: the record alone on the studio ground, its disc turning at 33⅓
  * while a preview plays, and one ruler across the whole record to scrub through it.
  * Dragging the cursor cues the record by hand: the disc turns with it, forwards or
@@ -85,9 +105,9 @@ function clock(seconds: number): string {
  * shown with Apple's attribution and badge (ADR 0010 §5).
  *
  * The disc arrives from the sleeve it was opened from: it slides out from behind the
- * cover, then is carried to the platter as the room comes up, turning over once and
- * settling with a little zoom. Closing sends it back the same way. Under reduced motion
- * the room simply appears.
+ * cover, then is carried to the platter as the page falls back and the room comes up,
+ * turning half over through an edge-on moment and settling with a little zoom. Closing
+ * sends it back the same way. Under reduced motion the room simply appears.
  */
 export function ListeningRoom({
   release,
@@ -171,12 +191,13 @@ export function ListeningRoom({
       await animate(flight.x, start.x + start.out, draw);
       if (run.cancelled) return;
       setRevealed(true);
-      // ...then carried to the platter as the room comes up, turning over once on the way.
+      // ...then carried to the platter as the page falls back, turning half over on the way.
       void animate(ground, 1, fade);
       void animate(sleeve, 0, fade);
+      recede(document.getElementById('root'), true);
       void animate(flight.x, 0, carry);
       void animate(flight.y, 0, carry);
-      void animate(flight.rotateY, 360, turn);
+      void flip(flight.rotateY);
       void animate(flight.scale, 1, settle);
     })();
     return () => {
@@ -184,6 +205,19 @@ export function ListeningRoom({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, on opening
   }, []);
+
+  // However the room goes, the page comes back as it was.
+  useEffect(
+    () => () => {
+      const page = document.getElementById('root');
+      if (page) {
+        page.style.transform = '';
+        page.style.opacity = '';
+        page.style.transformOrigin = '';
+      }
+    },
+    [],
+  );
 
   /** Closing reverses the way in: back into the sleeve, then the room goes. */
   const close = useCallback(async () => {
@@ -197,10 +231,11 @@ export function ListeningRoom({
     audio.current?.pause();
     void animate(ground, 0, fade);
     void animate(sleeve, 1, fade);
+    recede(document.getElementById('root'), false);
     await Promise.all([
       animate(flight.x, end.x + end.out, back),
       animate(flight.y, end.y, back),
-      animate(flight.rotateY, 0, back),
+      flip(flight.rotateY),
       animate(flight.scale, end.scale, back),
     ]);
     await animate(flight.x, end.x, draw);
