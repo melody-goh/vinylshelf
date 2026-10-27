@@ -240,8 +240,12 @@ export function recommendations(): TasteRecommendations {
     [
       ['Soul', 'Disco', 'Funk'],
       [
-        ['Velvet Hours', 'The Marlowe Five', 'Ana Ferreira is on 3 of your records'],
-        ['Night Shift Sermon', 'Della Crane', 'Ivo Marsh, as on Tidal Lines'],
+        [
+          'Velvet Hours',
+          'The Marlowe Five',
+          "Produced by Ana Ferreira, who's on 3 of your records",
+        ],
+        ['Night Shift Sermon', 'Della Crane', 'Mastered by Ivo Marsh, as on Tidal Lines'],
         ['Golden Hour Rewind', 'Sunfold', 'More from Sunfold, after Alpine Suites'],
         ['Satin City', 'Rue Bellamy', 'Disco and Funk, like Night Bus Recordings'],
         ['Afterparty Light', 'The Cascades of June', 'Close to Orchard Weather'],
@@ -250,8 +254,8 @@ export function recommendations(): TasteRecommendations {
     [
       ['Indie Rock', 'Dream Pop'],
       [
-        ['Lantern Weather', 'Pale Harbour', 'Teo Varga is on 4 of your records'],
-        ['Small Engines', 'Ostrander', 'Synthetic Records, 2010s, like 3 of your records'],
+        ['Lantern Weather', 'Pale Harbour', "Teo Varga on guitar, who's on 4 of your records"],
+        ['Small Engines', 'Ostrander', 'Synthetic Records in the 2010s, like 3 of your records'],
         ['Quiet Machines', 'Field Day Static', 'Close to Glasshouse'],
         ['Under the Pier', 'Marsh & Tide', 'Indie Rock, like Undertow'],
       ],
@@ -259,7 +263,7 @@ export function recommendations(): TasteRecommendations {
     [
       ['Ambient'],
       [
-        ['Long Water', 'Ilse Moreau', 'Ana Ferreira, as on Low Tide Radio'],
+        ['Long Water', 'Ilse Moreau', 'Produced by Ana Ferreira, as on Low Tide Radio'],
         ['Slow Signal', 'Kestrel Array', 'Close to Signal Fires'],
         ['Fog Index', 'Hollow Pine', 'Ambient, like Small Hours'],
       ],
@@ -290,9 +294,9 @@ export function recommendations(): TasteRecommendations {
             discogsUrl: `https://www.discogs.com/master/${String(masterId)}`,
           },
           reason: {
-            kind: 'people' as const,
-            text,
-            shelfTitles: ['Tidal Lines', 'Alpine Suites'],
+            sound: `${styles.slice(0, 2).join(' and ')}, late '70s`,
+            fansOf: ['The Paper Moons', 'Odile & the Narrows'],
+            link: { kind: 'people' as const, text, shelfTitles: ['Tidal Lines', 'Alpine Suites'] },
           },
         };
       }),

@@ -226,7 +226,7 @@ export function wantlistPage(items: WantlistItem[]): WantlistPage {
 /** A pick from the taste catalogue (CC0 data; no expiry). */
 export function tastePick(
   masterId: number,
-  overrides: { title?: string; artist?: string; reason?: string } = {},
+  overrides: { title?: string; artist?: string; link?: string | null } = {},
 ): TastePick {
   return {
     master: {
@@ -241,9 +241,16 @@ export function tastePick(
       discogsUrl: `https://www.discogs.com/master/${String(masterId)}`,
     },
     reason: {
-      kind: 'people',
-      text: overrides.reason ?? 'Ana Ferreira is on 2 of your records',
-      shelfTitles: ['Tidal Lines', 'Alpine Suites'],
+      sound: "Soul and Disco, late '70s",
+      fansOf: ['Earth, Wind & Fire', 'Commodores'],
+      link:
+        overrides.link === null
+          ? null
+          : {
+              kind: 'people',
+              text: overrides.link ?? "Produced by Ana Ferreira, who's on 2 of your records",
+              shelfTitles: ['Tidal Lines', 'Alpine Suites'],
+            },
     },
   };
 }

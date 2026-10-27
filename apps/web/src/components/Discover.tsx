@@ -89,7 +89,8 @@ export function placement(offset: number, size: number, anchor: number) {
 
 /**
  * Discover (ADR 0008): the taste engine's picks as one row of sleeves receding into the
- * distance, the front one large with its liner notes and the reason it was picked. Room
+ * distance, the front one large with its liner notes and why it was picked: its sound,
+ * whose fans it is for, and any real link to the shelf. Room
  * after room, so the room's name changes as the row moves. Arrow keys, the wheel or a
  * click on a sleeve bring it to the front.
  */
@@ -362,12 +363,17 @@ function Notes({ current }: { current: Placed }) {
           </Note>
         )}
         {master.labels[0] && <Note label="Label">{master.labels[0]}</Note>}
-        <Note label="Why">
-          {reason.text}
-          {reason.shelfTitles.length > 1 && (
-            <span className="mt-0.5 block text-ink-soft">{reason.shelfTitles.join(', ')}</span>
-          )}
-        </Note>
+        <Note label="Sound">{reason.sound}</Note>
+        {reason.fansOf.length > 0 && (
+          <Note label="For fans of">
+            {reason.fansOf.map((artist) => (
+              <span key={artist} className="block">
+                {artist}
+              </span>
+            ))}
+          </Note>
+        )}
+        {reason.link && <Note label="Link">{reason.link.text}</Note>}
       </dl>
     </div>
   );

@@ -19,8 +19,11 @@ const READY = recommendations([
   {
     styles: ['Soul', 'Disco'],
     picks: [
-      tastePick(1, { title: 'Rejoice', reason: 'Maurice White is on 4 of your records' }),
-      tastePick(2, { title: 'Busy Body' }),
+      tastePick(1, {
+        title: 'Rejoice',
+        link: "Produced by Maurice White, who's on 4 of your records",
+      }),
+      tastePick(2, { title: 'Busy Body', link: null }),
     ],
   },
   { styles: ['Smooth Jazz'], picks: [tastePick(3, { title: 'Next Exit' })] },
@@ -57,12 +60,18 @@ describe('Discover', () => {
     const { user, region } = await openDiscover();
 
     expect(await within(region).findByRole('heading', { name: 'Rejoice' })).toBeInTheDocument();
-    expect(within(region).getByText('Maurice White is on 4 of your records')).toBeInTheDocument();
+    expect(within(region).getByText("Soul and Disco, late '70s")).toBeInTheDocument();
+    expect(within(region).getByText('Earth, Wind & Fire')).toBeInTheDocument();
+    expect(
+      within(region).getByText("Produced by Maurice White, who's on 4 of your records"),
+    ).toBeInTheDocument();
     expect(within(region).getByText('Soul · Disco')).toBeInTheDocument();
     expect(within(region).getByText('1 / 3')).toBeInTheDocument();
 
     await user.click(within(region).getByRole('button', { name: 'Next record' }));
     expect(within(region).getByRole('heading', { name: 'Busy Body' })).toBeInTheDocument();
+    // No link to the shelf: no Link row, rather than a made-up one.
+    expect(within(region).queryByText('Link')).not.toBeInTheDocument();
 
     await user.keyboard('{ArrowRight}');
     expect(within(region).getByRole('heading', { name: 'Next Exit' })).toBeInTheDocument();
