@@ -1,7 +1,7 @@
 import type { TastePick, TasteRecommendations, TasteRoom } from '@vinylshelf/contract';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Play } from 'lucide-react';
-import { motion, useReducedMotion } from 'motion/react';
+import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { motion, useAnimationFrame, useMotionValue, useReducedMotion } from 'motion/react';
 import {
   useEffect,
   useLayoutEffect,
@@ -16,7 +16,9 @@ import { useDwell, usePreviews } from '../api/previews';
 import { useRelease } from '../api/releases';
 import { useRecommendations, type Distance } from '../api/taste';
 import { useWideScreen } from '../design/media';
-import { ListeningRoom, playableTracks } from './ListeningRoom';
+import type { Release } from '@vinylshelf/contract';
+import { Disc } from './Disc';
+import { ListeningRoom, playableTracks, type Playable } from './ListeningRoom';
 import { MissingCover } from './MissingCover';
 import { ScoredText } from './ScoredText';
 import { TextSelect } from './TextSelect';
@@ -34,7 +36,35 @@ export function placeAll(recommendations: TasteRecommendations | undefined): Pla
   );
 }
 
+/** Letters and digits only, so "Rejoice (Remastered)" still matches "Rejoice". */
+const plain = (title: string) =>
+  title
+    .replace(/\s*[([].*?[)\]]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+
+/**
+ * The one track to hear on the page, chosen as a record shop would: the title track if
+ * the record has one with a preview, otherwise the first track that has one (albums
+ * were sequenced to open strong). Nothing knows which track a listener would like best;
+ * this is honest about that.
+ */
+export function featuredTrack(
+  release: Pick<Release, 'title'>,
+  tracks: readonly Playable[],
+): { track: Playable; why: 'title' | 'opening' } | null {
+  const title = plain(release.title);
+  const named = title ? tracks.find((t) => plain(t.title) === title) : undefined;
+  if (named) return { track: named, why: 'title' };
+  const [first] = tracks;
+  return first ? { track: first, why: 'opening' } : null;
+}
+
 const travel = { type: 'spring', stiffness: 170, damping: 24 } as const;
+/** How far a playing disc slides out of the front sleeve, as a share of the sleeve. */
+const PEEK = 0.42;
+/** 33⅓ revolutions a minute. */
+const DEGREES_PER_SECOND = (100 / 3) * 6;
 const press = { type: 'spring', stiffness: 500, damping: 28 } as const;
 
 /** The front sleeve's turn towards the reader; the Listening Room draws the disc from it. */
@@ -208,6 +238,27 @@ function Row({
 }) {
   const wide = useWideScreen();
   const stage = useRef<HTMLDivElement>(null);
+
+  // The front record's one track, looked up once it has been in front a moment.
+  const { mainReleaseId, masterId } = current.pick.master;
+  const detail = useRelease(mainReleaseId).data;
+  const previews = usePreviews(mainReleaseId, useDwell(mainReleaseId));
+  const tracks = detail && previews.data ? playableTracks(detail, previews.data) : null;
+  const featured = detail && tracks ? featuredTrack(detail, tracks) : null;
+  // Listening mode: once the listener plays one record, each record brought to the front
+  // plays too, until they pause. Nothing plays before they ask.
+  const [listening, setListening] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const audio = useRef<HTMLAudioElement>(null);
+  const [room, setRoom] = useState<{ from: DOMRect | null; startAt: string } | null>(null);
+  const url = featured?.track.previewUrl;
+
+  useEffect(() => {
+    const el = audio.current;
+    if (!el) return;
+    if (listening && url) void el.play().catch(() => undefined);
+    else el.pause();
+  }, [listening, url, masterId]);
   const [box, setBox] = useState({ width: 0, height: 0 });
   const wheel = useRef({ travelled: 0, restUntil: 0 });
 
@@ -274,12 +325,23 @@ function Row({
     >
       <div className="relative z-[200] flex flex-col gap-4 p-4 md:absolute md:left-8 md:top-6 md:w-[22rem] md:p-0">
         <Notes current={current} />
-        <Listen
-          key={current.pick.master.masterId}
-          current={current}
-          frontBox={() => {
+        <Preview
+          featured={featured}
+          missing={tracks !== null && featured === null}
+          playing={playing}
+          onToggle={() => {
+            setListening(!playing);
+            if (playing) audio.current?.pause();
+            else if (url) void audio.current?.play().catch(() => undefined);
+          }}
+          onAlbum={() => {
+            if (!featured) return;
+            setListening(false);
             const frame = stage.current?.getBoundingClientRect();
-            return frame ? new DOMRect(frame.left + anchor, frame.top + top, size, size) : null;
+            setRoom({
+              from: frame ? new DOMRect(frame.left + anchor, frame.top + top, size, size) : null,
+              startAt: featured.track.position,
+            });
           }}
         />
       </div>
@@ -297,6 +359,8 @@ function Row({
                 top={top}
                 size={size}
                 isFront={offset === 0}
+                spinning={offset === 0 && playing}
+                disc={offset === 0 ? (detail ?? null) : null}
                 withCover={offset >= -COVERS_BEHIND && offset <= COVERS_AHEAD}
                 onChoose={() => {
                   go(index);
@@ -336,6 +400,31 @@ function Row({
           </button>
         </div>
       </div>
+
+      {/* Streamed from Apple, never stored (ADR 0010 §4). */}
+      <audio
+        ref={audio}
+        src={url}
+        preload="none"
+        onPlay={() => {
+          setPlaying(true);
+        }}
+        onPause={() => {
+          setPlaying(false);
+        }}
+      />
+      {room && detail && previews.data && (
+        <ListeningRoom
+          release={detail}
+          previews={previews.data}
+          startAt={room.startAt}
+          from={room.from}
+          fromTilt={FRONT_TILT}
+          onClose={() => {
+            setRoom(null);
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -395,6 +484,8 @@ function Sleeve({
   top,
   size,
   isFront,
+  spinning,
+  disc,
   withCover,
   onChoose,
 }: {
@@ -403,6 +494,10 @@ function Sleeve({
   top: number;
   size: number;
   isFront: boolean;
+  /** Playing: the disc slides part way out of the sleeve and turns. */
+  spinning: boolean;
+  /** The front record's release, for its disc's colourway; null for the others. */
+  disc: Release | null;
   withCover: boolean;
   onChoose: () => void;
 }) {
@@ -436,83 +531,111 @@ function Sleeve({
         initial={false}
         animate={{ rotateY: reduced ? 0 : rotateY }}
         transition={reduced ? { duration: 0 } : travel}
-        className="block h-full w-full overflow-hidden bg-carbon shadow-photo"
+        className="relative block h-full w-full"
         style={{ transformPerspective: 1400 }}
       >
-        {cover ? (
-          <img
-            src={cover}
-            alt=""
-            referrerPolicy="no-referrer"
-            className="h-full w-full object-cover"
-            draggable={false}
-          />
-        ) : (
-          <MissingCover title={master.title} artists={master.artists} />
+        {disc && (
+          <motion.span
+            aria-hidden="true"
+            className="absolute inset-[3%] block"
+            initial={false}
+            animate={{ x: spinning ? size * PEEK : 0 }}
+            transition={reduced ? { duration: 0 } : travel}
+          >
+            <Turning on={spinning && !reduced}>
+              <Disc
+                vinylColors={disc.vinylColors}
+                labelImageUrl={disc.coverImageUrl ?? null}
+                seed={disc.discogsId}
+                className="w-full"
+              />
+            </Turning>
+          </motion.span>
         )}
+        <span className="relative block h-full w-full overflow-hidden bg-carbon shadow-photo">
+          {cover ? (
+            <img
+              src={cover}
+              alt=""
+              referrerPolicy="no-referrer"
+              className="h-full w-full object-cover"
+              draggable={false}
+            />
+          ) : (
+            <MissingCover title={master.title} artists={master.artists} />
+          )}
+        </span>
       </motion.span>
     </motion.button>
   );
 }
 
-/**
- * Listening to the front record: its previews are looked up once it has been in front a
- * moment (ADR 0010), and playing carries its disc out of the tilted sleeve into the
- * Listening Room.
- */
-function Listen({
-  current,
-  frontBox,
-}: {
-  current: Placed;
-  /** The front sleeve's box before its turn; the stand-in is turned the same way. */
-  frontBox: () => DOMRect | null;
-}) {
-  const { mainReleaseId } = current.pick.master;
-  const detail = useRelease(mainReleaseId).data;
-  const previews = usePreviews(mainReleaseId, useDwell(mainReleaseId));
-  const [open, setOpen] = useState<{ from: DOMRect | null; startAt: string } | null>(null);
-  const tracks = detail && previews.data ? playableTracks(detail, previews.data) : null;
-  const first = tracks?.[0];
-
-  if (tracks && !first) {
-    return <p className="text-sm text-ink-soft">No previews for this record.</p>;
-  }
+/** A disc turning at 33⅓ while it plays, and holding still when it stops. */
+function Turning({ on, children }: { on: boolean; children: ReactNode }) {
+  const rotate = useMotionValue(0);
+  useAnimationFrame((_, delta) => {
+    if (on) rotate.set(rotate.get() + (delta / 1000) * DEGREES_PER_SECOND);
+  });
   return (
-    <>
+    <motion.span className="block" style={{ rotate }}>
+      {children}
+    </motion.span>
+  );
+}
+
+/**
+ * Hearing the front record without leaving the row: one track, played on the page, and
+ * the whole record in the Listening Room for when it hooks the listener (ADR 0010).
+ */
+function Preview({
+  featured,
+  missing,
+  playing,
+  onToggle,
+  onAlbum,
+}: {
+  featured: ReturnType<typeof featuredTrack>;
+  /** Previews were looked up and there are none. */
+  missing: boolean;
+  playing: boolean;
+  onToggle: () => void;
+  onAlbum: () => void;
+}) {
+  if (missing) return <p className="text-sm text-ink-soft">No previews for this record.</p>;
+  const title = featured?.track.title;
+  return (
+    <div className="flex items-center gap-3">
       <motion.button
         type="button"
-        disabled={!first}
-        aria-busy={!first}
-        onClick={() => {
-          if (!first) return;
-          setOpen({
-            from: frontBox(),
-            startAt: first.position,
-          });
-        }}
-        whileHover={first ? { scale: 1.04 } : {}}
-        whileTap={first ? { scale: 0.96 } : {}}
+        disabled={!featured}
+        aria-busy={!featured}
+        aria-label={title ? `${playing ? 'Pause' : 'Play'} ${title}` : 'Preview'}
+        onClick={onToggle}
+        whileHover={featured ? { scale: 1.06 } : {}}
+        whileTap={featured ? { scale: 0.95 } : {}}
         transition={press}
-        className="flex w-fit items-center gap-3 text-sm font-semibold disabled:opacity-50"
+        className="grid size-11 shrink-0 place-items-center rounded-full bg-sticker text-sticker-ink shadow-photo disabled:opacity-50"
       >
-        <span className="grid size-11 place-items-center rounded-full bg-sticker text-sticker-ink shadow-photo">
+        {playing ? (
+          <Pause aria-hidden="true" className="size-5 fill-current" />
+        ) : (
           <Play aria-hidden="true" className="ml-0.5 size-5 fill-current" />
-        </span>
-        Listen
+        )}
       </motion.button>
-      {open && detail && previews.data && (
-        <ListeningRoom
-          release={detail}
-          previews={previews.data}
-          startAt={open.startAt}
-          from={open.from}
-          fromTilt={FRONT_TILT}
-          onClose={() => {
-            setOpen(null);
-          }}
-        />
-      )}
-    </>
+      <div className="min-w-0 text-sm leading-tight">
+        <p className="truncate font-semibold">{title ?? '\u00a0'}</p>
+        <p className="mt-0.5 text-xs text-ink-soft">
+          {featured ? (featured.why === 'title' ? 'Title track' : 'Opening track') : '\u00a0'}
+          {featured && (
+            <>
+              {' · '}
+              <button type="button" onClick={onAlbum} className="underline">
+                Full album
+              </button>
+            </>
+          )}
+        </p>
+      </div>
+    </div>
   );
 }

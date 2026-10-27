@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../App';
-import { placement } from '../components/Discover';
+import { featuredTrack, placement } from '../components/Discover';
 import { renderWithQueries } from '../test/render';
 import {
   API,
@@ -80,6 +80,26 @@ describe('Discover', () => {
     expect(within(region).getByRole('button', { name: 'Next record' })).toBeDisabled();
   });
 
+  it("plays the record's one track on the page, and opens the whole record", async () => {
+    const { user, region } = await openDiscover();
+    await within(region).findByRole('heading', { name: 'Rejoice' });
+
+    // The fixture release has no title track, so its opening track is chosen.
+    const play = await within(region).findByRole(
+      'button',
+      { name: 'Play Shoreline' },
+      { timeout: 4000 },
+    );
+    expect(within(region).getByText(/Opening track/)).toBeInTheDocument();
+    await user.click(play);
+    expect(
+      await within(region).findByRole('button', { name: 'Pause Shoreline' }),
+    ).toBeInTheDocument();
+
+    await user.click(within(region).getByRole('button', { name: 'Full album' }));
+    expect(await screen.findByRole('dialog', { name: /^Listening Room/ })).toBeInTheDocument();
+  });
+
   it('asks for near picks first, and far ones when chosen', async () => {
     const { user, region } = await openDiscover();
     await within(region).findByRole('heading', { name: 'Rejoice' });
@@ -113,5 +133,28 @@ describe('placement', () => {
     expect(behind.every((p, i) => p.x < (behind[i - 1]?.x ?? front.x))).toBe(true);
     for (const p of behind) expect(p.y + (400 * (1 + p.scale)) / 2).toBeCloseTo(400);
     expect(placement(-7, 400, 600).opacity).toBe(0);
+  });
+});
+
+describe('featuredTrack', () => {
+  const track = (title: string, position: string) => ({ title, position, previewUrl: 'x' });
+
+  it('prefers the title track, however it is dressed up', () => {
+    expect(
+      featuredTrack({ title: 'Rejoice' }, [
+        track('Key To My Heart', 'A1'),
+        track('Rejoice (Remastered)', 'B2'),
+      ]),
+    ).toEqual({ track: track('Rejoice (Remastered)', 'B2'), why: 'title' });
+  });
+
+  it('otherwise opens where the record opens, and has nothing without previews', () => {
+    expect(
+      featuredTrack({ title: 'Suddenly' }, [track('Lovin You', 'A1'), track('Hiding Place', 'A2')]),
+    ).toEqual({
+      track: track('Lovin You', 'A1'),
+      why: 'opening',
+    });
+    expect(featuredTrack({ title: 'Suddenly' }, [])).toBeNull();
   });
 });

@@ -384,8 +384,12 @@ test('discover captures', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 2 })).toBeVisible({ timeout: 6000 });
   await page.waitForTimeout(2000);
   await page.screenshot({ path: `${OUT}/desktop-discover.png` });
-  // Listening carries the disc out of the tilted sleeve.
-  await page.getByRole('button', { name: 'Listen' }).click({ timeout: 6000 });
+  // One track plays on the page; its disc slides out of the sleeve and turns.
+  await page.getByRole('button', { name: /^Play / }).click({ timeout: 6000 });
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${OUT}/desktop-discover-playing.png` });
+  // The whole record opens in the Listening Room.
+  await page.getByRole('button', { name: 'Full album' }).click();
   for (const at of [100, 400, 800]) {
     await page.waitForTimeout(at === 100 ? 100 : at === 400 ? 300 : 400);
     await page.screenshot({ path: `${OUT}/desktop-discover-listen-${String(at)}.png` });
