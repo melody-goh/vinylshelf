@@ -14,6 +14,11 @@ import type { EvalShelf } from './synthetic.js';
 
 export interface MethodScores {
   recall: number;
+  /**
+   * Recall of held-out records by artists found nowhere else on the shelf: whether a
+   * method finds new music, not just more by artists already owned.
+   */
+  discovery: number;
   ndcg: number;
   diversity: number;
   /** Share of the catalogue that appears in at least one shelf's list. */
@@ -92,9 +97,24 @@ export async function evaluate(
     runs.styleOverlap.push(styleOverlap(catalogue, shelf, owned, k));
   }
 
+  // Per shelf, the held-out records whose artists are not on the rest of that shelf.
+  const discoveries = shelves.map(({ shelf, heldOut }) => {
+    const owned = new Set(shelf.flatMap((m) => m.artists.map((a) => a.toLowerCase())));
+    return new Set(
+      heldOut.filter((m) => !m.artists.some((a) => owned.has(a.toLowerCase()))).map((m) => m.id),
+    );
+  });
+
   const score = (lists: number[][]): MethodScores => ({
     recall: mean(
       lists.map((list, i) => recallAt(list, new Set(shelves[i]?.heldOut.map((m) => m.id)), k)),
+    ),
+    // Shelves with nothing new held out have nothing to discover, so they do not count.
+    discovery: mean(
+      lists.flatMap((list, i) => {
+        const fresh = discoveries[i];
+        return fresh && fresh.size > 0 ? [recallAt(list, fresh, k)] : [];
+      }),
     ),
     ndcg: mean(
       lists.map((list, i) => ndcgAt(list, new Set(shelves[i]?.heldOut.map((m) => m.id)), k)),
@@ -117,12 +137,12 @@ export async function evaluate(
 /** The report as a small table, for test output and the CI summary. */
 export function formatReport(report: EvalReport): string {
   const row = (name: string, s: MethodScores) =>
-    `| ${name} | ${s.recall.toFixed(3)} | ${s.ndcg.toFixed(3)} | ${s.diversity.toFixed(3)} | ${s.coverage.toFixed(3)} |`;
+    `| ${name} | ${s.recall.toFixed(3)} | ${s.discovery.toFixed(3)} | ${s.ndcg.toFixed(3)} | ${s.diversity.toFixed(3)} | ${s.coverage.toFixed(3)} |`;
   return [
     `Offline evaluation: ${String(report.shelves)} shelves, k = ${String(report.k)}`,
     '',
-    `| Method | Recall@${String(report.k)} | nDCG@${String(report.k)} | Diversity | Coverage |`,
-    '|---|---|---|---|---|',
+    `| Method | Recall@${String(report.k)} | Discovery@${String(report.k)} | nDCG@${String(report.k)} | Diversity | Coverage |`,
+    '|---|---|---|---|---|---|',
     row('Taste engine', report.engine),
     row('Style overlap', report.styleOverlap),
     row('Popularity', report.popularity),

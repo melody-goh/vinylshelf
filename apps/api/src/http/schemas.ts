@@ -217,9 +217,15 @@ export const tasteRecommendationsSchema = z.object({
         z.object({
           master: catalogueMasterSchema,
           reason: z.object({
-            kind: z.enum(['people', 'label', 'styles', 'sound']),
-            text: z.string(),
-            shelfTitles: z.array(z.string()).max(3),
+            sound: z.string(),
+            fansOf: z.array(z.string()).max(2),
+            link: z
+              .object({
+                kind: z.enum(['people', 'artist', 'label']),
+                text: z.string(),
+                shelfTitles: z.array(z.string()).max(3),
+              })
+              .nullable(),
           }),
         }),
       ),
