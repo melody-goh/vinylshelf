@@ -20,7 +20,7 @@ import type { Release } from '@vinylshelf/contract';
 import { Disc } from './Disc';
 import { ListeningRoom, playableTracks, type Playable } from './ListeningRoom';
 import { MissingCover } from './MissingCover';
-import { ScoredText } from './ScoredText';
+import { Quaver, ScoredText } from './ScoredText';
 import { TextSelect } from './TextSelect';
 
 /** One pick in the row, with the room it was found for. */
@@ -617,38 +617,38 @@ function Preview({
   if (missing) return <p className="text-sm text-ink-soft">No previews for this record.</p>;
   const title = featured?.track.title;
   return (
-    <div className="flex items-center gap-3">
-      <motion.button
-        type="button"
-        disabled={!featured}
-        aria-busy={!featured}
-        aria-label={title ? `${playing ? 'Pause' : 'Play'} ${title}` : 'Preview'}
-        onClick={onToggle}
-        whileHover={featured ? { scale: 1.06 } : {}}
-        whileTap={featured ? { scale: 0.95 } : {}}
-        transition={press}
-        className="grid size-11 shrink-0 place-items-center rounded-full bg-sticker text-sticker-ink shadow-photo disabled:opacity-50"
-      >
-        {playing ? (
-          <Pause aria-hidden="true" className="size-5 fill-current" />
-        ) : (
-          <Play aria-hidden="true" className="ml-0.5 size-5 fill-current" />
-        )}
-      </motion.button>
-      <div className="min-w-0 text-sm leading-tight">
-        <p className="truncate font-semibold">{title ?? '\u00a0'}</p>
-        <p className="mt-0.5 text-xs text-ink-soft">
-          {featured ? (featured.why === 'title' ? 'Title track' : 'Opening track') : '\u00a0'}
-          {featured && (
-            <>
-              {' · '}
-              <button type="button" onClick={onAlbum} className="underline">
-                Full album
-              </button>
-            </>
+    <div>
+      <div className="flex items-center gap-3 border-t border-ink/70 py-2">
+        <Quaver className="size-5 shrink-0" />
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate text-sm font-semibold">{title ?? '\u00a0'}</p>
+          <p className="mt-0.5 text-xs text-ink-soft">
+            {featured ? (featured.why === 'title' ? 'Title track' : 'Opening track') : '\u00a0'}
+          </p>
+        </div>
+        <motion.button
+          type="button"
+          disabled={!featured}
+          aria-busy={!featured}
+          aria-label={title ? `${playing ? 'Pause' : 'Play'} ${title}` : 'Preview'}
+          onClick={onToggle}
+          whileHover={featured ? { scale: 1.06 } : {}}
+          whileTap={featured ? { scale: 0.95 } : {}}
+          transition={press}
+          className="grid size-10 shrink-0 place-items-center rounded-full bg-sticker text-sticker-ink shadow-photo disabled:opacity-50"
+        >
+          {playing ? (
+            <Pause aria-hidden="true" className="size-4 fill-current" />
+          ) : (
+            <Play aria-hidden="true" className="ml-0.5 size-4 fill-current" />
           )}
-        </p>
+        </motion.button>
       </div>
+      {featured && (
+        <button type="button" onClick={onAlbum} className="mt-1 text-xs underline">
+          Full album
+        </button>
+      )}
     </div>
   );
 }
