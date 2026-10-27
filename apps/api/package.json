@@ -12,6 +12,7 @@
     "models:fetch": "tsx scripts/models-fetch.ts",
     "catalogue:build": "tsx scripts/catalogue-build.ts",
     "catalogue:load": "tsx scripts/catalogue-load.ts",
+    "catalogue:publish": "bash scripts/catalogue-publish.sh",
     "taste:eval": "tsx scripts/taste-eval.ts"
   },
   "devDependencies": {

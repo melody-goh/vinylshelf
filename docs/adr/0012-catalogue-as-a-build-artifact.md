@@ -97,3 +97,26 @@ the full masters dump, with the real model and a cap of 3,000.
   short-text probe suggested. Embedding each window of 1,024 masters in length order
   (rows still written in rank order) raised it to about 215 a second: about 12 minutes
   for 150,000 on the development machine, an estimated 20 to 30 minutes on a runner.
+
+### 2026-10-27: built locally while the dump host refuses GitHub's runners
+
+The first run of the Catalogue workflow failed within a second: data.discogs.com,
+behind Cloudflare, answered **403** to the GitHub-hosted runner, while the same plain
+request from a home connection streams normally. Cloudflare evidently refuses datacenter
+addresses. We do not try to get past that (another user agent, a mirror, a proxy). The
+dumps are offered to people, and a refusal is an answer.
+
+So the build runs on the maintainer's machine, and everything after it is unchanged:
+
+- `catalogue:build` streams both dumps as before (about 11 GB of bandwidth, a few GB of
+  temporary disk, roughly 1–2 hours). It runs under `caffeinate` so the machine does not
+  sleep. It cannot resume, so an interrupted build starts again; nothing is published
+  until it has finished and its manifest is written.
+- `catalogue:publish` uploads `manifest.json` and `catalogue.jsonl.gz` to the same
+  `catalogue-YYYYMM` Release, with the same notes and Discogs attribution, using the
+  same script the workflow runs. A catalogue is therefore identical however it was
+  built, and `catalogue:load` does not know the difference.
+
+The workflow stays, now calling that script, so it works again if Discogs serves
+GitHub's runners. The decision itself (a versioned artifact, built once and published,
+never built by the app) is unchanged.

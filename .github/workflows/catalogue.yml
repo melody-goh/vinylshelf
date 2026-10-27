@@ -1,6 +1,9 @@
 # Builds the taste catalogue from a month of Discogs' CC0 data dumps and publishes it as
 # a GitHub Release (ADR 0012). Run by hand from the Actions tab; load the result with
 # `pnpm --filter @vinylshelf/api catalogue:load`.
+#
+# Known limit (ADR 0012, note of 2026-10-27): data.discogs.com currently answers 403 to
+# GitHub's runners, so catalogues are built locally and published with the same script.
 name: Catalogue
 
 on:
@@ -65,17 +68,4 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
-          DUMP: ${{ steps.build.outputs.dump }}
-        run: |
-          tag="catalogue-${DUMP:0:6}"
-          rows=$(node -p "require('$RUNNER_TEMP/catalogue/manifest.json').rows")
-          notes="Taste catalogue: ${rows} vinyl masters from the Discogs data dump of ${DUMP}, embedded with bge-small-en-v1.5 (ADR 0008, ADR 0012).
-
-          Data provided by Discogs (https://www.discogs.com), published by Discogs under CC0 at https://data.discogs.com/. Load it with: pnpm --filter @vinylshelf/api catalogue:load -- --tag ${tag}"
-          # A rebuild of the same month replaces its files rather than failing.
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" "$RUNNER_TEMP/catalogue/manifest.json" "$RUNNER_TEMP/catalogue/catalogue.jsonl.gz" --clobber
-          else
-            gh release create "$tag" "$RUNNER_TEMP/catalogue/manifest.json" "$RUNNER_TEMP/catalogue/catalogue.jsonl.gz" \
-              --title "Catalogue ${DUMP:0:4}-${DUMP:4:2}" --notes "$notes"
-          fi
+        run: bash apps/api/scripts/catalogue-publish.sh "$RUNNER_TEMP/catalogue"
