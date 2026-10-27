@@ -308,3 +308,48 @@ catalogue and the developer's own shelf, run by hand and printed, never committe
   shelf, holding out one fold at a time and comparing against the same baselines as CI.
   It prints to the terminal and writes nothing. A collection is the user's data, so
   real-shelf numbers are never committed; only the synthetic evaluation gates CI.
+
+### 2026-10-28: picks shaped like the shelf, and reasons that invite exploring
+
+The first picks on a real shelf (243 records, 165 in the catalogue) were sound but
+included the wrong shapes and the wrong reasons:
+
+- **Singles and compilations.** The catalogue now records each master's kind (album, EP,
+  single, compilation, other) from its main release's format descriptions; "Various"
+  records count as compilations (catalogue schema 2, migration 0008). A room is
+  recommended albums, plus any kind that makes up at least a fifth of it, filtered in
+  the vector search itself so other kinds cannot crowd out candidates. A side of 12-inch
+  disco singles still gets them.
+- **Room names** use only styles at least 30% of the room shares, so one record cannot
+  name a small room.
+- **Exploration over repetition.** Reasons such as "Queen is on 2 of your records" read as
+  "more of what you have", and the ranking agreed: shared people counted the pick's own
+  artist, so "more by an owned artist" scored highest. Discover's purpose is new music,
+  so:
+  - shared-people credit counts only producers, engineers and players, never the artist;
+  - "near" takes 0.12 off a pick by an artist already on the shelf and allows one such
+    pick per room; "far" still leaves them out. Requiring new artists everywhere was
+    considered and rejected: one more album by a loved artist is a fair suggestion,
+    just not the main one.
+- **Reasons describe the music** (contract 0.9.0): a sound line (styles and era, "Soul and
+  Funk, early '80s"), up to two shelf artists whose records sound closest ("for fans of
+  Earth, Wind & Fire and Commodores"), and a link only when there is a real one (a
+  producer or player behind shelf records, the artist themselves, or the same label and
+  decade), worded as a person would ("Produced by Maurice White, who's on 4 of your
+  records"). The catalogue has no words for feel (warm, moody); styles carry some of it,
+  and the language-model layer (§4) may later rephrase these facts, never add to them.
+
+**Measuring it.** The evaluation now also reports **discovery**: recall of held-out
+records by artists found nowhere else on the shelf. The synthetic gate is unchanged and
+passes. On the real shelf the old recall (0.012) fell to 0, as intended, since its hits
+were records by owned artists; discovery is 0 for the engine and both baselines alike.
+With about 33 held-out records among 150,000 and 20 guesses, one shelf cannot measure
+finding new artists. The judge for this change is the picks themselves, and in time the
+best measure will be the users' own verdicts: the rate of "more like this" to "not for
+me" on picks, which the feedback table already records.
+
+### 2026-10-28: the wantlist as a taste signal
+
+Where a collection says where a collector's taste has been, the wantlist says where it is
+going. Wanted records now join the rooms like "more like this" and are excluded from the
+picks (ADR 0011, note of 2026-10-28; contract 0.10.0, `basedOn.wanted`).

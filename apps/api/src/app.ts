@@ -135,7 +135,7 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
       await api.register(
         tasteRoutes({
           sessions,
-          taste: new TasteService(database, deps.releaseCache, clock),
+          taste: new TasteService(database, deps.releaseCache, clock, deps.gateway, users),
         }),
       );
     },

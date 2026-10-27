@@ -81,6 +81,15 @@ const NOTE_SHAPES = [
     <path d="M8.5 14.2c1.6-1.7 3.6-2.4 5.1-1.4 1.8 1.2 1.4 3.6-.6 5.6l-4.5 4.1v-2.3l3.2-3.1c1.2-1.2 1.5-2.5.7-3.1-.9-.6-2.4-.2-3.9 1.4z" />
   </>,
 ];
+/** One engraved quaver from the same sheet, as an icon: a single track. */
+export function Quaver({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
+      {NOTE_SHAPES[1]}
+    </svg>
+  );
+}
+
 /**
  * Loading type that breaks into music notes and comes back: a wave runs through the
  * words, letter by letter, each one scattering into a cluster of black notes that fill

@@ -1,12 +1,15 @@
 import type { TasteRecommendations } from '@vinylshelf/contract';
 import type { FastifyInstance } from 'fastify';
+import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { API_PREFIX, type AppDependencies } from '../app.js';
 import { collectionItems, discogsReleaseCache } from '../db/schema.js';
 import { buildTestApp, TEST_NOW, testConfig } from '../test/app.js';
 import { circle, seedCatalogue, TEST_DUMP, testWorld } from '../test/catalogue.js';
 import { useTestDatabase } from '../test/database.js';
+import { discogsFixtures, discogsUrls } from '../test/discogs-handlers.js';
 import { createUser, sessionFor } from '../test/factories.js';
+import { mswServer } from '../test/msw.js';
 import type { SyntheticWorld } from './eval/synthetic.js';
 import { PICKS_PER_ROOM } from './service.js';
 
@@ -18,7 +21,33 @@ let sid: string;
 let userId: string;
 let world: SyntheticWorld;
 
+/** The user's Discogs wantlist, as the wants of these masters. */
+function wantlist(masterIds: readonly number[], status = 200) {
+  mswServer.use(
+    http.get(discogsUrls.wantlist, () => {
+      if (status !== 200) return new HttpResponse(null, { status });
+      const fixture = discogsFixtures.wantlistPage() as {
+        wants: { basic_information: Record<string, unknown> }[];
+      };
+      const [template] = fixture.wants;
+      return HttpResponse.json({
+        pagination: { page: 1, pages: 1, per_page: 100, items: masterIds.length, urls: {} },
+        wants: masterIds.map((masterId, i) => ({
+          ...template,
+          id: 8_000_000 + i,
+          basic_information: {
+            ...template?.basic_information,
+            id: 8_000_000 + i,
+            master_id: masterId,
+          },
+        })),
+      });
+    }),
+  );
+}
+
 beforeEach(async () => {
+  wantlist([]);
   ({ app, deps } = await buildTestApp(handle()));
   userId = (await createUser(deps)).id;
   sid = await sessionFor(deps, userId);
@@ -71,7 +100,7 @@ describe('GET /taste/recommendations', () => {
     expect(await recommendations()).toEqual({
       status: 'no_catalogue',
       catalogue: null,
-      basedOn: { shelfRecords: 10, inCatalogue: 0 },
+      basedOn: { shelfRecords: 10, inCatalogue: 0, wanted: null },
       rooms: [],
     });
   });
@@ -82,7 +111,7 @@ describe('GET /taste/recommendations', () => {
     expect(await recommendations()).toEqual({
       status: 'too_few_records',
       catalogue: { dump: TEST_DUMP, rows: world.catalogue.length },
-      basedOn: { shelfRecords: 4, inCatalogue: 2 },
+      basedOn: { shelfRecords: 4, inCatalogue: 2, wanted: 0 },
       rooms: [],
     });
   });
@@ -94,20 +123,28 @@ describe('GET /taste/recommendations', () => {
     const result = await recommendations();
 
     expect(result.status).toBe('ready');
-    expect(result.basedOn).toEqual({ shelfRecords: 10, inCatalogue: 10 });
+    expect(result.basedOn).toEqual({ shelfRecords: 10, inCatalogue: 10, wanted: 0 });
     expect(result.rooms.length).toBeGreaterThan(0);
     const all = picks(result);
     const ids = all.map((p) => p.master.masterId);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids.some((id) => SHELF().includes(id))).toBe(false);
     const shelfTitles = new Set(SHELF().map(titleOf));
+    const shelfArtists = new Set(
+      SHELF().flatMap((id) => world.catalogue.find((r) => r.id === id)?.artists ?? []),
+    );
     for (const room of result.rooms) expect(room.picks.length).toBeLessThanOrEqual(PICKS_PER_ROOM);
     for (const pick of all) {
       expect(pick.master.discogsUrl).toBe(
         `https://www.discogs.com/master/${String(pick.master.masterId)}`,
       );
-      expect(pick.reason.shelfTitles.length).toBeGreaterThan(0);
-      for (const title of pick.reason.shelfTitles) expect(shelfTitles.has(title)).toBe(true);
+      // Every reason is checkable against the shelf: its fans-of artists and its link.
+      expect(pick.reason.sound.length).toBeGreaterThan(0);
+      expect(pick.reason.fansOf.length).toBeGreaterThan(0);
+      for (const artist of pick.reason.fansOf) expect(shelfArtists.has(artist)).toBe(true);
+      for (const title of pick.reason.link?.shelfTitles ?? []) {
+        expect(shelfTitles.has(title)).toBe(true);
+      }
     }
     // The circle's other records are what a good engine finds first.
     const rest = new Set(circle(world, '0/0').slice(10));
@@ -164,6 +201,39 @@ describe('GET /taste/recommendations', () => {
     for (const pick of far) {
       expect(pick.master.artists.some((a) => owned.has(a.toLowerCase()))).toBe(false);
     }
+  });
+
+  it('learns from the wantlist, and never suggests a wanted record back', async () => {
+    await seedCatalogue(db(), world);
+    await shelve(SHELF());
+    const before = picks(await recommendations()).map((p) => p.master.masterId);
+    // Want two of the records it would have picked.
+    const wantedIds = before.slice(0, 2);
+    wantlist(wantedIds);
+
+    const result = await recommendations();
+
+    expect(result.basedOn.wanted).toBe(2);
+    const after = picks(result).map((p) => p.master.masterId);
+    expect(after.some((id) => wantedIds.includes(id))).toBe(false);
+    // They join the shelf's rooms as if owned.
+    expect(result.rooms.reduce((sum, room) => sum + room.size, 0)).toBe(SHELF().length + 2);
+  });
+
+  it('lets a small shelf with a wantlist get picks', async () => {
+    await seedCatalogue(db(), world);
+    await shelve(SHELF().slice(0, 1));
+    wantlist(circle(world, '0/0').slice(10, 13));
+    expect((await recommendations()).status).toBe('ready');
+  });
+
+  it('still recommends from the shelf when Discogs does not answer, and says so', async () => {
+    await seedCatalogue(db(), world);
+    await shelve(SHELF());
+    wantlist([], 503);
+    const result = await recommendations();
+    expect(result.status).toBe('ready');
+    expect(result.basedOn.wanted).toBeNull();
   });
 
   it('rejects an unknown distance and requires sign-in', async () => {

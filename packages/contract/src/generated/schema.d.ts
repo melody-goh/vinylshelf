@@ -459,8 +459,9 @@ export interface paths {
          *     says why there are no rooms, when there are none:
          *
          *     - `no_catalogue`: no taste catalogue is loaded on this server;
-         *     - `too_few_records`: fewer than three shelf records are in the catalogue
-         *       (`basedOn` says how many are), for example straight after the first import.
+         *     - `too_few_records`: fewer than three shelf or wanted records are in the
+         *       catalogue (`basedOn` says how many are), for example straight after the
+         *       first import.
          */
         get: operations["getTasteRecommendations"];
         put?: never;
@@ -850,23 +851,37 @@ export interface components {
             /** @enum {string} */
             verdict: "more" | "less";
         };
+        TasteLink: {
+            /** @enum {string} */
+            kind: "people" | "artist" | "label";
+            /** @description Titles of the shelf records that bear the link out. */
+            shelfTitles: string[];
+            /** @description One short line, e.g. "Produced by Maurice White, who's on 4 of your records". */
+            text: string;
+        };
         TastePick: {
             master: components["schemas"]["CatalogueMaster"];
             reason: components["schemas"]["TasteReason"];
         };
         /**
-         * @description Why the record is picked, chosen by our code, never invented (ADR 0008 §2).
-         *     Strongest kind first: `people` (someone who made records on the shelf made this
-         *     one too), `label` (same label and decade), `styles`, `sound` (close to one
-         *     shelf record).
+         * @description Why the record is picked, built from catalogue facts by our code, never invented
+         *     (ADR 0008 §2): what it sounds like, whose fans it is for, and a link to the shelf
+         *     when there is a real one (ADR 0008, Notes 2026-10-28).
          */
         TasteReason: {
-            /** @enum {string} */
-            kind: "people" | "label" | "styles" | "sound";
-            /** @description Titles of the shelf records that bear the reason out. */
-            shelfTitles: string[];
-            /** @description One short line, e.g. "Rudy Van Gelder is on 4 of your records". */
-            text: string;
+            /**
+             * @description Artists on the shelf whose records sound closest to it, closest first; never
+             *     the pick's own artist. May be empty.
+             */
+            fansOf: string[];
+            /**
+             * @description The strongest real link to the shelf, or null: `people` (a producer, engineer
+             *     or player behind shelf records), `artist` (more by an artist on the shelf),
+             *     `label` (the same label in the same decade).
+             */
+            link: components["schemas"]["TasteLink"] | null;
+            /** @description Its styles and era, e.g. "Boogie and Disco, early '80s". */
+            sound: string;
         };
         TasteRecommendations: {
             basedOn: {
@@ -874,6 +889,13 @@ export interface components {
                 inCatalogue: number;
                 /** @description Records on the shelf. */
                 shelfRecords: number;
+                /**
+                 * @description Records on the user's Discogs wantlist that the catalogue knows: they shape
+                 *     the picks like "more like this" and are never suggested back. Read live
+                 *     for this answer and not kept (ADR 0011, note of 2026-10-28). Null when
+                 *     the wantlist could not be read; the picks then come from the shelf alone.
+                 */
+                wanted: number | null;
             };
             /** @description The loaded taste catalogue; null when none is. */
             catalogue: {
@@ -1583,8 +1605,9 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description `near` stays close to the shelf; `far` reaches further, trades some accuracy
-                 *     for range and only suggests artists the user does not own.
+                 * @description `near` stays close to the shelf and favours artists the user does not own
+                 *     (at most one pick per room by an artist already on the shelf); `far` reaches
+                 *     further, trades some accuracy for range and only suggests new artists.
                  */
                 distance?: "near" | "far";
             };

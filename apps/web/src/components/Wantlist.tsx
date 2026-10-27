@@ -24,6 +24,8 @@ export function Wantlist({ onAcquired }: { onAcquired: (item: CollectionItem | n
   const addToShelf = useAddToShelf();
   const [leaning, setLeaning] = useState<WantlistItem | null>(null);
   const [chosen, setChosen] = useState<WantlistItem | null>(null);
+  /** The record in the middle of the view while scrolling; a hovered one takes over. */
+  const [centred, setCentred] = useState<WantlistItem | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const sentinel = useRef<HTMLDivElement>(null);
@@ -97,7 +99,7 @@ export function Wantlist({ onAcquired }: { onAcquired: (item: CollectionItem | n
     }
   };
 
-  const named = chosen ?? leaning;
+  const named = chosen ?? leaning ?? centred;
 
   return (
     <section aria-label="Wantlist" className="flex min-h-0 flex-1 flex-col">
@@ -123,6 +125,8 @@ export function Wantlist({ onAcquired }: { onAcquired: (item: CollectionItem | n
             keyOf={(item) => item.release.discogsId}
             onChoose={choose}
             onLean={setLeaning}
+            scroller={scroller}
+            onCentre={setCentred}
             scatter={!reduced && entering}
             selectedKey={chosen?.release.discogsId ?? null}
           />

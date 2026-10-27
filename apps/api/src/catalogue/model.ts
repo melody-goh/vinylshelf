@@ -4,13 +4,21 @@
  */
 
 /** Bumped whenever a row's fields or their meaning change; the loader refuses others. */
-export const CATALOGUE_SCHEMA_VERSION = 1;
+export const CATALOGUE_SCHEMA_VERSION = 2;
 
 /** A person credited on a master's main release, and for what. */
 export interface Credit {
   name: string;
   role: string;
 }
+
+/**
+ * What shape of record a master is, read from its main release's format descriptions:
+ * an album, an EP, a single (7", 12" maxi-single), a compilation (or any "Various"
+ * record), or none of these. Recommendations follow the shapes a shelf actually holds.
+ */
+export const RECORD_KINDS = ['album', 'ep', 'single', 'compilation', 'other'] as const;
+export type RecordKind = (typeof RECORD_KINDS)[number];
 
 /** Everything the catalogue keeps about one master, apart from its vector. */
 export interface CatalogueMaster {
@@ -24,6 +32,7 @@ export interface CatalogueMaster {
   year: number | null;
   genres: string[];
   styles: string[];
+  kind: RecordKind;
   /** Labels of the main release, in Discogs' order. */
   labels: string[];
   country: string | null;

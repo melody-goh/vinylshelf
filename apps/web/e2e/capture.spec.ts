@@ -10,6 +10,7 @@ import {
   libraryPage,
   page as shelfPage,
   previews,
+  recommendations,
   release,
   searchResults,
   silentWav,
@@ -79,6 +80,9 @@ async function mockApi(page: Page, state: State): Promise<void> {
   });
   await page.route('https://audio.example/**', (route) =>
     route.fulfill({ contentType: 'audio/wav', body: silentWav() }),
+  );
+  await page.route('**/api/v1/taste/recommendations**', (route) =>
+    route.fulfill({ json: recommendations() }),
   );
   await page.route('**/api/v1/search/releases**', (route) =>
     route.fulfill({ json: searchResults() }),
@@ -194,11 +198,24 @@ test('loading captures', async ({ page }) => {
 test('listening room captures', async ({ page }) => {
   await page.setViewportSize(desktop);
   await mockApi(page, 'shelf');
+  // A shelf of 120, so the stack's per-disc z-indexes climb well past the room's.
+  await page.route('**/api/v1/collection/items**', (route) => {
+    const base = shelfPage();
+    const items = Array.from({ length: 10 }, (_, copy) =>
+      base.items.map((item) => ({ ...item, instanceId: item.instanceId + copy * 1000 })),
+    ).flat();
+    return route.fulfill({ json: shelfPage({ items, totalItems: items.length }) });
+  });
   await page.goto('/');
   await settle(page);
 
   await page.getByRole('button', { name: 'Play a preview of Undertow' }).click({ timeout: 6000 });
-  await page.waitForTimeout(1600);
+  // The disc's way in, from the sleeve to the platter.
+  for (const at of [60, 200, 380, 600, 900]) {
+    await page.waitForTimeout(at === 60 ? 60 : 160);
+    await page.screenshot({ path: `${OUT}/desktop-listening-in-${String(at)}.png` });
+  }
+  await page.waitForTimeout(1200);
   await page.screenshot({ path: `${OUT}/desktop-listening.png` });
 
   // Cue by hand: drag the cursor across the ruler and hold mid-drag.
@@ -215,6 +232,15 @@ test('listening room captures', async ({ page }) => {
   await page.setViewportSize(phone);
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${OUT}/mobile-listening.png` });
+
+  // And back into the sleeve.
+  await page.setViewportSize(desktop);
+  await page.waitForTimeout(400);
+  await page.keyboard.press('Escape');
+  for (const at of [150, 450]) {
+    await page.waitForTimeout(at === 150 ? 150 : 300);
+    await page.screenshot({ path: `${OUT}/desktop-listening-out-${String(at)}.png` });
+  }
 });
 
 test('library captures', async ({ page }) => {
@@ -297,4 +323,128 @@ test('liquid button captures', async ({ page }) => {
       clip: { x: a.x - 200, y: a.y - 40, width: a.width + 320, height: a.height + 80 },
     });
   }
+});
+
+test('tab captures', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.goto('/');
+  await settle(page);
+  const header = { x: 0, y: 0, width: 520, height: 56 };
+  await page.screenshot({ path: `${OUT}/desktop-tabs.png`, clip: header });
+  // Record the dot's x for 30 frames after the click, to see it travel.
+  const track = page.evaluate(
+    () =>
+      new Promise<number[]>((resolve) => {
+        const xs: number[] = [];
+        const tick = () => {
+          const dot = document.querySelector('nav[aria-label="Views"] span[aria-hidden]');
+          xs.push(Math.round(dot?.getBoundingClientRect().x ?? -1));
+          if (xs.length < 30) requestAnimationFrame(tick);
+          else resolve(xs);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+  await page.getByRole('button', { name: 'Wantlist' }).click();
+  console.log('dot x by frame:', (await track).join(' '));
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${OUT}/desktop-tabs-wantlist.png`, clip: header });
+});
+
+test('library scroll captures', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.route('**/api/v1/collection/items**', (route) =>
+    route.fulfill({ json: libraryPage(180) }),
+  );
+  await page.goto('/');
+  await settle(page);
+  await page.getByRole('button', { name: 'Library' }).click();
+  await page.waitForTimeout(2200);
+  await page.mouse.move(720, 450);
+  await page.mouse.wheel(0, 600);
+  await page.waitForTimeout(120);
+  await page.screenshot({ path: `${OUT}/desktop-library-scrolling.png` });
+  await page.waitForTimeout(900);
+  // Park the pointer on the readout so no cover is hovered.
+  await page.mouse.move(720, 880);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}/desktop-library-scrolled.png` });
+});
+
+test('discover captures', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.goto('/');
+  await settle(page);
+  await page.getByRole('button', { name: 'Discover' }).click();
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${OUT}/desktop-discover-loading.png` });
+  await expect(page.getByRole('heading', { level: 2 })).toBeVisible({ timeout: 6000 });
+  await page.waitForTimeout(2000);
+  await page.screenshot({ path: `${OUT}/desktop-discover.png` });
+  // One track plays on the page; its disc slides out of the sleeve and turns.
+  await page.getByRole('button', { name: /^Play / }).click({ timeout: 6000 });
+  await page.getByRole('button', { name: 'Want', exact: true }).hover();
+  await page.waitForTimeout(900);
+  await page.screenshot({ path: `${OUT}/desktop-discover-playing.png` });
+  // The whole record opens in the Listening Room.
+  await page.getByRole('button', { name: 'Full album' }).click();
+  for (const at of [100, 400, 800]) {
+    await page.waitForTimeout(at === 100 ? 100 : at === 400 ? 300 : 400);
+    await page.screenshot({ path: `${OUT}/desktop-discover-listen-${String(at)}.png` });
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(1200);
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(120);
+  await page.screenshot({ path: `${OUT}/desktop-discover-moving.png` });
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${OUT}/desktop-discover-4.png` });
+  await page.setViewportSize(phone);
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${OUT}/mobile-discover.png` });
+});
+
+/** Frame gaps (ms) over the next `ms`, to spot dropped frames in a transition. */
+async function frameGaps(page: Page, ms: number): Promise<number[]> {
+  return page.evaluate(
+    (duration) =>
+      new Promise<number[]>((resolve) => {
+        const gaps: number[] = [];
+        let last = performance.now();
+        const start = last;
+        const tick = (now: number) => {
+          gaps.push(Math.round(now - last));
+          last = now;
+          if (now - start < duration) requestAnimationFrame(tick);
+          else resolve(gaps);
+        };
+        requestAnimationFrame(tick);
+      }),
+    ms,
+  );
+}
+
+test('listening room smoothness', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.goto('/');
+  await settle(page);
+  const report = (name: string, gaps: number[]) => {
+    const sorted = [...gaps].sort((a, b) => a - b);
+    console.log(
+      name,
+      `frames ${String(gaps.length)}, median ${String(sorted[Math.floor(sorted.length / 2)])}ms, worst ${String(sorted.at(-1))}ms, over 34ms: ${String(gaps.filter((g) => g > 34).length)}`,
+    );
+  };
+  await page.getByRole('button', { name: 'Play a preview of Undertow' }).click({ timeout: 6000 });
+  const opening = frameGaps(page, 1800);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${OUT}/desktop-listening-mid.png` });
+  report('gatefold open', await opening);
+  const closing = frameGaps(page, 1500);
+  await page.keyboard.press('Escape');
+  report('gatefold close', await closing);
 });

@@ -21,7 +21,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import type { Problem } from '@vinylshelf/contract';
-import type { CatalogueManifest, Credit } from '../catalogue/model.js';
+import { RECORD_KINDS, type CatalogueManifest, type Credit } from '../catalogue/model.js';
 import type { MatchedTrack } from '../itunes/match.js';
 import type { ReleaseDetailData } from '../discogs/gateway.js';
 
@@ -231,6 +231,8 @@ export const CATALOGUE_DIMS = 384;
  * dumps are CC0; it holds no user data and no images. Replaced whole by
  * `catalogue:load`, never edited row by row.
  */
+export const recordKind = pgEnum('record_kind', RECORD_KINDS);
+
 export const catalogueMasters = pgTable(
   'catalogue_masters',
   {
@@ -242,6 +244,8 @@ export const catalogueMasters = pgTable(
     year: integer('year'),
     genres: jsonb('genres').$type<string[]>().notNull(),
     styles: jsonb('styles').$type<string[]>().notNull(),
+    /** A catalogue loaded before kinds existed reads as "other" until it is rebuilt. */
+    kind: recordKind('kind').notNull().default('other'),
     labels: jsonb('labels').$type<string[]>().notNull(),
     country: text('country'),
     credits: jsonb('credits').$type<Credit[]>().notNull(),

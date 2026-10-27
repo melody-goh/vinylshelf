@@ -110,6 +110,23 @@ components:
     typography: "{typography.body-sm}"
     height: "2.75rem"
     padding: "0.75rem 1.5rem"
+  play-button:
+    textColor: "{colors.ink}"
+    rounded: "{rounded.full}"
+    size: "2.75rem"
+  play-button-large:
+    textColor: "{colors.ink}"
+    rounded: "{rounded.full}"
+    size: "3.5rem"
+  discover-notes:
+    textColor: "{colors.ink}"
+    typography: "{typography.body-sm}"
+    width: "22rem"
+  switch:
+    textColor: "{colors.ink}"
+    rounded: "{rounded.full}"
+    width: "2.25rem"
+    height: "1.25rem"
 ---
 
 # Design System: Vinyl Shelf
@@ -259,9 +276,11 @@ The rest of the collection, fanned. The open record's disc is nudged 10% out of 
 The front of the gatefold before anything is open: a carbon square (max 34rem) in the Photo shadow, the display title at the top, up to 24rem of body-small copy at 80% Studio White at the bottom, and an optional hype sticker. Used for sign-in, the empty shelf and the "Back in a moment" refresh state.
 
 ### Tabs and the Library
-"Shelf", "Library" and "Wantlist" sit as plain text tabs beside the wordmark: the current one in Ink at medium weight, the other in Soft Ink. The Shelf is for lingering with one record; the Library is for finding one.
+"Shelf", "Library", "Wantlist" and "Discover" sit as plain text tabs beside the wordmark, in the same body-small Archivo as the rest of the header: the current one in Ink with a single 4px Ink dot under it, the others in Soft Ink. There is one dot, not one per tab: switching views carries it to the new tab on the disc stack's lean spring (420/34), so the change reads as one object moving. Under reduced motion it jumps. The Shelf is for lingering with one record; the Library is for finding one.
 
 The Library is the whole vinyl shelf as a contact sheet on the studio ground: square covers (min 6rem, 4.5rem on phones, filling the row), 1rem gaps (0.75rem on phones), each in the Photo shadow, nothing printed under them. A record without a cover is a carbon square with its title in label-size condensed caps. Hover or focus lifts a cover 3px and 5% on a spring, a soft holographic glow (the colours swept round the cover, blurred) blooms behind it, and the holographic readout at the foot names it. Arrow keys move through the grid by its real columns. More covers load as the grid nears its end.
+
+**Scroll focus.** When the sheet is taller than its view, covers come into focus towards the middle of the view: full size and strength in a band about the middle 60% tall, easing (smoothstep) to 92% and 55% opacity towards the top and bottom edges. The focus follows the scroll a beat behind on a spring (260/38), so the sheet feels weighted. While scrolling, the one cover nearest the centre of the view lifts with the hover glow and the readout names it, so names come to the reader without hovering; a hovered cover takes over. Under reduced motion the sheet holds still, and the centred cover is still named.
 
 Above the grid sits one row of text menus: Genre, Style, Decade, Colour and Sort by. Each is a Soft Ink label, the chosen value in Ink and a chevron, with an invisible native select laid over it (`TextSelect`), so it is only as wide as what it says; counts appear inside the menus, never in the row. Once anything is filtered the row ends with "48 of 220" and Clear; otherwise it says nothing more. On phones the row is one line that scrolls sideways.
 
@@ -277,11 +296,30 @@ A search field sits in the header between the wordmark and the controls: text st
 Under the open gatefold, outside it, as plain body-small text on the ground: a filled star and the Discogs rating to two decimals in Ink ("4.31 from 212 ratings"), then "1,840 have it · 960 want it · on Discogs" in Soft Ink, with "Discogs" linking to the release. Unrated records say "No ratings yet". Reserved at 1.25rem so the gatefold does not shift when it arrives.
 
 ### Listening Room (previews)
-A full-screen stage on the studio ground, opened from a track's play button or "Listen to previews" in the liner notes (ADR 0010); Escape or the close button returns to the gatefold, focus restored. Top to bottom: the open record's own disc (its colourway, the cover as label; about 36vh, capped at 24rem) floating over a soft elliptical floor shadow; the track title in bold (clamp 1.75 to 2.5rem, -0.02em); "position · artists · record" in Soft Ink; the ruler; previous, play/pause (a 3.5rem Sticker Red circle, the one action) and next; then "Previews provided courtesy of iTunes" and Apple's Listen on Apple Music badge, unaltered, linking to the matched album.
+A full-screen stage on the studio ground, opened from a track's play button or "Listen to previews" in the liner notes (ADR 0010); Escape or the close button returns to the gatefold, focus restored. Its header mirrors the app's: "Listening Room" in the wordmark's condensed caps on the left, the close button on the right.
+
+Two columns on wide screens (the notes follow the controls on phones). **The platter**, left: the open record's own disc (its colourway, the cover as label; about 40vh, capped at 26rem) floating over a soft elliptical floor shadow; the playing track's position in condensed caps and its title in semibold (1.125rem); the ruler; previous, play/pause (the 3.5rem holographic Play Button) and next. **The liner notes**, right (17 to 24rem), set like a film's credit block: the record's title in bold (clamp 1.75 to 2.75rem, -0.02em, leading 1.02), then rows under 70% Ink hairlines, each a condensed-caps Soft Ink label on the left and its value set right in body-small (Artist, Year, Label with the catalogue number under it in Soft Ink), then Tracks: every track on the record, position in condensed caps on the left and title set right. The playing track is in Ink with a 4px Ink dot in the gutter that travels to it on the tabs' spring as tracks change (or as a drag passes over them); the others are Soft Ink, and any with a preview plays when clicked. The notes end on a Hairline Rule with one line of credits, "Previews provided courtesy of iTunes · Data provided by Discogs" (wrapping on narrow screens), and 1.25rem below it Apple's Listen on Apple Music badge, unaltered, linking to the matched album.
+
+**The way in.** Pressing play draws the disc from the sleeve it was opened from (the gatefold's cover, or a sleeve in Discover): it slides out from behind it (45% of the cover's width, spring 260/32; a stand-in of the cover, turned as the sleeve is, sits over it so it emerges from behind), then is carried to the platter in one revolution as the room's ground fades up (0.9s, no bounce), coming forward to 110% on the way and settling back (0.5s, a little bounce): a slight zoom. Only the disc moves; the page behind holds still, and the header, controls and notes fade in as the disc leaves the sleeve. Closing reverses it on quicker springs (260/30). Under reduced motion the room simply appears and goes. Scaling or fading the whole page behind the room was tried and removed: it repainted the page every frame (a 350ms stall on closing); the capture suite logs frame gaps for this transition.
 
 **The ruler** spans the whole record: every playable track's 30 seconds end to end, 72 hairline ticks at 30% Ink, taller 60% ticks where tracks begin, and one tall Ink cursor. Ticks within 7% of the cursor rise from their foot (scaleY, up to 2.6×), like a magnified scale. End labels name the first and last playable track; the readout between them gives the time in the track under the cursor. Tracks with no preview are left off the ruler entirely, and show no play button in the liner notes. It is a real slider: arrows step 5 seconds, `[` and `]` change track, space plays and pauses.
 
-**Motion.** While playing, the disc turns at 33⅓ rpm. This constant rotation is the system's one deliberate exception to springs-only: a record does not ease. Dragging the cursor cues the record by hand, turning the disc as far as the record would turn in that much time, forwards or back; on release it picks up its spin. Under reduced motion the disc and ticks hold still and scrubbing still works.
+**Motion.** While playing, the disc turns at 33⅓ rpm. This constant rotation, with the Play Button's slowly turning colours, is the system's one deliberate exception to springs-only: a record does not ease. Dragging the cursor cues the record by hand, turning the disc as far as the record would turn in that much time, forwards or back; on release it picks up its spin. Under reduced motion the disc and ticks hold still and scrubbing still works.
+
+### Discover (signature)
+The taste engine's picks (ADR 0008) as one row of sleeves receding into the distance, after the reference's row of discs. **The row:** every room's picks in turn, as square sleeves standing on one line in the lower part of the stage. The front sleeve is large (62% of the stage's height, at most 34% of its width), set right of centre and turned slightly towards the reader (rotateY -16°); those already passed recede to the left, each 74% the size of the one before, turned further away (-26°) and fading out after five; the next waits half-size at the right edge. Each sleeve moves along the row in an outer layer and turns about its own centre in an inner one, so all are foreshortened alike. Arrow keys (anywhere outside a text field), the wheel (one sleeve per gesture), the ‹ › buttons with "5 / 24" between them, or a click on a sleeve bring it to the front on a spring (170/24). Covers come from each pick's main release and are fetched only for the front and the three behind it and one ahead, to stay inside Discogs' rate limit; a pick without a cover is a printed sleeve (MissingCover).
+
+**The notes**, top left (22rem), set like the Listening Room's: the room's styles in condensed caps ("SOUL · DISCO"), changing as the row moves; the title in bold; rows under 70% Ink hairlines for Artist, Year, Label, **Sound** (styles and era, "Soul and Funk, early '70s"), **For fans of** (up to two shelf artists) and **Link**, shown only when there is a real one ("Produced by Maurice White, who's on 4 of your records"). Below them the **track line**: an engraved quaver from the Scored Text sheet, the one track's title in semibold with "Full album" beneath it in Soft Ink, and the Play Button on the right. The track is the title track if the record has one, otherwise its opening track. Playing it slides the front record's disc 42% out of its sleeve, turning at 33⅓; Full album opens the Listening Room, the disc drawn from the tilted sleeve.
+
+**Verdicts** sit above the front sleeve's top-right corner as three line icons in Ink (1.5px strokes, 1.5rem): a heart (want, onto the Discogs wantlist), a tick (more like this) and a cross (not for me). A given one is set heavier (2.5px), the heart filled. Hovering or focusing one lifts it (112%) and slides its name up out of it ("Want", "More like this", "Not for me") in body-small Ink. Not for me takes the record out of the row at once; the row never reshuffles while browsing, and verdicts shape the next visit's picks.
+
+**Along the foot:** Reach, a Dot Choice of Near and Far, and Autoplay, a Switch. Autoplay is off until the listener plays a record; while it is on, each record brought to the front plays its track. **Waiting:** "Digging through the crates…" in Scored Text, held for one pass of its notes on the first visit. **Nothing to show:** one plain centred line: no catalogue loaded, or "Discover needs at least three of your records, or records you want, in its catalogue. It knows 2 so far."
+
+### Play Button
+The one way to play anything: a circle (2.75rem; 3.5rem in the Listening Room) filled with the holographic colours swept round it (the cover glow's conic ring), the play or pause icon in Ink, in the Photo shadow. While playing, the colours turn slowly (24° a second), a constant turn like the disc's; hover 106%, press 95% (spring 500/28). Under reduced motion the colours hold still.
+
+### Dot Choice and Switch
+**Dot Choice** (Reach): a Soft Ink label, then the options as words, the chosen one in Ink with a 4px Ink dot under it that travels between them on the tabs' spring; a radio group. **Switch** (Autoplay): the label, then a 2.25rem pill on a 30% Ink hairline with an Ink knob that slides across on a spring (500/32); on, the pill fills with the holographic wash. Both replace text menus wherever there are only two or three choices.
 
 ### Scored Text (loading)
 The full-screen loading lines ("Waking up the shelf…", "Taking your records off the shelf…"), set in display type (800, wdth 62, caps, clamp(2.75rem, 8vw, 5.5rem)) centred on the ground. A wave runs through the words, five letters wide, one letter every 110ms: each letter fades out as a handful of engraved notes (up to nine, about a quarter of an em each, at least 0.2em apart; crotchet, quaver, minim, beamed pair and three, flat; plain Ink) bloom from points inside its outline and drift just past it (0.03 to 0.1em), away from the letter's centre, then pull back in as the letter returns; the wave rests ten ticks between passes. Points are sampled from the glyph as laid out in Archivo (`src/design/scored.ts`), seeded per letter so a word always scores the same way. Springs 260/20 for the notes, 700/45 for the letter. On first load the screen is held until the wave has passed through once (about 2.3s from page load, capped at 4s), so the notes are seen even when the session check is instant; it is never held under reduced motion or when the letters cannot be scored. Screen readers get the sentence once, as plain text in the status; under reduced motion everyone does. Display size only: below about 2rem a note cannot read as one, so small loading lines stay plain.

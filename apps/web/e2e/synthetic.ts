@@ -4,6 +4,7 @@
  * collection (PRODUCT.md: evidence).
  */
 import type {
+  TasteRecommendations,
   CollectionFacets,
   CollectionItem,
   CollectionPage,
@@ -231,4 +232,74 @@ export function facets(): CollectionFacets {
 export function wantlist(): WantlistPage {
   const wanted = items(9).map((item) => ({ dateAdded: item.dateAdded, release: item.release }));
   return { items: wanted, page: 1, pages: 1, totalItems: wanted.length };
+}
+
+/** Taste recommendations over invented records; covers come from the releases above. */
+export function recommendations(): TasteRecommendations {
+  const rooms: [string[], [string, string, string][]][] = [
+    [
+      ['Soul', 'Disco', 'Funk'],
+      [
+        [
+          'Velvet Hours',
+          'The Marlowe Five',
+          "Produced by Ana Ferreira, who's on 3 of your records",
+        ],
+        ['Night Shift Sermon', 'Della Crane', 'Mastered by Ivo Marsh, as on Tidal Lines'],
+        ['Golden Hour Rewind', 'Sunfold', 'More from Sunfold, after Alpine Suites'],
+        ['Satin City', 'Rue Bellamy', 'Disco and Funk, like Night Bus Recordings'],
+        ['Afterparty Light', 'The Cascades of June', 'Close to Orchard Weather'],
+      ],
+    ],
+    [
+      ['Indie Rock', 'Dream Pop'],
+      [
+        ['Lantern Weather', 'Pale Harbour', "Teo Varga on guitar, who's on 4 of your records"],
+        ['Small Engines', 'Ostrander', 'Synthetic Records in the 2010s, like 3 of your records'],
+        ['Quiet Machines', 'Field Day Static', 'Close to Glasshouse'],
+        ['Under the Pier', 'Marsh & Tide', 'Indie Rock, like Undertow'],
+      ],
+    ],
+    [
+      ['Ambient'],
+      [
+        ['Long Water', 'Ilse Moreau', 'Produced by Ana Ferreira, as on Low Tide Radio'],
+        ['Slow Signal', 'Kestrel Array', 'Close to Signal Fires'],
+        ['Fog Index', 'Hollow Pine', 'Ambient, like Small Hours'],
+      ],
+    ],
+  ];
+  let n = 0;
+  return {
+    status: 'ready',
+    catalogue: { dump: '20261001', rows: 150000 },
+    basedOn: { shelfRecords: 12, inCatalogue: 12, wanted: 4 },
+    rooms: rooms.map(([styles, picks], r) => ({
+      id: `room-${String(r)}`,
+      styles,
+      size: 12 - r * 3,
+      picks: picks.map(([title, artist, text]) => {
+        const masterId = 700_000 + n;
+        const mainReleaseId = 9000001 + (n++ % 12);
+        return {
+          master: {
+            masterId,
+            mainReleaseId,
+            title,
+            artists: [artist],
+            year: 1970 + ((n * 7) % 50),
+            genres: ['Rock'],
+            styles,
+            labels: ['Synthetic Records'],
+            discogsUrl: `https://www.discogs.com/master/${String(masterId)}`,
+          },
+          reason: {
+            sound: `${styles.slice(0, 2).join(' and ')}, late '70s`,
+            fansOf: ['The Paper Moons', 'Odile & the Narrows'],
+            link: { kind: 'people' as const, text, shelfTitles: ['Tidal Lines', 'Alpine Suites'] },
+          },
+        };
+      }),
+    })),
+  };
 }

@@ -1,6 +1,22 @@
 import type { ReleaseSummary } from '@vinylshelf/contract';
-import { motion } from 'motion/react';
-import type { KeyboardEvent } from 'react';
+import {
+  motion,
+  useMotionValue,
+  useMotionValueEvent,
+  useReducedMotion,
+  useScroll,
+  useSpring,
+  useTransform,
+  type MotionValue,
+} from 'motion/react';
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { HOLO_RING } from '../design/holo';
 import { describeRecord } from './DiscStack';
 
@@ -9,6 +25,35 @@ const SCATTERED = 72;
 
 const settle = { type: 'spring', stiffness: 110, damping: 17 } as const;
 const lift = { type: 'spring', stiffness: 420, damping: 30 } as const;
+/** Covers follow the scroll a beat behind, so the sheet feels weighted, not dragged. */
+const follow = { stiffness: 260, damping: 38 } as const;
+
+/**
+ * The scroll focus: covers in the middle band of the view are at full size and
+ * strength, easing down towards the edges. Gentle on purpose: the sheet must still read
+ * as a whole collection.
+ */
+const BAND = 0.6;
+const EDGE_SCALE = 0.92;
+const EDGE_OPACITY = 0.55;
+
+/** Where each cover's centre sits in the scroller's content, and how tall the view is. */
+interface Layout {
+  centres: Map<number, { x: number; y: number }>;
+  view: number;
+  /** The view's width, for finding the one cover nearest its middle. */
+  width: number;
+  /** Only a sheet taller than its view has a middle to focus on. */
+  scrolls: boolean;
+}
+
+function focusAt(layout: Layout, key: number, scrolled: number): number {
+  const centre = layout.centres.get(key);
+  if (!layout.scrolls || centre === undefined) return 1;
+  const distance = Math.abs(centre.y - (scrolled + layout.view / 2)) / (layout.view * BAND);
+  const near = Math.max(0, 1 - distance);
+  return near * near * (3 - 2 * near);
+}
 
 /** A seeded spread for one cover's starting point, so the scatter is the same each time. */
 function scatterFrom(index: number) {
@@ -61,6 +106,8 @@ export function CoverGrid<T extends { release: ReleaseSummary }>({
   scatter,
   selectedKey,
   placeholders = 0,
+  scroller,
+  onCentre,
 }: {
   items: readonly T[];
   keyOf: (item: T) => number;
@@ -71,9 +118,80 @@ export function CoverGrid<T extends { release: ReleaseSummary }>({
   selectedKey?: number | null;
   /** Unlit squares after the covers, for records still refreshing. */
   placeholders?: number;
+  /** The scrolling box the sheet sits in; with it, covers focus towards its middle. */
+  scroller?: RefObject<HTMLElement | null>;
+  /** The record nearest the middle of the view, named as the sheet scrolls. */
+  onCentre?: (item: T | null) => void;
 }) {
+  const reduced = useReducedMotion() ?? false;
+  const list = useRef<HTMLUListElement>(null);
+  const layout = useRef<Layout>({ centres: new Map(), view: 0, width: 0, scrolls: false });
+  const { scrollY } = useScroll(scroller ? { container: scroller } : {});
+  const scrolled = useSpring(scrollY, follow);
+  /** Bumped when covers move (a resize, more loaded), so focus is worked out again. */
+  const measured = useMotionValue(0);
+
+  // Where every cover sits, measured again whenever the sheet or its view resizes.
+  useLayoutEffect(() => {
+    const box = scroller?.current;
+    const ul = list.current;
+    if (!box || !ul) return;
+    const measure = () => {
+      const frame = box.getBoundingClientRect();
+      const top = frame.top - box.scrollTop;
+      const centres = new Map<number, { x: number; y: number }>();
+      ul.querySelectorAll<HTMLElement>('li[data-key]').forEach((li) => {
+        const rect = li.getBoundingClientRect();
+        centres.set(Number(li.dataset.key), {
+          x: rect.left - frame.left + rect.width / 2,
+          y: rect.top - top + rect.height / 2,
+        });
+      });
+      layout.current = {
+        centres,
+        view: box.clientHeight,
+        width: box.clientWidth,
+        scrolls: box.scrollHeight > box.clientHeight + 1,
+      };
+      measured.set(measured.get() + 1);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(ul);
+    observer.observe(box);
+    return () => {
+      observer.disconnect();
+    };
+  }, [items, scroller, measured]);
+
+  // Name the record in the middle as the sheet moves, and light it so the name has a
+  // face; only scrolling does this, and a hovered cover takes over.
+  const [centredKey, setCentredKey] = useState<number | null>(null);
+  useMotionValueEvent(scrollY, 'change', (y) => {
+    const { centres, view, width, scrolls } = layout.current;
+    if (!onCentre || !scrolls) return;
+    let best: T | null = null;
+    let bestDistance = Infinity;
+    for (const item of items) {
+      const centre = centres.get(keyOf(item));
+      if (!centre) continue;
+      const distance = Math.hypot(centre.x - width / 2, centre.y - (y + view / 2));
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = item;
+      }
+    }
+    const key = best ? keyOf(best) : null;
+    if (key !== centredKey) {
+      setCentredKey(key);
+      onCentre(best);
+    }
+  });
+
   return (
     <ul
+      ref={list}
       aria-label="Records"
       onKeyDown={onGridKey}
       className="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-3 md:grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] md:gap-4"
@@ -82,7 +200,14 @@ export function CoverGrid<T extends { release: ReleaseSummary }>({
         const scattering = scatter && index < SCATTERED;
         const selected = selectedKey === keyOf(item);
         return (
-          <li key={keyOf(item)}>
+          <Focused
+            key={keyOf(item)}
+            id={keyOf(item)}
+            scrolled={scrolled}
+            measured={measured}
+            layout={layout}
+            still={reduced || !scroller}
+          >
             <motion.button
               type="button"
               aria-label={describeRecord(item)}
@@ -103,7 +228,7 @@ export function CoverGrid<T extends { release: ReleaseSummary }>({
                 onLean(null);
               }}
               initial={scattering ? scatterFrom(index) : false}
-              animate={selected ? 'selected' : 'rest'}
+              animate={selected ? 'selected' : centredKey === keyOf(item) ? 'lean' : 'rest'}
               whileHover="lean"
               whileFocus="lean"
               variants={{
@@ -151,12 +276,40 @@ export function CoverGrid<T extends { release: ReleaseSummary }>({
                 )}
               </span>
             </motion.button>
-          </li>
+          </Focused>
         );
       })}
       {Array.from({ length: placeholders }, (_, i) => (
         <li key={`unlit-${String(i)}`} aria-hidden="true" className="aspect-square bg-rule/60" />
       ))}
     </ul>
+  );
+}
+
+/** One cover's place in the sheet, sized and faded by how near the middle of the view it is. */
+function Focused({
+  id,
+  scrolled,
+  measured,
+  layout,
+  still,
+  children,
+}: {
+  id: number;
+  scrolled: MotionValue<number>;
+  measured: MotionValue<number>;
+  layout: RefObject<Layout>;
+  still: boolean;
+  children: ReactNode;
+}) {
+  const focus = useTransform([scrolled, measured], ([y]: number[]) =>
+    still ? 1 : focusAt(layout.current, id, y ?? 0),
+  );
+  const scale = useTransform(focus, (f) => EDGE_SCALE + (1 - EDGE_SCALE) * f);
+  const opacity = useTransform(focus, (f) => EDGE_OPACITY + (1 - EDGE_OPACITY) * f);
+  return (
+    <motion.li data-key={id} style={{ scale, opacity }}>
+      {children}
+    </motion.li>
   );
 }

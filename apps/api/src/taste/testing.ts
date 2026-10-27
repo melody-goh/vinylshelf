@@ -22,6 +22,7 @@ export function row(
     year: fields.year ?? 1970,
     genres: fields.genres ?? ['Jazz'],
     styles: fields.styles ?? [],
+    kind: fields.kind ?? 'album',
     labels: fields.labels ?? [],
     country: null,
     credits,

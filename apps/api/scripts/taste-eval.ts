@@ -106,7 +106,16 @@ try {
     console.log(`Room: ${room.styles.join(', ')} (${String(room.members.length)} records)`);
     for (const pick of picks) {
       console.log(
-        `  ${pick.master.artists.join(', ')}: ${pick.master.title} (${String(pick.master.year ?? '?')})\n      ${pick.reason.text}`,
+        [
+          `  ${pick.master.artists.join(', ')}: ${pick.master.title} (${String(pick.master.year ?? '?')})`,
+          `      ${pick.reason.sound}`,
+          pick.reason.fansOf.length > 0
+            ? `      for fans of ${pick.reason.fansOf.join(' and ')}`
+            : null,
+          pick.reason.link ? `      ${pick.reason.link.text}` : null,
+        ]
+          .filter(Boolean)
+          .join('\n'),
       );
     }
     console.log('');

@@ -38,7 +38,12 @@ describe('pgvectorRetrieve', () => {
     // More exclusions than HNSW's default candidate list of 40.
     const exclude = new Set(byCloseness.slice(0, 45).map((r) => r.id));
 
-    const found = await pgvectorRetrieve(indexOnly)(query, 50, exclude);
+    const found = await pgvectorRetrieve(indexOnly)(
+      query,
+      50,
+      exclude,
+      new Set(['album'] as const),
+    );
 
     expect(found).toHaveLength(50);
     expect(found.some((r) => exclude.has(r.id))).toBe(false);

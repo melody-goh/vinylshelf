@@ -1,0 +1,2 @@
+CREATE TYPE "public"."record_kind" AS ENUM('album', 'ep', 'single', 'compilation', 'other');--> statement-breakpoint
+ALTER TABLE "catalogue_masters" ADD COLUMN "kind" "record_kind" DEFAULT 'other' NOT NULL;

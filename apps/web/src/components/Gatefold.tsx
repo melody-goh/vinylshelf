@@ -2,7 +2,7 @@ import type { CollectionItem, Release, ReleasePreviews } from '@vinylshelf/contr
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, Play, Star } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { ApiError } from '../api/client';
 import { useExpired } from '../api/expiry';
 import { useDwell, usePreviews } from '../api/previews';
@@ -12,6 +12,7 @@ import { useBoardInk, type BoardInk } from '../design/board';
 import { useWideScreen } from '../design/media';
 import { discSurface } from '../design/vinyl';
 import { ListeningRoom, playableTracks } from './ListeningRoom';
+import { MissingCover } from './MissingCover';
 
 const fold = { type: 'spring', stiffness: 210, damping: 29 } as const;
 
@@ -43,12 +44,22 @@ export function Gatefold({ item }: { item: CollectionItem }) {
   // Previews are looked up for a record someone stays with, not every one flicked past.
   const detail = useRelease(item.release.discogsId).data;
   const previewsQuery = usePreviews(item.release.discogsId, useDwell(item.instanceId));
-  const [listening, setListening] = useState<{ instanceId: number; position: string } | null>(null);
+  const [listening, setListening] = useState<{
+    instanceId: number;
+    position: string;
+    from: DOMRect | null;
+  } | null>(null);
+  /** The cover panel: the sleeve the Listening Room draws the disc out of. */
+  const cover = useRef<HTMLDivElement>(null);
   const listen: Listen = {
     previews: previewsQuery.data,
     failed: previewsQuery.isError,
     onPlay: (position) => {
-      setListening({ instanceId: item.instanceId, position });
+      setListening({
+        instanceId: item.instanceId,
+        position,
+        from: cover.current?.getBoundingClientRect() ?? null,
+      });
     },
     onRetry: () => {
       void previewsQuery.refetch();
@@ -68,7 +79,7 @@ export function Gatefold({ item }: { item: CollectionItem }) {
           transition={fold}
           className="grid w-full shadow-photo [perspective:2400px] md:grid-cols-2"
         >
-          <OpenGatefold item={item} board={board} listen={listen} />
+          <OpenGatefold item={item} board={board} listen={listen} coverRef={cover} />
         </motion.article>
       </AnimatePresence>
       {listening?.instanceId === item.instanceId && detail && previewsQuery.data && (
@@ -76,6 +87,7 @@ export function Gatefold({ item }: { item: CollectionItem }) {
           release={detail}
           previews={previewsQuery.data}
           startAt={listening.position}
+          from={listening.from}
           onClose={() => {
             setListening(null);
           }}
@@ -142,10 +154,12 @@ function OpenGatefold({
   item,
   board: hinge,
   listen,
+  coverRef,
 }: {
   item: CollectionItem;
   board: Variants;
   listen: Listen;
+  coverRef: RefObject<HTMLDivElement | null>;
 }) {
   const { release } = item;
   const board = useBoardInk(release.coverImageUrl ?? null);
@@ -159,7 +173,7 @@ function OpenGatefold({
 
   return (
     <>
-      <div className="relative aspect-square bg-carbon">
+      <div ref={coverRef} className="relative aspect-square bg-carbon">
         {release.coverImageUrl ? (
           <img
             src={release.coverImageUrl}
@@ -445,17 +459,5 @@ function Fact({ term, value, board }: { term: string; value: string; board: Boar
       </dt>
       <dd>{value}</dd>
     </>
-  );
-}
-
-/** When Discogs has no cover: the sleeve printed with its own title, never a stock image. */
-function MissingCover({ title, artists }: { title: string; artists: string[] }) {
-  return (
-    <div className="flex h-full flex-col justify-end p-8 text-ground">
-      <p className="condensed text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-[0.9] [font-stretch:62%]">
-        {title}
-      </p>
-      <p className="mt-2 text-sm text-ground/75">{artists.join(', ')}</p>
-    </div>
   );
 }

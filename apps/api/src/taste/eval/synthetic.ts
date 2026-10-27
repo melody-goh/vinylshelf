@@ -134,6 +134,7 @@ export async function syntheticWorld(
       year: scene ? scene.decade + Math.floor(random() * 10) : 1950 + Math.floor(random() * 70),
       genres: [scene ? scene.genre : pick(random, GENRES)],
       styles: [...new Set(styles)],
+      kind: 'album',
       // Most of a circle's records are on its label; some are licensed elsewhere.
       labels: [circle && random() < 0.8 ? circle.label : word(random, 2)],
       country: null,

@@ -9,6 +9,7 @@ import { createFakeEmbedder } from '../taste/embedder.js';
 import { toPgVector } from '../taste/vectors.js';
 import { useTestDatabase } from '../test/database.js';
 import { readRows, ROWS_FILE } from './artifact.js';
+import { CATALOGUE_SCHEMA_VERSION } from './model.js';
 import { buildCatalogue } from './build.js';
 import { describeMaster } from './describe.js';
 import { loadCatalogue, loadedCatalogue } from './load.js';
@@ -55,7 +56,7 @@ describe('buildCatalogue', () => {
     const manifest = await build();
 
     expect(manifest).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: CATALOGUE_SCHEMA_VERSION,
       dump: '20261001',
       model: { id: 'fake/bag-of-words', dims: 384 },
       rows: 3,
