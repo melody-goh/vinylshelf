@@ -4,6 +4,8 @@
  * server happens to return (ADR 0001).
  */
 import type {
+  TastePick,
+  TasteRecommendations,
   CollectionFacets,
   CollectionItem,
   CollectionPage,
@@ -219,4 +221,47 @@ export function wantlistItem(
 
 export function wantlistPage(items: WantlistItem[]): WantlistPage {
   return { items, page: 1, pages: 1, totalItems: items.length };
+}
+
+/** A pick from the taste catalogue (CC0 data; no expiry). */
+export function tastePick(
+  masterId: number,
+  overrides: { title?: string; artist?: string; reason?: string } = {},
+): TastePick {
+  return {
+    master: {
+      masterId,
+      mainReleaseId: masterId + 9_000_000,
+      title: overrides.title ?? `Pick ${String(masterId)}`,
+      artists: [overrides.artist ?? `Artist ${String(masterId)}`],
+      year: 1977,
+      genres: ['Funk / Soul'],
+      styles: ['Disco'],
+      labels: ['Synthetic Records'],
+      discogsUrl: `https://www.discogs.com/master/${String(masterId)}`,
+    },
+    reason: {
+      kind: 'people',
+      text: overrides.reason ?? 'Ana Ferreira is on 2 of your records',
+      shelfTitles: ['Tidal Lines', 'Alpine Suites'],
+    },
+  };
+}
+
+export function recommendations(
+  rooms: { styles: string[]; picks: TastePick[] }[],
+  overrides: Partial<TasteRecommendations> = {},
+): TasteRecommendations {
+  return {
+    status: 'ready',
+    catalogue: { dump: '20261001', rows: 150000 },
+    basedOn: { shelfRecords: 12, inCatalogue: 10 },
+    rooms: rooms.map((room, i) => ({
+      id: `room-${String(i)}`,
+      styles: room.styles,
+      size: 5,
+      picks: room.picks,
+    })),
+    ...overrides,
+  };
 }

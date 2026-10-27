@@ -10,6 +10,7 @@ import {
   libraryPage,
   page as shelfPage,
   previews,
+  recommendations,
   release,
   searchResults,
   silentWav,
@@ -79,6 +80,9 @@ async function mockApi(page: Page, state: State): Promise<void> {
   });
   await page.route('https://audio.example/**', (route) =>
     route.fulfill({ contentType: 'audio/wav', body: silentWav() }),
+  );
+  await page.route('**/api/v1/taste/recommendations**', (route) =>
+    route.fulfill({ json: recommendations() }),
   );
   await page.route('**/api/v1/search/releases**', (route) =>
     route.fulfill({ json: searchResults() }),
@@ -367,4 +371,22 @@ test('library scroll captures', async ({ page }) => {
   await page.mouse.move(720, 880);
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/desktop-library-scrolled.png` });
+});
+
+test('discover captures', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.goto('/');
+  await settle(page);
+  await page.getByRole('button', { name: 'Discover' }).click();
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${OUT}/desktop-discover.png` });
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(120);
+  await page.screenshot({ path: `${OUT}/desktop-discover-moving.png` });
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${OUT}/desktop-discover-4.png` });
+  await page.setViewportSize(phone);
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${OUT}/mobile-discover.png` });
 });
