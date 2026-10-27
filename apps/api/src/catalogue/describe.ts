@@ -61,7 +61,7 @@ function list(items: readonly string[]): string {
 
 /** The embedding text for a master. Pure and stable: same master, same text. */
 export function describeMaster(
-  master: Omit<CatalogueMaster, 'versions' | 'vinylVersions'>,
+  master: Omit<CatalogueMaster, 'versions' | 'vinylVersions' | 'kind'>,
 ): string {
   const parts: string[] = [];
   if (master.genres.length > 0) parts.push(`${list(master.genres)}.`);

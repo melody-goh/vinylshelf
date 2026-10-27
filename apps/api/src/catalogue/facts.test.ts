@@ -1,7 +1,7 @@
 import { createReadStream } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { masterFacts } from './masters.js';
-import { releaseFacts, splitRoles } from './releases.js';
+import { recordKind, releaseFacts, splitRoles } from './releases.js';
 import { streamElements, type XmlNode } from './xml.js';
 
 const fixture = (name: string) =>
@@ -23,6 +23,7 @@ describe('releaseFacts', () => {
       masterId: 100,
       isMainRelease: true,
       isVinyl: true,
+      kind: 'album',
       labels: ['Columbia'],
       country: 'US',
       credits: [
@@ -68,5 +69,20 @@ describe('splitRoles', () => {
       'Producer',
     ]);
     expect(splitRoles('')).toEqual([]);
+  });
+});
+
+describe('recordKind', () => {
+  it.each([
+    [['LP', 'Album'], 'album'],
+    [['LP'], 'album'],
+    [['LP', 'Album', 'Compilation'], 'compilation'],
+    [['7"', 'Single', '45 RPM'], 'single'],
+    [['12"', '33 ⅓ RPM'], 'single'],
+    [['12"', 'EP'], 'ep'],
+    [['Box Set'], 'other'],
+    [[], 'other'],
+  ] as const)('reads %j as %s', (descriptions, kind) => {
+    expect(recordKind(descriptions)).toBe(kind);
   });
 });

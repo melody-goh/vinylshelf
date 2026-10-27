@@ -53,6 +53,25 @@ export function commonest(values: readonly string[][], limit: number): string[] 
     .map(([v]) => v);
 }
 
+/** A style names a room only if this share of its records has it. */
+export const NAMING_SHARE = 0.3;
+
+/**
+ * What a room is called: up to three styles that a fair share of its records have, so
+ * one odd record cannot name a small room. The commonest style always counts, so every
+ * room has a name.
+ */
+export function roomStyles(members: readonly CatalogueRow[]): string[] {
+  const [first, ...rest] = commonest(
+    members.map((m) => m.styles),
+    3,
+  );
+  if (first === undefined) return [];
+  const share = (style: string) =>
+    members.filter((m) => m.styles.includes(style)).length / members.length;
+  return [first, ...rest.filter((style) => share(style) >= NAMING_SHARE)];
+}
+
 /**
  * Seeds by farthest points: start from the record closest to the shelf's centre, then
  * repeatedly take the record least like any seed so far. Deterministic, and it puts a
@@ -140,10 +159,7 @@ export function buildRooms(shelf: readonly CatalogueRow[]): Room[] {
         id: `room-${String(central.id)}`,
         centroid,
         members,
-        styles: commonest(
-          members.map((m) => m.styles),
-          3,
-        ),
+        styles: roomStyles(members),
       };
     })
     .sort((a, b) => b.members.length - a.members.length);

@@ -101,13 +101,21 @@ describe('GET /taste/recommendations', () => {
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids.some((id) => SHELF().includes(id))).toBe(false);
     const shelfTitles = new Set(SHELF().map(titleOf));
+    const shelfArtists = new Set(
+      SHELF().flatMap((id) => world.catalogue.find((r) => r.id === id)?.artists ?? []),
+    );
     for (const room of result.rooms) expect(room.picks.length).toBeLessThanOrEqual(PICKS_PER_ROOM);
     for (const pick of all) {
       expect(pick.master.discogsUrl).toBe(
         `https://www.discogs.com/master/${String(pick.master.masterId)}`,
       );
-      expect(pick.reason.shelfTitles.length).toBeGreaterThan(0);
-      for (const title of pick.reason.shelfTitles) expect(shelfTitles.has(title)).toBe(true);
+      // Every reason is checkable against the shelf: its fans-of artists and its link.
+      expect(pick.reason.sound.length).toBeGreaterThan(0);
+      expect(pick.reason.fansOf.length).toBeGreaterThan(0);
+      for (const artist of pick.reason.fansOf) expect(shelfArtists.has(artist)).toBe(true);
+      for (const title of pick.reason.link?.shelfTitles ?? []) {
+        expect(shelfTitles.has(title)).toBe(true);
+      }
     }
     // The circle's other records are what a good engine finds first.
     const rest = new Set(circle(world, '0/0').slice(10));

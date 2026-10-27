@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRooms, roomCount } from './rooms.js';
+import { buildRooms, roomCount, roomStyles } from './rooms.js';
 import { row } from './testing.js';
 
 const jazz = (i: number) =>
@@ -48,5 +48,24 @@ describe('buildRooms', () => {
 
   it('makes nothing of an empty shelf', () => {
     expect(buildRooms([])).toEqual([]);
+  });
+});
+
+describe('roomStyles', () => {
+  it('names a room by styles a fair share of it has, never by one odd record', () => {
+    const members = [
+      row([1, 0, 0, 0], { styles: ['Smooth Jazz', 'Contemporary Jazz'] }),
+      row([1, 0, 0, 0], { styles: ['Smooth Jazz', 'Contemporary Jazz'] }),
+      row([1, 0, 0, 0], { styles: ['Smooth Jazz'] }),
+      row([1, 0, 0, 0], { styles: ['Alternative Rock'] }),
+    ];
+    expect(roomStyles(members)).toEqual(['Smooth Jazz', 'Contemporary Jazz']);
+  });
+
+  it('always keeps the commonest style, so every room has a name', () => {
+    const members = Array.from({ length: 10 }, (_, i) =>
+      row([1, 0, 0, 0], { styles: [`S${String(i)}`] }),
+    );
+    expect(roomStyles(members)).toHaveLength(1);
   });
 });

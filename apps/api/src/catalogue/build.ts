@@ -29,6 +29,7 @@ import {
   type CatalogueMaster,
   type CatalogueRow,
   type Credit,
+  type RecordKind,
 } from './model.js';
 import { releaseFacts } from './releases.js';
 import { streamElements } from './xml.js';
@@ -58,6 +59,7 @@ export interface BuildOptions {
 /** One line of the spill file: a main release's details, keyed by its master. */
 interface MainRelease {
   m: number;
+  f: RecordKind;
   l: string[];
   c: string | null;
   k: Credit[];
@@ -82,6 +84,7 @@ export async function buildCatalogue(
     if (facts.isMainRelease && facts.masterId > 0) {
       const line: MainRelease = {
         m: facts.masterId,
+        f: facts.kind,
         l: facts.labels,
         c: facts.country,
         k: facts.credits,
@@ -121,6 +124,8 @@ export async function buildCatalogue(
     const main = details.get(id);
     catalogue.push({
       ...master,
+      // "Various" is Discogs' artist for a compilation, whatever the format says.
+      kind: master.artists.includes('Various') ? 'compilation' : (main?.f ?? 'other'),
       labels: main?.l ?? [],
       country: main?.c ?? null,
       credits: main?.k ?? [],
