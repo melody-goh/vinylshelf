@@ -1,5 +1,6 @@
 {
   "id": 9000001,
+  "master_id": 800001,
   "status": "Accepted",
   "year": 2019,
   "resource_url": "https://api.discogs.com/releases/9000001",

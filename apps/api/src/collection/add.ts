@@ -73,7 +73,14 @@ export class CollectionAddService {
     const cached = await runInTransaction(this.database.pool, async (tx) => {
       await tx.db
         .insert(collectionItems)
-        .values({ userId, instanceId, releaseId: discogsId, dateAdded, lastSeenImportId: null })
+        .values({
+          userId,
+          instanceId,
+          releaseId: discogsId,
+          masterId: detail.masterId,
+          dateAdded,
+          lastSeenImportId: null,
+        })
         .onConflictDoNothing();
       await this.cache.store(tx.db, [detail]);
       return this.cache.storeDetail(tx.db, detail);

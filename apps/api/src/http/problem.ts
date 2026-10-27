@@ -17,6 +17,7 @@ export type ProblemCode =
   | 'release_not_found'
   | 'already_in_collection'
   | 'previews_unavailable'
+  | 'master_not_found'
   | 'discogs_unavailable'
   | 'discogs_auth_revoked'
   | 'discogs_unexpected_response'

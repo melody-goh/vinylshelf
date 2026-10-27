@@ -103,6 +103,12 @@ export const collectionItems = pgTable(
     // Discogs instance ids are approaching the int4 limit, so store them as int8.
     instanceId: bigint('instance_id', { mode: 'number' }).notNull(),
     releaseId: integer('release_id').notNull(),
+    /**
+     * The release's Discogs master, or null when it has none. An identifier like
+     * release_id (ADR 0006, note of 2026-10-27): it links a shelf record to the CC0 taste
+     * catalogue without keeping any Discogs data past its deadline.
+     */
+    masterId: integer('master_id'),
     dateAdded: timestamptz('date_added').notNull(),
     /** Set by each import; rows an import did not see are deleted when it succeeds. */
     lastSeenImportId: uuid('last_seen_import_id').references(() => importJobs.id, {
@@ -259,4 +265,25 @@ export const catalogueMeta = pgTable(
     loadedAt: timestamptz('loaded_at').notNull(),
   },
   (t) => [check('catalogue_meta_single_row', sql`${t.id} = 1`)],
+);
+
+export const tasteVerdict = pgEnum('taste_verdict', ['more', 'less']);
+export type TasteVerdict = (typeof tasteVerdict.enumValues)[number];
+
+/**
+ * How a user has steered their recommendations (ADR 0008): "more like this" or "not
+ * for me" on a catalogue master. Keyed by catalogue id (CC0), so it holds no Discogs
+ * API data; it is the user's own signal and goes with their account.
+ */
+export const tasteFeedback = pgTable(
+  'taste_feedback',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    masterId: integer('master_id').notNull(),
+    verdict: tasteVerdict('verdict').notNull(),
+    createdAt: timestamptz('created_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.masterId] })],
 );

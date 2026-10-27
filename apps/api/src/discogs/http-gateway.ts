@@ -348,6 +348,7 @@ function coverImage(url: string | undefined): string | null {
 function summaryOf(info: BasicInformation): ReleaseSummaryData {
   return {
     discogsId: info.id,
+    masterId: info.master_id > 0 ? info.master_id : null,
     title: info.title,
     artists: info.artists.map((a) => displayArtistName(a.name)),
     // Discogs reports an unknown year as 0.
@@ -404,6 +405,7 @@ function toReleaseDetail(response: ReleaseResponse): ReleaseDetailData {
   const label = response.labels[0];
   return {
     discogsId: response.id,
+    masterId: response.master_id ? response.master_id : null,
     title: response.title,
     artists: response.artists.map((a) => displayArtistName(a.name)),
     year: response.year !== undefined && response.year > 0 ? response.year : null,

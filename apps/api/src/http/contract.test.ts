@@ -15,6 +15,7 @@ import type {
   ReleasePreviews,
   ReleaseSummary,
   SearchPage,
+  TasteRecommendations,
   User,
   WantlistPage,
 } from '@vinylshelf/contract';
@@ -24,6 +25,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { API_PREFIX, buildApp, type AppDependencies } from '../app.js';
 import { collectionItems, importJobs, itunesPreviewCache } from '../db/schema.js';
+import { circle, seedCatalogue, testWorld } from '../test/catalogue.js';
 import type { Clock } from '../lib/clock.js';
 import { testConfig, testDependencies } from '../test/app.js';
 import { expectToMatchContract, spec, type HttpMethod } from '../test/contract.js';
@@ -43,6 +45,7 @@ import type {
   releaseSchema,
   releaseSummarySchema,
   searchPageSchema,
+  tasteRecommendationsSchema,
   userSchema,
   wantlistPageSchema,
 } from './schemas.js';
@@ -61,7 +64,8 @@ const typesMatch: [
   Equivalent<z.infer<typeof releasePreviewsSchema>, ReleasePreviews>,
   Equivalent<z.infer<typeof collectionFacetsSchema>, CollectionFacets>,
   Equivalent<z.infer<typeof wantlistPageSchema>, WantlistPage>,
-] = [true, true, true, true, true, true, true, true, true, true, true];
+  Equivalent<z.infer<typeof tasteRecommendationsSchema>, TasteRecommendations>,
+] = [true, true, true, true, true, true, true, true, true, true, true, true];
 
 const { db, handle } = useTestDatabase();
 const EVIL = 'https://evil.example';
@@ -194,6 +198,7 @@ describe('contract: responses validate against openapi.yaml', () => {
         year: null,
         vinylColors: ['Blue Marbled'],
         formatNames: ['Vinyl'],
+        masterId: 7001,
         genres: ['Jazz'],
         styles: ['Modal'],
         coverImageUrl: 'https://i.discogs.com/fixture/cover-1.jpg',
@@ -322,6 +327,54 @@ describe('contract: wantlist (ADR 0011)', () => {
       403,
     );
     expect((await call('delete', one, { path: '/wantlist/9000101' })).statusCode).toBe(204);
+  });
+});
+
+describe('contract: taste (ADR 0008)', () => {
+  it('GET /taste/recommendations: 200 in each status, 400 and 401', async () => {
+    const path = '/taste/recommendations';
+    const status = async () => (await call('get', path)).json<{ status: string }>().status;
+    expect(await status()).toBe('no_catalogue');
+    const world = await testWorld();
+    await seedCatalogue(db(), world);
+    expect(await status()).toBe('too_few_records');
+    await db()
+      .insert(collectionItems)
+      .values(
+        circle(world, '0/0').map((masterId, i) => ({
+          userId,
+          instanceId: i + 1,
+          releaseId: 7_000_000 + i,
+          masterId,
+          dateAdded: new Date(0),
+        })),
+      );
+    expect(await status()).toBe('ready');
+    expect((await call('get', path, { query: 'distance=far' })).statusCode).toBe(200);
+    expect((await call('get', path, { query: 'distance=sideways' })).statusCode).toBe(400);
+    expect((await call('get', path, { signedIn: false })).statusCode).toBe(401);
+  });
+
+  it('POST and DELETE /taste/feedback: 204, 404, 400, 401 and 403', async () => {
+    await seedCatalogue(db(), await testWorld());
+    const give = (body: Record<string, unknown>, options: CallOptions = {}) =>
+      call('post', '/taste/feedback', { body, ...options });
+    expect((await give({ masterId: 1, verdict: 'more' })).statusCode).toBe(204);
+    expect((await give({ masterId: 999_999, verdict: 'more' })).statusCode).toBe(404);
+    expect((await give({ masterId: 1, verdict: 'sideways' })).statusCode).toBe(400);
+    expect((await give({ masterId: 1, verdict: 'less' }, { signedIn: false })).statusCode).toBe(
+      401,
+    );
+    expect((await give({ masterId: 1, verdict: 'less' }, { origin: EVIL })).statusCode).toBe(403);
+
+    const one = '/taste/feedback/{masterId}';
+    expect((await call('delete', one, { path: '/taste/feedback/1' })).statusCode).toBe(204);
+    expect(
+      (await call('delete', one, { path: '/taste/feedback/1', signedIn: false })).statusCode,
+    ).toBe(401);
+    expect(
+      (await call('delete', one, { path: '/taste/feedback/1', origin: EVIL })).statusCode,
+    ).toBe(403);
   });
 });
 

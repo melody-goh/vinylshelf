@@ -11,7 +11,9 @@
     "fixtures:check": "tsx scripts/check-fixtures.ts",
     "models:fetch": "tsx scripts/models-fetch.ts",
     "catalogue:build": "tsx scripts/catalogue-build.ts",
-    "catalogue:load": "tsx scripts/catalogue-load.ts"
+    "catalogue:load": "tsx scripts/catalogue-load.ts",
+    "catalogue:publish": "bash scripts/catalogue-publish.sh",
+    "taste:eval": "tsx scripts/taste-eval.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
