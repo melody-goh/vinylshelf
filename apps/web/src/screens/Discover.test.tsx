@@ -58,6 +58,14 @@ beforeEach(() => {
         page({ totalItems: 1, items: [collectionItem(1, { title: 'Tidal Lines' })] }),
       ),
     ),
+    http.get(`${API}/taste/search`, ({ request }) => {
+      const q = new URL(request.url).searchParams.get('q') ?? '';
+      return HttpResponse.json({
+        status: 'ready',
+        query: q,
+        results: q.includes('nothing') ? [] : [tastePick(40, { title: 'Phantazia' })],
+      });
+    }),
     http.get(`${API}/taste/recommendations`, ({ request }) => {
       distances.push(new URL(request.url).searchParams.get('distance') ?? '');
       return HttpResponse.json(answer);
@@ -146,6 +154,25 @@ describe('Discover', () => {
         'POST /taste/feedback {"masterId":1,"verdict":"less"}',
       ]);
     });
+  });
+
+  it('searches by description, and returns to the picks when cleared', async () => {
+    const { user, region } = await openDiscover();
+    await within(region).findByRole('heading', { name: 'Rejoice' });
+    const field = screen.getByRole('searchbox', { name: 'Describe a sound to search for' });
+
+    await user.type(field, 'moody 70s jazz with strings{Enter}');
+
+    const results = await screen.findByRole('region', { name: 'Discover' });
+    expect(await within(results).findByRole('heading', { name: 'Phantazia' })).toBeInTheDocument();
+    expect(within(results).getByText('“moody 70s jazz with strings”')).toBeInTheDocument();
+
+    await user.clear(field);
+    await user.type(field, 'nothing like this{Enter}');
+    expect(await screen.findByText(/Nothing fits/)).toBeInTheDocument();
+
+    await user.clear(field);
+    expect(await screen.findByRole('heading', { name: 'Rejoice' })).toBeInTheDocument();
   });
 
   it('asks for near picks first, and far ones when chosen', async () => {

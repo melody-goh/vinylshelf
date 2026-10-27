@@ -14,7 +14,8 @@ import {
 import { useExpired } from '../api/expiry';
 import { useDwell, usePreviews } from '../api/previews';
 import { useRelease } from '../api/releases';
-import { useRecommendations, useTasteFeedback, type Distance } from '../api/taste';
+import { ApiError } from '../api/client';
+import { useRecommendations, useTasteFeedback, useTasteSearch, type Distance } from '../api/taste';
 import { useWant } from '../api/wantlist';
 import { useWideScreen } from '../design/media';
 import type { Release, TasteFeedback } from '@vinylshelf/contract';
@@ -26,12 +27,24 @@ import { MissingCover } from './MissingCover';
 import { PlayButton } from './PlayButton';
 import { Quaver, ScoredText } from './ScoredText';
 import { DotChoice } from './DotChoice';
+import { SearchField } from './SearchField';
 import { Switch } from './Switch';
 
 /** One pick in the row, with the room it was found for. */
 export interface Placed {
   pick: TastePick;
   room: TasteRoom;
+}
+
+/** Search results as a row of their own, named by the description in quotes. */
+export function placeSearch(query: string, picks: readonly TastePick[]): Placed[] {
+  const room: TasteRoom = {
+    id: 'search',
+    styles: [`“${query}”`],
+    size: picks.length,
+    picks: [...picks],
+  };
+  return picks.map((pick) => ({ pick, room }));
 }
 
 /** Every room's picks in one row, room after room, largest room first. */
@@ -132,7 +145,17 @@ export function placement(offset: number, size: number, anchor: number) {
 export function Discover() {
   const [distance, setDistance] = useState<Distance>('near');
   const recommendations = useRecommendations(distance);
-  const all = useMemo(() => placeAll(recommendations.data), [recommendations.data]);
+  // Searching by description replaces the picks with the matches until it is cleared.
+  const [draft, setDraft] = useState('');
+  const [searched, setSearched] = useState<string | null>(null);
+  const search = useTasteSearch(searched);
+  const all = useMemo(
+    () =>
+      searched !== null
+        ? placeSearch(searched, search.data?.results ?? [])
+        : placeAll(recommendations.data),
+    [searched, search.data, recommendations.data],
+  );
   const [front, setFront] = useState(0);
   // Verdicts given on this visit. "Not for me" takes a record out of the row at once;
   // the next visit's picks are worked out with every verdict (ADR 0008).
@@ -182,69 +205,116 @@ export function Discover() {
     />
   );
 
-  if (recommendations.isPending || held) {
+  const showRow = (): ReactNode => {
+    const current = placed[Math.min(front, placed.length - 1)];
+    if (!current) return null;
     return (
-      <section aria-label="Discover" className="grid flex-1 place-items-center p-6">
-        <ScoredText
-          text="Digging through the crates…"
-          className="condensed max-w-[18ch] text-center text-[clamp(2.75rem,8vw,5.5rem)] font-extrabold leading-[0.95] [font-stretch:62%]"
-          onPass={() => {
-            setHeld(false);
-          }}
-        />
-      </section>
+      <Row
+        placed={placed}
+        front={Math.min(front, placed.length - 1)}
+        onFront={setFront}
+        current={current}
+        reach={searched === null ? reach : null}
+        verdict={verdicts.get(current.pick.master.masterId) ?? null}
+        onVerdict={(verdict) => {
+          const { masterId } = current.pick.master;
+          const next = new Map(verdicts);
+          if (verdict === null) {
+            next.delete(masterId);
+            feedback.withdraw.mutate(masterId);
+          } else {
+            next.set(masterId, verdict);
+            feedback.give.mutate({ masterId, verdict });
+          }
+          setVerdicts(next);
+        }}
+      />
     );
-  }
-  if (recommendations.isError || !data) {
-    return (
-      <Quiet role="alert">
-        Recommendations couldn&rsquo;t be worked out just now. Try again soon.
-      </Quiet>
-    );
-  }
-  if (data.status === 'no_catalogue') {
-    return <Quiet>Discover needs the taste catalogue, which isn&rsquo;t loaded here yet.</Quiet>;
-  }
-  if (data.status === 'too_few_records') {
-    return (
-      <Quiet>
-        Discover needs at least three of your records, or records you want, in its catalogue. It
-        knows {data.basedOn.inCatalogue + (data.basedOn.wanted ?? 0)} so far.
-      </Quiet>
-    );
-  }
-  if (placed.length === 0) {
-    return (
-      <Quiet>
-        Nothing to suggest right now.
-        <span className="mt-4 block">{reach}</span>
-      </Quiet>
-    );
-  }
+  };
 
-  const current = placed[Math.min(front, placed.length - 1)];
-  if (!current) return null;
+  const view = (): ReactNode => {
+    if (searched !== null) {
+      if (search.isPending) return <Quiet>Searching for &ldquo;{searched}&rdquo;…</Quiet>;
+      if (search.isError) {
+        return (
+          <Quiet role="alert">
+            {search.error instanceof ApiError && search.error.status === 503
+              ? 'Search isn’t set up on this server yet.'
+              : 'Search didn’t work just now. Try again.'}
+          </Quiet>
+        );
+      }
+      if (search.data.status === 'no_catalogue') {
+        return (
+          <Quiet>Discover needs the taste catalogue, which isn&rsquo;t loaded here yet.</Quiet>
+        );
+      }
+      if (placed.length === 0) {
+        return <Quiet>Nothing fits &ldquo;{searched}&rdquo;. Try describing it another way.</Quiet>;
+      }
+      return showRow();
+    }
+    if (recommendations.isPending || held) {
+      return (
+        <section aria-label="Discover" className="grid flex-1 place-items-center p-6">
+          <ScoredText
+            text="Digging through the crates…"
+            className="condensed max-w-[18ch] text-center text-[clamp(2.75rem,8vw,5.5rem)] font-extrabold leading-[0.95] [font-stretch:62%]"
+            onPass={() => {
+              setHeld(false);
+            }}
+          />
+        </section>
+      );
+    }
+    if (recommendations.isError || !data) {
+      return (
+        <Quiet role="alert">
+          Recommendations couldn&rsquo;t be worked out just now. Try again soon.
+        </Quiet>
+      );
+    }
+    if (data.status === 'no_catalogue') {
+      return <Quiet>Discover needs the taste catalogue, which isn&rsquo;t loaded here yet.</Quiet>;
+    }
+    if (data.status === 'too_few_records') {
+      return (
+        <Quiet>
+          Discover needs at least three of your records, or records you want, in its catalogue. It
+          knows {data.basedOn.inCatalogue + (data.basedOn.wanted ?? 0)} so far.
+        </Quiet>
+      );
+    }
+    if (placed.length === 0) {
+      return (
+        <Quiet>
+          Nothing to suggest right now.
+          <span className="mt-4 block">{reach}</span>
+        </Quiet>
+      );
+    }
+    return showRow();
+  };
+
   return (
-    <Row
-      placed={placed}
-      front={Math.min(front, placed.length - 1)}
-      onFront={setFront}
-      current={current}
-      reach={reach}
-      verdict={verdicts.get(current.pick.master.masterId) ?? null}
-      onVerdict={(verdict) => {
-        const { masterId } = current.pick.master;
-        const next = new Map(verdicts);
-        if (verdict === null) {
-          next.delete(masterId);
-          feedback.withdraw.mutate(masterId);
-        } else {
-          next.set(masterId, verdict);
-          feedback.give.mutate({ masterId, verdict });
-        }
-        setVerdicts(next);
-      }}
-    />
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div className="relative z-[220] px-4 pt-4 md:absolute md:right-8 md:top-5 md:w-80 md:p-0">
+        <SearchField
+          value={draft}
+          onChange={(value) => {
+            setDraft(value);
+            if (value.trim() === '') setSearched(null);
+          }}
+          onEnter={() => {
+            const query = draft.trim();
+            setSearched(query.length >= 2 ? query : null);
+          }}
+          label="Describe a sound to search for"
+          placeholder="Describe a sound: moody 70s jazz with strings"
+        />
+      </div>
+      {view()}
+    </div>
   );
 }
 

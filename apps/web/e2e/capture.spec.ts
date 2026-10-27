@@ -84,6 +84,13 @@ async function mockApi(page: Page, state: State): Promise<void> {
   await page.route('**/api/v1/taste/recommendations**', (route) =>
     route.fulfill({ json: recommendations() }),
   );
+  await page.route('**/api/v1/taste/search**', (route) => {
+    const q = new URL(route.request().url()).searchParams.get('q') ?? '';
+    const picks = recommendations()
+      .rooms.flatMap((r) => r.picks)
+      .reverse();
+    return route.fulfill({ json: { status: 'ready', query: q, results: picks } });
+  });
   await page.route('**/api/v1/search/releases**', (route) =>
     route.fulfill({ json: searchResults() }),
   );
@@ -402,6 +409,12 @@ test('discover captures', async ({ page }) => {
   await page.screenshot({ path: `${OUT}/desktop-discover-moving.png` });
   await page.waitForTimeout(1200);
   await page.screenshot({ path: `${OUT}/desktop-discover-4.png` });
+  await page
+    .getByRole('searchbox', { name: 'Describe a sound to search for' })
+    .fill('moody 70s jazz with strings');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(1200);
+  await page.screenshot({ path: `${OUT}/desktop-discover-search.png` });
   await page.setViewportSize(phone);
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${OUT}/mobile-discover.png` });

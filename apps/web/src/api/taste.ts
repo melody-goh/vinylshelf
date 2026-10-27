@@ -37,3 +37,18 @@ export function useTasteFeedback() {
   });
   return { give, withdraw, settle };
 }
+
+/**
+ * Records that fit a description (ADR 0008 §2), for one submitted description at a
+ * time. Not retried: a 503 means search is not set up here, and asking again will not
+ * change that.
+ */
+export function useTasteSearch(query: string | null) {
+  return useQuery({
+    queryKey: ['taste-search', query],
+    queryFn: () => unwrap(api.GET('/taste/search', { params: { query: { q: query ?? '' } } })),
+    enabled: query !== null,
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
