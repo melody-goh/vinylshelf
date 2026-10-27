@@ -13,6 +13,7 @@ import {
   server,
   signedIn,
   tastePick,
+  wantlistItem,
 } from '../test/server';
 
 const READY = recommendations([
@@ -30,11 +31,26 @@ const READY = recommendations([
 ]);
 let answer = READY;
 let distances: string[];
+/** Requests that changed something, as "METHOD path body". */
+let writes: string[];
 
 beforeEach(() => {
   answer = READY;
   distances = [];
+  writes = [];
   server.use(
+    http.post(`${API}/taste/feedback`, async ({ request }) => {
+      writes.push(`POST /taste/feedback ${JSON.stringify(await request.json())}`);
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.delete(`${API}/taste/feedback/:id`, ({ params }) => {
+      writes.push(`DELETE /taste/feedback/${String(params.id)}`);
+      return new HttpResponse(null, { status: 204 });
+    }),
+    http.put(`${API}/wantlist/:id`, ({ params }) => {
+      writes.push(`PUT /wantlist/${String(params.id)}`);
+      return HttpResponse.json(wantlistItem(Number(params.id)));
+    }),
     ...signedIn(),
     ...releases(),
     http.get(`${API}/collection/items`, () =>
@@ -103,6 +119,34 @@ describe('Discover', () => {
 
     await user.click(within(region).getByRole('button', { name: 'Full album' }));
     expect(await screen.findByRole('dialog', { name: /^Listening Room/ })).toBeInTheDocument();
+  });
+
+  it('wants a record, and steers the picks with more like this and not for me', async () => {
+    const { user, region } = await openDiscover();
+    await within(region).findByRole('heading', { name: 'Rejoice' });
+
+    await user.click(within(region).getByRole('button', { name: 'Want' }));
+    expect(await within(region).findByRole('button', { name: 'Wanted' })).toBeDisabled();
+
+    const more = within(region).getByRole('button', { name: 'More like this' });
+    await user.click(more);
+    expect(more).toHaveAttribute('aria-pressed', 'true');
+    await user.click(more);
+    expect(more).toHaveAttribute('aria-pressed', 'false');
+
+    // Not for me: the record leaves the row and the next one comes to the front.
+    await user.click(within(region).getByRole('button', { name: 'Not for me' }));
+    expect(await within(region).findByRole('heading', { name: 'Busy Body' })).toBeInTheDocument();
+    expect(within(region).getByText('1 / 2')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(writes).toEqual([
+        'PUT /wantlist/9000001',
+        'POST /taste/feedback {"masterId":1,"verdict":"more"}',
+        'DELETE /taste/feedback/1',
+        'POST /taste/feedback {"masterId":1,"verdict":"less"}',
+      ]);
+    });
   });
 
   it('asks for near picks first, and far ones when chosen', async () => {

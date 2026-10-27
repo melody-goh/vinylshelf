@@ -14,9 +14,12 @@ import {
 import { useExpired } from '../api/expiry';
 import { useDwell, usePreviews } from '../api/previews';
 import { useRelease } from '../api/releases';
-import { useRecommendations, type Distance } from '../api/taste';
+import { useRecommendations, useTasteFeedback, type Distance } from '../api/taste';
+import { useWant } from '../api/wantlist';
 import { useWideScreen } from '../design/media';
-import type { Release } from '@vinylshelf/contract';
+import type { Release, TasteFeedback } from '@vinylshelf/contract';
+
+type TasteVerdict = TasteFeedback['verdict'];
 import { Disc } from './Disc';
 import { ListeningRoom, playableTracks, type Playable } from './ListeningRoom';
 import { MissingCover } from './MissingCover';
@@ -127,8 +130,24 @@ export function placement(offset: number, size: number, anchor: number) {
 export function Discover() {
   const [distance, setDistance] = useState<Distance>('near');
   const recommendations = useRecommendations(distance);
-  const placed = useMemo(() => placeAll(recommendations.data), [recommendations.data]);
+  const all = useMemo(() => placeAll(recommendations.data), [recommendations.data]);
   const [front, setFront] = useState(0);
+  // Verdicts given on this visit. "Not for me" takes a record out of the row at once;
+  // the next visit's picks are worked out with every verdict (ADR 0008).
+  const [verdicts, setVerdicts] = useState<ReadonlyMap<number, TasteVerdict>>(new Map());
+  const placed = useMemo(
+    () => all.filter((p) => verdicts.get(p.pick.master.masterId) !== 'less'),
+    [all, verdicts],
+  );
+  const feedback = useTasteFeedback();
+  const { settle } = feedback;
+  const steered = verdicts.size > 0;
+  useEffect(
+    () => () => {
+      if (steered) void settle();
+    },
+    [steered, settle],
+  );
   const data = recommendations.data;
   // The first visit holds the loading line for one pass of its notes, so it is seen.
   const [held, setHeld] = useState(true);
@@ -142,9 +161,9 @@ export function Discover() {
   }, []);
 
   // A new row (another distance, or after feedback) starts from its first pick.
-  const [shown, setShown] = useState(placed);
-  if (shown !== placed) {
-    setShown(placed);
+  const [shown, setShown] = useState(all);
+  if (shown !== all) {
+    setShown(all);
     setFront(0);
   }
 
@@ -209,6 +228,19 @@ export function Discover() {
       onFront={setFront}
       current={current}
       reach={reach}
+      verdict={verdicts.get(current.pick.master.masterId) ?? null}
+      onVerdict={(verdict) => {
+        const { masterId } = current.pick.master;
+        const next = new Map(verdicts);
+        if (verdict === null) {
+          next.delete(masterId);
+          feedback.withdraw.mutate(masterId);
+        } else {
+          next.set(masterId, verdict);
+          feedback.give.mutate({ masterId, verdict });
+        }
+        setVerdicts(next);
+      }}
     />
   );
 }
@@ -229,12 +261,17 @@ function Row({
   onFront,
   current,
   reach,
+  verdict,
+  onVerdict,
 }: {
   placed: Placed[];
   front: number;
   onFront: (index: number) => void;
   current: Placed;
   reach: ReactNode;
+  verdict: TasteVerdict | null;
+  /** null takes a verdict back. */
+  onVerdict: (verdict: TasteVerdict | null) => void;
 }) {
   const wide = useWideScreen();
   const stage = useRef<HTMLDivElement>(null);
@@ -334,6 +371,13 @@ function Row({
             if (playing) audio.current?.pause();
             else if (url) void audio.current?.play().catch(() => undefined);
           }}
+        />
+        <Actions
+          key={masterId}
+          mainReleaseId={mainReleaseId}
+          canOpen={featured !== null}
+          verdict={verdict}
+          onVerdict={onVerdict}
           onAlbum={() => {
             if (!featured) return;
             setListening(false);
@@ -605,14 +649,12 @@ function Preview({
   missing,
   playing,
   onToggle,
-  onAlbum,
 }: {
   featured: ReturnType<typeof featuredTrack>;
   /** Previews were looked up and there are none. */
   missing: boolean;
   playing: boolean;
   onToggle: () => void;
-  onAlbum: () => void;
 }) {
   if (missing) return <p className="text-sm text-ink-soft">No previews for this record.</p>;
   const title = featured?.track.title;
@@ -644,10 +686,72 @@ function Preview({
           )}
         </motion.button>
       </div>
-      {featured && (
-        <button type="button" onClick={onAlbum} className="mt-1 text-xs underline">
+    </div>
+  );
+}
+
+/**
+ * What to do with the front record: hear all of it, want it, or steer the picks. Each is
+ * a quiet text action; a given verdict is set in ink and can be taken back.
+ */
+function Actions({
+  mainReleaseId,
+  canOpen,
+  verdict,
+  onVerdict,
+  onAlbum,
+}: {
+  mainReleaseId: number;
+  canOpen: boolean;
+  verdict: TasteVerdict | null;
+  onVerdict: (verdict: TasteVerdict | null) => void;
+  onAlbum: () => void;
+}) {
+  const want = useWant();
+  const wanted = want.add.isSuccess;
+  const action = (on: boolean) =>
+    `underline-offset-2 ${on ? 'font-semibold text-ink' : 'text-ink-soft hover:text-ink'}`;
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs">
+      {canOpen && (
+        <button type="button" onClick={onAlbum} className="underline">
           Full album
         </button>
+      )}
+      <button
+        type="button"
+        aria-pressed={wanted}
+        disabled={wanted || want.add.isPending}
+        onClick={() => {
+          want.add.mutate(mainReleaseId);
+        }}
+        className={action(wanted)}
+      >
+        {wanted ? 'Wanted' : want.add.isPending ? 'Wanting…' : 'Want'}
+      </button>
+      <button
+        type="button"
+        aria-pressed={verdict === 'more'}
+        onClick={() => {
+          onVerdict(verdict === 'more' ? null : 'more');
+        }}
+        className={action(verdict === 'more')}
+      >
+        More like this
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          onVerdict('less');
+        }}
+        className={action(false)}
+      >
+        Not for me
+      </button>
+      {want.add.isError && (
+        <span role="alert" className="basis-full text-ink-soft">
+          Couldn&rsquo;t reach Discogs just now. Nothing changed.
+        </span>
       )}
     </div>
   );
