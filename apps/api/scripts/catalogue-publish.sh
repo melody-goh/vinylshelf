@@ -8,6 +8,8 @@
 # Needs the GitHub CLI, signed in with permission to create releases.
 set -euo pipefail
 
+# pnpm may forward a bare "--" before the arguments.
+[ "${1:-}" = "--" ] && shift
 dir="${1:?usage: catalogue-publish.sh <built catalogue directory>}"
 manifest="$dir/manifest.json"
 rows_file="$dir/catalogue.jsonl.gz"
