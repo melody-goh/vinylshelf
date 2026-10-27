@@ -245,8 +245,8 @@ function Row({
   const previews = usePreviews(mainReleaseId, useDwell(mainReleaseId));
   const tracks = detail && previews.data ? playableTracks(detail, previews.data) : null;
   const featured = detail && tracks ? featuredTrack(detail, tracks) : null;
-  // Listening mode: once the listener plays one record, each record brought to the front
-  // plays too, until they pause. Nothing plays before they ask.
+  // Autoplay: off until the listener plays a record (or switches it on); while it is on,
+  // each record brought to the front plays its track, until they pause.
   const [listening, setListening] = useState(false);
   const [playing, setPlaying] = useState(false);
   const audio = useRef<HTMLAudioElement>(null);
@@ -371,7 +371,20 @@ function Row({
       </div>
 
       <div className="relative z-[200] flex items-center justify-between gap-6 px-4 pb-4 text-sm md:absolute md:inset-x-8 md:bottom-6 md:p-0">
-        {reach}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          {reach}
+          <TextSelect
+            label="Autoplay"
+            value={listening ? 'on' : 'off'}
+            options={[
+              { value: 'off', label: 'Off' },
+              { value: 'on', label: 'On' },
+            ]}
+            onChange={(value) => {
+              setListening(value === 'on');
+            }}
+          />
+        </div>
         <div className="flex items-center gap-3">
           <button
             type="button"
