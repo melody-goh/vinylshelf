@@ -30,10 +30,10 @@ export interface EvalReport {
 
 /** Exact nearest neighbours: what pgvector's HNSW index approximates. */
 export function scanRetrieve(catalogue: readonly CatalogueRow[]): Retrieve {
-  return (vector, limit, exclude) =>
+  return (vector, limit, exclude, kinds) =>
     Promise.resolve(
       catalogue
-        .filter((m) => !exclude.has(m.id))
+        .filter((m) => !exclude.has(m.id) && kinds.has(m.kind))
         .map((m) => ({ m, s: dot(m.embedding, vector) }))
         .sort((a, b) => b.s - a.s)
         .slice(0, limit)

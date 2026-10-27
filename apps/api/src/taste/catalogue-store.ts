@@ -3,7 +3,7 @@
  * pgvector's HNSW index (ADR 0008 §2). The engine itself does no I/O; this is the
  * `Retrieve` it is given in the app, where the offline evaluation gives it a scan.
  */
-import { inArray, notInArray, sql } from 'drizzle-orm';
+import { and, inArray, notInArray, sql } from 'drizzle-orm';
 import type { CatalogueRow } from '../catalogue/model.js';
 import type { DatabaseHandle } from '../db/client.js';
 import { catalogueMasters } from '../db/schema.js';
@@ -34,14 +34,14 @@ export async function catalogueRows(
 }
 
 /**
- * Nearest neighbours by cosine distance. HNSW returns no more than `ef_search` rows,
+ * Nearest neighbours of the given kinds by cosine distance. HNSW returns no more than `ef_search` rows,
  * 40 by default, and filters after searching, so excluding owned records could leave
  * fewer than asked for. Raising `ef_search` to the limit and scanning iteratively in
  * strict order returns the full, correctly ordered list (pgvector 0.8). Both settings
  * are local to the transaction.
  */
 export function pgvectorRetrieve(database: DatabaseHandle): Retrieve {
-  return (vector, limit, exclude) =>
+  return (vector, limit, exclude, kinds) =>
     runInTransaction(database.pool, async (tx) => {
       const efSearch = Math.min(MAX_EF_SEARCH, Math.max(40, limit));
       await tx.sql.executeSql(`set local hnsw.ef_search = ${String(efSearch)}`);
@@ -49,7 +49,12 @@ export function pgvectorRetrieve(database: DatabaseHandle): Retrieve {
       const rows = await tx.db
         .select()
         .from(catalogueMasters)
-        .where(exclude.size > 0 ? notInArray(catalogueMasters.id, [...exclude]) : undefined)
+        .where(
+          and(
+            inArray(catalogueMasters.kind, [...kinds]),
+            exclude.size > 0 ? notInArray(catalogueMasters.id, [...exclude]) : undefined,
+          ),
+        )
         // The distance alone: a second sort key would stop Postgres using the index.
         .orderBy(sql`${catalogueMasters.embedding} <=> ${toPgVector(vector)}::halfvec`)
         .limit(limit);

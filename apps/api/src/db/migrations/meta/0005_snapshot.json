@@ -88,12 +88,8 @@
           "name": "collection_items_user_id_users_id_fk",
           "tableFrom": "collection_items",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -101,12 +97,8 @@
           "name": "collection_items_last_seen_import_id_import_jobs_id_fk",
           "tableFrom": "collection_items",
           "tableTo": "import_jobs",
-          "columnsFrom": [
-            "last_seen_import_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["last_seen_import_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -114,10 +106,7 @@
       "compositePrimaryKeys": {
         "collection_items_user_id_instance_id_pk": {
           "name": "collection_items_user_id_instance_id_pk",
-          "columns": [
-            "user_id",
-            "instance_id"
-          ]
+          "columns": ["user_id", "instance_id"]
         }
       },
       "uniqueConstraints": {},
@@ -426,12 +415,8 @@
           "name": "import_jobs_user_id_users_id_fk",
           "tableFrom": "import_jobs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -576,12 +561,8 @@
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -649,9 +630,7 @@
         "users_discogs_user_id_unique": {
           "name": "users_discogs_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "discogs_user_id"
-          ]
+          "columns": ["discogs_user_id"]
         }
       },
       "policies": {},
@@ -663,20 +642,12 @@
     "public.discogs_classification": {
       "name": "discogs_classification",
       "schema": "public",
-      "values": [
-        "cc0",
-        "restricted"
-      ]
+      "values": ["cc0", "restricted"]
     },
     "public.import_status": {
       "name": "import_status",
       "schema": "public",
-      "values": [
-        "queued",
-        "running",
-        "succeeded",
-        "failed"
-      ]
+      "values": ["queued", "running", "succeeded", "failed"]
     }
   },
   "schemas": {},

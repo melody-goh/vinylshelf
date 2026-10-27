@@ -34,12 +34,24 @@ function people(candidate: CatalogueRow, members: readonly CatalogueRow[]): Reas
   }
   if (!best) return null;
   const titles = best.on.slice(0, 3).map((m) => m.title);
+  const count = best.on.length;
+  // The artist themselves: say so, rather than as if they were a session player.
+  if (candidate.artists.some((a) => a.toLowerCase() === best.name.toLowerCase())) {
+    return {
+      kind: 'people',
+      text:
+        count === 1
+          ? `More from ${best.name}, after ${titles[0] ?? ''}`
+          : `More from ${best.name}, after ${String(count)} of your records`,
+      shelfTitles: titles,
+    };
+  }
   return {
     kind: 'people',
     text:
-      best.on.length === 1
+      count === 1
         ? `${best.name}, as on ${titles[0] ?? ''}`
-        : `${best.name} is on ${String(best.on.length)} of your records`,
+        : `${best.name} is on ${String(count)} of your records`,
     shelfTitles: titles,
   };
 }

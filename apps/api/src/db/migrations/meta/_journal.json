@@ -57,6 +57,13 @@
       "when": 1793030818434,
       "tag": "0007_taste_signals",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793106922245,
+      "tag": "0008_record_kind",
+      "breakpoints": true
     }
   ]
 }

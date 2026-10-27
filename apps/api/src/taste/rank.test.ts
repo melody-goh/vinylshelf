@@ -59,6 +59,17 @@ describe('reasonFor', () => {
     });
   });
 
+  it('says "more from" when the shared person is the artist', () => {
+    const pick = row([0.9, 0.1, 0, 0], {
+      artists: ['Teo Macero'],
+      people: ['Teo Macero'],
+    });
+    expect(reasonFor(pick, room, nearest)).toMatchObject({
+      kind: 'people',
+      text: 'More from Teo Macero, after 2 of your records',
+    });
+  });
+
   it('then the same label in the same decade', () => {
     const pick = row([0.9, 0.1, 0, 0], { labels: ['Columbia'], year: 1956 });
     expect(reasonFor(pick, room, nearest)).toMatchObject({

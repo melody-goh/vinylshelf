@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recommend } from './engine.js';
+import { kindsFor, recommend } from './engine.js';
 import { scanRetrieve } from './eval/harness.js';
 import { row } from './testing.js';
 
@@ -43,5 +43,34 @@ describe('recommend', () => {
     if (!jazzPick) throw new Error('fixture');
     const rooms = await recommend({ ...input(), disliked: [jazzPick] });
     expect(rooms.flatMap((r) => r.picks.map((p) => p.master.title))).not.toContain('Jazz Pick');
+  });
+});
+
+describe('kindsFor', () => {
+  const room = (kinds: ('album' | 'single' | 'compilation')[]) => ({
+    id: 'r',
+    centroid: new Float32Array(4),
+    styles: [],
+    members: kinds.map((kind) => row([1, 0, 0, 0], { kind })),
+  });
+
+  it('recommends albums always, and other shapes only where the room holds them', () => {
+    expect(kindsFor(room(['album', 'album', 'album', 'album', 'single']))).toEqual(
+      new Set(['album', 'single']),
+    );
+    expect(
+      kindsFor(room(['album', 'album', 'album', 'album', 'album', 'album', 'single'])),
+    ).toEqual(new Set(['album']));
+    expect(kindsFor(room(['single', 'single', 'compilation']))).toEqual(
+      new Set(['album', 'single', 'compilation']),
+    );
+  });
+
+  it('keeps singles off a shelf of albums', async () => {
+    const single = row([0.99, 0.05, 0, 0], { title: 'Closest Single', kind: 'single' });
+    const rooms = await recommend({ ...input(), retrieve: scanRetrieve([...catalogue, single]) });
+    expect(rooms.flatMap((r) => r.picks.map((p) => p.master.title))).not.toContain(
+      'Closest Single',
+    );
   });
 });
