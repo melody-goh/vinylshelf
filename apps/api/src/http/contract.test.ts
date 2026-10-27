@@ -16,6 +16,7 @@ import type {
   ReleaseSummary,
   SearchPage,
   TasteRecommendations,
+  TasteSearch,
   User,
   WantlistPage,
 } from '@vinylshelf/contract';
@@ -26,6 +27,7 @@ import type { z } from 'zod';
 import { API_PREFIX, buildApp, type AppDependencies } from '../app.js';
 import { collectionItems, importJobs, itunesPreviewCache } from '../db/schema.js';
 import { circle, seedCatalogue, testWorld } from '../test/catalogue.js';
+import { lazyQueryEmbedder } from '../taste/query-embedder.js';
 import type { Clock } from '../lib/clock.js';
 import { testConfig, testDependencies } from '../test/app.js';
 import { expectToMatchContract, spec, type HttpMethod } from '../test/contract.js';
@@ -46,6 +48,7 @@ import type {
   releaseSummarySchema,
   searchPageSchema,
   tasteRecommendationsSchema,
+  tasteSearchSchema,
   userSchema,
   wantlistPageSchema,
 } from './schemas.js';
@@ -65,7 +68,8 @@ const typesMatch: [
   Equivalent<z.infer<typeof collectionFacetsSchema>, CollectionFacets>,
   Equivalent<z.infer<typeof wantlistPageSchema>, WantlistPage>,
   Equivalent<z.infer<typeof tasteRecommendationsSchema>, TasteRecommendations>,
-] = [true, true, true, true, true, true, true, true, true, true, true, true];
+  Equivalent<z.infer<typeof tasteSearchSchema>, TasteSearch>,
+] = [true, true, true, true, true, true, true, true, true, true, true, true, true];
 
 const { db, handle } = useTestDatabase();
 const EVIL = 'https://evil.example';
@@ -353,6 +357,21 @@ describe('contract: taste (ADR 0008)', () => {
     expect((await call('get', path, { query: 'distance=far' })).statusCode).toBe(200);
     expect((await call('get', path, { query: 'distance=sideways' })).statusCode).toBe(400);
     expect((await call('get', path, { signedIn: false })).statusCode).toBe(401);
+  });
+
+  it('GET /taste/search: 200 in each status, 400, 401 and 503', async () => {
+    const path = '/taste/search';
+    expect((await call('get', path, { query: 'q=modal%20jazz' })).statusCode).toBe(200);
+    await seedCatalogue(db(), await testWorld());
+    expect((await call('get', path, { query: 'q=modal%20jazz' })).statusCode).toBe(200);
+    expect((await call('get', path, { query: 'q=a' })).statusCode).toBe(400);
+    expect((await call('get', path, { query: 'q=modal', signedIn: false })).statusCode).toBe(401);
+    await app.close();
+    app = await buildApp({
+      ...deps,
+      queryEmbedder: lazyQueryEmbedder(() => Promise.reject(new Error('no weights'))),
+    });
+    expect((await call('get', path, { query: 'q=modal%20jazz' })).statusCode).toBe(503);
   });
 
   it('POST and DELETE /taste/feedback: 204, 404, 400, 401 and 403', async () => {

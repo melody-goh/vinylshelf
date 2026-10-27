@@ -242,3 +242,13 @@ export const tasteFeedbackBody = z.object({
   masterId: z.number().int().min(1),
   verdict: z.enum(['more', 'less']),
 });
+
+export const tasteSearchSchema = z.object({
+  status: z.enum(['ready', 'no_catalogue']),
+  query: z.string(),
+  results: tasteRecommendationsSchema.shape.rooms.element.shape.picks,
+});
+
+export const tasteSearchQuery = z.object({
+  q: z.string().trim().min(2).max(200),
+});

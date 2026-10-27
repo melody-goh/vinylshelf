@@ -14,13 +14,13 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { asc, eq, gt } from 'drizzle-orm';
-import type { CatalogueRow } from '../src/catalogue/model.js';
+import { eq } from 'drizzle-orm';
 import { createDatabase, type DatabaseHandle } from '../src/db/client.js';
-import { catalogueMasters, collectionItems, users } from '../src/db/schema.js';
+import { collectionItems, users } from '../src/db/schema.js';
 import { recommend } from '../src/taste/engine.js';
 import { holdOutFolds } from '../src/taste/eval/folds.js';
 import { evaluate, formatReport, scanRetrieve } from '../src/taste/eval/harness.js';
+import { readCatalogue } from '../src/taste/eval/read-catalogue.js';
 
 const envFile = fileURLToPath(new URL('../../../.env', import.meta.url));
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -41,24 +41,6 @@ const k = Number(values.k);
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is not set');
 
-/** The whole catalogue, in pages, so no single result holds every vector as text. */
-async function readCatalogue(database: DatabaseHandle): Promise<CatalogueRow[]> {
-  const rows: CatalogueRow[] = [];
-  let after = 0;
-  for (;;) {
-    const page = await database.db
-      .select()
-      .from(catalogueMasters)
-      .where(gt(catalogueMasters.id, after))
-      .orderBy(asc(catalogueMasters.id))
-      .limit(10_000);
-    if (page.length === 0) return rows;
-    for (const row of page) rows.push({ ...row, embedding: Float32Array.from(row.embedding) });
-    after = page.at(-1)?.id ?? after;
-    process.stdout.write(`\rreading catalogue: ${String(rows.length)}`);
-  }
-}
-
 async function shelfOwner(database: DatabaseHandle): Promise<{ id: string; name: string }> {
   const all = await database.db.select({ id: users.id, name: users.discogsUsername }).from(users);
   const chosen = values.user ? all.filter((u) => u.name === values.user) : all;
@@ -75,7 +57,9 @@ try {
     .select({ masterId: collectionItems.masterId })
     .from(collectionItems)
     .where(eq(collectionItems.userId, owner.id));
-  const catalogue = await readCatalogue(database);
+  const catalogue = await readCatalogue(database, (read) => {
+    process.stdout.write(`\rreading catalogue: ${String(read)}`);
+  });
   console.log('');
   const byId = new Map(catalogue.map((row) => [row.id, row]));
   const shelf = [...new Set(items.flatMap((i) => (i.masterId ? [i.masterId] : [])))].flatMap(
