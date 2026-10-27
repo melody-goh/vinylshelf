@@ -609,7 +609,7 @@ export function ListeningRoom({
             </ol>
           </div>
 
-          <footer className="mt-6 flex flex-col items-start gap-3 border-t border-rule pt-4 text-xs text-ink-soft">
+          <footer className="mt-6 flex flex-col items-start gap-5 border-t border-rule pt-4 text-xs text-ink-soft">
             {/* The room covers the page footer, so it carries the Discogs credit itself. */}
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
               <p>{previews.attribution}</p>
