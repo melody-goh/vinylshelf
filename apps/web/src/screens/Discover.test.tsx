@@ -112,9 +112,9 @@ describe('Discover', () => {
     ).toBeInTheDocument();
 
     // Playing one switches autoplay on; pausing switches it off.
-    expect(within(region).getByRole('combobox', { name: 'Autoplay' })).toHaveValue('on');
+    expect(within(region).getByRole('switch', { name: 'Autoplay' })).toBeChecked();
     await user.click(within(region).getByRole('button', { name: 'Pause Shoreline' }));
-    expect(within(region).getByRole('combobox', { name: 'Autoplay' })).toHaveValue('off');
+    expect(within(region).getByRole('switch', { name: 'Autoplay' })).not.toBeChecked();
 
     await user.click(within(region).getByRole('button', { name: 'Full album' }));
     expect(await screen.findByRole('dialog', { name: /^Listening Room/ })).toBeInTheDocument();
@@ -152,7 +152,9 @@ describe('Discover', () => {
     const { user, region } = await openDiscover();
     await within(region).findByRole('heading', { name: 'Rejoice' });
 
-    await user.selectOptions(within(region).getByRole('combobox', { name: 'Reach' }), 'far');
+    const reach = within(region).getByRole('radiogroup', { name: 'Reach' });
+    expect(within(reach).getByRole('radio', { name: 'Near' })).toBeChecked();
+    await user.click(within(reach).getByRole('radio', { name: 'Far' }));
 
     await waitFor(() => {
       expect(distances).toEqual(['near', 'far']);

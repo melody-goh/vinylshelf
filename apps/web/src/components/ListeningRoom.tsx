@@ -447,7 +447,7 @@ export function ListeningRoom({
         </button>
       </Reveal>
 
-      <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-6 pb-12 pt-4 md:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)] md:gap-16 md:px-10">
+      <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-6 pb-12 pt-4 md:grid-cols-[minmax(0,1fr)_minmax(17rem,24rem)] md:gap-16 md:px-10">
         <div className="flex flex-col items-center gap-6 md:gap-7">
           {/* The record, floating over its own shadow on the seamless ground. */}
           <div className="flex w-[min(40vh,72vw,26rem)] flex-col items-center">
@@ -610,9 +610,12 @@ export function ListeningRoom({
           </div>
 
           <footer className="mt-6 flex flex-col items-start gap-3 border-t border-rule pt-4 text-xs text-ink-soft">
-            <p>{previews.attribution}</p>
             {/* The room covers the page footer, so it carries the Discogs credit itself. */}
-            <DiscogsCredit href={release.discogsUrl} />
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <p>{previews.attribution}</p>
+              <span aria-hidden="true">·</span>
+              <DiscogsCredit href={release.discogsUrl} />
+            </div>
             {previews.albumUrl && (
               <a href={previews.albumUrl} target="_blank" rel="noreferrer">
                 <img src={appleMusicBadge} alt="Listen on Apple Music" className="h-10 w-auto" />

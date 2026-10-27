@@ -386,6 +386,7 @@ test('discover captures', async ({ page }) => {
   await page.screenshot({ path: `${OUT}/desktop-discover.png` });
   // One track plays on the page; its disc slides out of the sleeve and turns.
   await page.getByRole('button', { name: /^Play / }).click({ timeout: 6000 });
+  await page.getByRole('button', { name: 'Want', exact: true }).hover();
   await page.waitForTimeout(900);
   await page.screenshot({ path: `${OUT}/desktop-discover-playing.png` });
   // The whole record opens in the Listening Room.

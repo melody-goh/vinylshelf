@@ -25,7 +25,8 @@ import { ListeningRoom, playableTracks, type Playable } from './ListeningRoom';
 import { MissingCover } from './MissingCover';
 import { PlayButton } from './PlayButton';
 import { Quaver, ScoredText } from './ScoredText';
-import { TextSelect } from './TextSelect';
+import { DotChoice } from './DotChoice';
+import { Switch } from './Switch';
 
 /** One pick in the row, with the room it was found for. */
 export interface Placed {
@@ -169,8 +170,9 @@ export function Discover() {
   }
 
   const reach = (
-    <TextSelect
+    <DotChoice
       label="Reach"
+      dotId="reach-dot"
       value={distance}
       options={[
         { value: 'near', label: 'Near' },
@@ -419,17 +421,7 @@ function Row({
       <div className="relative z-[200] flex items-center justify-between gap-6 px-4 pb-4 text-sm md:absolute md:inset-x-8 md:bottom-6 md:p-0">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           {reach}
-          <TextSelect
-            label="Autoplay"
-            value={listening ? 'on' : 'off'}
-            options={[
-              { value: 'off', label: 'Off' },
-              { value: 'on', label: 'On' },
-            ]}
-            onChange={(value) => {
-              setListening(value === 'on');
-            }}
-          />
+          <Switch label="Autoplay" on={listening} onChange={setListening} />
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -756,16 +748,38 @@ function IconAction({
     <motion.button
       type="button"
       aria-label={label}
-      title={label}
       aria-pressed={pressed}
       disabled={disabled}
       onClick={onClick}
-      whileHover={disabled ? {} : { scale: 1.12 }}
-      whileTap={disabled ? {} : { scale: 0.9 }}
-      transition={press}
-      className="grid size-9 place-items-center rounded-full text-ink"
+      initial="rest"
+      animate="rest"
+      whileHover="show"
+      whileFocus="show"
+      whileTap={disabled ? undefined : 'press'}
+      className="relative grid size-9 place-items-center rounded-full text-ink"
     >
-      {children}
+      {/* Its name slides up out of the icon, where the eye already is. */}
+      <span className="pointer-events-none absolute inset-x-0 bottom-full mb-1 flex justify-center">
+        <motion.span
+          aria-hidden="true"
+          variants={{ rest: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
+          transition={press}
+          className="whitespace-nowrap text-xs text-ink"
+        >
+          {label}
+        </motion.span>
+      </span>
+      <motion.span
+        className="grid place-items-center"
+        variants={{
+          rest: { scale: 1 },
+          show: { scale: disabled ? 1 : 1.12 },
+          press: { scale: 0.9 },
+        }}
+        transition={press}
+      >
+        {children}
+      </motion.span>
     </motion.button>
   );
 }
