@@ -401,3 +401,45 @@ test('discover captures', async ({ page }) => {
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${OUT}/mobile-discover.png` });
 });
+
+/** Frame gaps (ms) over the next `ms`, to spot dropped frames in a transition. */
+async function frameGaps(page: Page, ms: number): Promise<number[]> {
+  return page.evaluate(
+    (duration) =>
+      new Promise<number[]>((resolve) => {
+        const gaps: number[] = [];
+        let last = performance.now();
+        const start = last;
+        const tick = (now: number) => {
+          gaps.push(Math.round(now - last));
+          last = now;
+          if (now - start < duration) requestAnimationFrame(tick);
+          else resolve(gaps);
+        };
+        requestAnimationFrame(tick);
+      }),
+    ms,
+  );
+}
+
+test('listening room smoothness', async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await mockApi(page, 'shelf');
+  await page.goto('/');
+  await settle(page);
+  const report = (name: string, gaps: number[]) => {
+    const sorted = [...gaps].sort((a, b) => a - b);
+    console.log(
+      name,
+      `frames ${String(gaps.length)}, median ${String(sorted[Math.floor(sorted.length / 2)])}ms, worst ${String(sorted.at(-1))}ms, over 34ms: ${String(gaps.filter((g) => g > 34).length)}`,
+    );
+  };
+  await page.getByRole('button', { name: 'Play a preview of Undertow' }).click({ timeout: 6000 });
+  const opening = frameGaps(page, 1800);
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${OUT}/desktop-listening-mid.png` });
+  report('gatefold open', await opening);
+  const closing = frameGaps(page, 1500);
+  await page.keyboard.press('Escape');
+  report('gatefold close', await closing);
+});

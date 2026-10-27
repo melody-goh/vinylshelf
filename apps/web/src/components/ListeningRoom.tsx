@@ -42,16 +42,16 @@ const press = { type: 'spring', stiffness: 500, damping: 28 } as const;
 const trackSlide = { type: 'spring', stiffness: 420, damping: 34 } as const;
 
 /**
- * The disc's way in (and back out): drawn from the sleeve, then carried to the platter.
- * The size spring is underdamped on purpose, so the disc zooms a touch past the platter
- * and settles back, like something with weight being set down.
+ * The disc's way in (and back out): drawn from the sleeve, then carried to the platter in
+ * one revolution, coming forward a little on the way (a slight zoom) and settling back.
+ * Only the disc moves; the room's ground and notes fade in around it.
  */
 const draw = { type: 'spring', stiffness: 260, damping: 32 } as const;
-const carry = { type: 'spring', stiffness: 130, damping: 21 } as const;
-const settle = { type: 'spring', stiffness: 150, damping: 11 } as const;
-/** Into the edge-on moment firmly, out of it with a little give. */
-const toEdge = { type: 'spring', stiffness: 240, damping: 30, restDelta: 0.5 } as const;
-const toFace = { type: 'spring', stiffness: 150, damping: 17 } as const;
+const carry = { type: 'spring', visualDuration: 0.9, bounce: 0 } as const;
+const forward = { type: 'spring', visualDuration: 0.45, bounce: 0 } as const;
+const settle = { type: 'spring', visualDuration: 0.5, bounce: 0.15 } as const;
+/** How far past its size on the platter the disc comes forward. */
+const FORWARD = 1.1;
 const fade = { type: 'spring', stiffness: 300, damping: 40 } as const;
 /** Leaving is quicker than arriving: the listener has already decided to go. */
 const back = { type: 'spring', stiffness: 260, damping: 30 } as const;
@@ -80,24 +80,6 @@ function clock(seconds: number): string {
 }
 
 /**
- * Half a turn about the vertical axis, through a visible edge-on moment: the disc turns
- * until it is a sliver, then comes round face-on again. The far side is never shown, so
- * the label never reads backwards.
- */
-async function flip(rotateY: MotionValue<number>): Promise<void> {
-  await animate(rotateY, 90, toEdge);
-  rotateY.set(-90);
-  await animate(rotateY, 0, toFace);
-}
-
-/** The page under the room: it falls back and fades as the disc comes forward. */
-function recede(page: HTMLElement | null, away: boolean) {
-  if (!page) return;
-  if (away) page.style.transformOrigin = `50% ${String(window.scrollY + window.innerHeight / 2)}px`;
-  void animate(page, away ? { scale: 0.94, opacity: 0 } : { scale: 1, opacity: 1 }, fade);
-}
-
-/**
  * The listening room: the record alone on the studio ground, its disc turning at 33⅓
  * while a preview plays, and one ruler across the whole record to scrub through it.
  * Dragging the cursor cues the record by hand: the disc turns with it, forwards or
@@ -105,9 +87,9 @@ function recede(page: HTMLElement | null, away: boolean) {
  * shown with Apple's attribution and badge (ADR 0010 §5).
  *
  * The disc arrives from the sleeve it was opened from: it slides out from behind the
- * cover, then is carried to the platter as the page falls back and the room comes up,
- * turning half over through an edge-on moment and settling with a little zoom. Closing
- * sends it back the same way. Under reduced motion the room simply appears.
+ * cover, then is carried to the platter in one revolution as the room comes up, coming
+ * forward a little and settling back. Nothing else moves. Closing sends it back the
+ * same way. Under reduced motion the room simply appears.
  */
 export function ListeningRoom({
   release,
@@ -161,7 +143,7 @@ export function ListeningRoom({
     x: useMotionValue(0),
     y: useMotionValue(0),
     scale: useMotionValue(1),
-    rotateY: useMotionValue(0),
+    rotate: useMotionValue(0),
   };
   const ground = useMotionValue(flies ? 0 : 1);
   /** A stand-in for the sleeve over the disc, so the disc comes out from behind it. */
@@ -194,13 +176,14 @@ export function ListeningRoom({
       await animate(flight.x, start.x + start.out, draw);
       if (run.cancelled) return;
       setRevealed(true);
-      // ...then carried to the platter as the page falls back, turning half over on the way.
+      // ...then carried to the platter in one revolution as the room comes up, coming
+      // forward a little and settling back.
       void animate(ground, 1, fade);
       void animate(sleeve, 0, fade);
-      recede(document.getElementById('root'), true);
       void animate(flight.x, 0, carry);
       void animate(flight.y, 0, carry);
-      void flip(flight.rotateY);
+      void animate(flight.rotate, 360, carry);
+      await animate(flight.scale, FORWARD, forward);
       void animate(flight.scale, 1, settle);
     })();
     return () => {
@@ -208,19 +191,6 @@ export function ListeningRoom({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, on opening
   }, []);
-
-  // However the room goes, the page comes back as it was.
-  useEffect(
-    () => () => {
-      const page = document.getElementById('root');
-      if (page) {
-        page.style.transform = '';
-        page.style.opacity = '';
-        page.style.transformOrigin = '';
-      }
-    },
-    [],
-  );
 
   /** Closing reverses the way in: back into the sleeve, then the room goes. */
   const close = useCallback(async () => {
@@ -234,11 +204,10 @@ export function ListeningRoom({
     audio.current?.pause();
     void animate(ground, 0, fade);
     void animate(sleeve, 1, fade);
-    recede(document.getElementById('root'), false);
     await Promise.all([
       animate(flight.x, end.x + end.out, back),
       animate(flight.y, end.y, back),
-      flip(flight.rotateY),
+      animate(flight.rotate, 0, back),
       animate(flight.scale, end.scale, back),
     ]);
     await animate(flight.x, end.x, draw);
@@ -482,11 +451,7 @@ export function ListeningRoom({
         <div className="flex flex-col items-center gap-6 md:gap-7">
           {/* The record, floating over its own shadow on the seamless ground. */}
           <div className="flex w-[min(40vh,72vw,26rem)] flex-col items-center">
-            <motion.div
-              ref={platter}
-              className="relative z-10 w-full"
-              style={{ ...flight, transformPerspective: 1400 }}
-            >
+            <motion.div ref={platter} className="relative z-10 w-full" style={flight}>
               <motion.div className="w-full" style={{ rotate: rotation }}>
                 <Disc
                   vinylColors={release.vinylColors}
