@@ -1,5 +1,5 @@
 import type { Release, ReleasePreviews } from '@vinylshelf/contract';
-import { Pause, Play, SkipBack, SkipForward, X } from 'lucide-react';
+import { SkipBack, SkipForward, X } from 'lucide-react';
 import {
   animate,
   motion,
@@ -24,6 +24,7 @@ import {
 import { createPortal } from 'react-dom';
 import appleMusicBadge from '../design/listen-on-apple-music.svg';
 import { Disc } from './Disc';
+import { PlayButton } from './PlayButton';
 import { DiscogsCredit } from './DiscogsCredit';
 import { MissingCover } from './MissingCover';
 
@@ -37,7 +38,6 @@ const REACH = 0.07;
 const RISE = 1.6;
 const STEP_SECONDS = 5;
 
-const press = { type: 'spring', stiffness: 500, damping: 28 } as const;
 /** The tabs' travelling dot, reused for the track that is playing. */
 const trackSlide = { type: 'spring', stiffness: 420, damping: 34 } as const;
 
@@ -528,21 +528,7 @@ export function ListeningRoom({
               >
                 <SkipBack aria-hidden="true" className="size-5 fill-current" />
               </button>
-              <motion.button
-                type="button"
-                onClick={toggle}
-                aria-label={playing ? 'Pause' : 'Play'}
-                whileHover={{ scale: 1.06 }}
-                whileTap={{ scale: 0.95 }}
-                transition={press}
-                className="grid size-14 place-items-center rounded-full bg-sticker text-sticker-ink shadow-photo"
-              >
-                {playing ? (
-                  <Pause aria-hidden="true" className="size-6 fill-current" />
-                ) : (
-                  <Play aria-hidden="true" className="ml-0.5 size-6 fill-current" />
-                )}
-              </motion.button>
+              <PlayButton playing={playing} onClick={toggle} size="lg" />
               <button
                 type="button"
                 onClick={() => {

@@ -1,6 +1,6 @@
 import type { TastePick, TasteRecommendations, TasteRoom } from '@vinylshelf/contract';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Heart, X } from 'lucide-react';
 import { motion, useAnimationFrame, useMotionValue, useReducedMotion } from 'motion/react';
 import {
   useEffect,
@@ -23,6 +23,7 @@ type TasteVerdict = TasteFeedback['verdict'];
 import { Disc } from './Disc';
 import { ListeningRoom, playableTracks, type Playable } from './ListeningRoom';
 import { MissingCover } from './MissingCover';
+import { PlayButton } from './PlayButton';
 import { Quaver, ScoredText } from './ScoredText';
 import { TextSelect } from './TextSelect';
 
@@ -371,13 +372,6 @@ function Row({
             if (playing) audio.current?.pause();
             else if (url) void audio.current?.play().catch(() => undefined);
           }}
-        />
-        <Actions
-          key={masterId}
-          mainReleaseId={mainReleaseId}
-          canOpen={featured !== null}
-          verdict={verdict}
-          onVerdict={onVerdict}
           onAlbum={() => {
             if (!featured) return;
             setListening(false);
@@ -391,6 +385,14 @@ function Row({
       </div>
 
       <div ref={stage} className="relative h-[52vh] shrink-0 md:absolute md:inset-0 md:h-auto">
+        <div className="absolute z-[150]" style={{ left: anchor, top: top - 56, width: size }}>
+          <Verdicts
+            key={masterId}
+            mainReleaseId={mainReleaseId}
+            verdict={verdict}
+            onVerdict={onVerdict}
+          />
+        </div>
         {box.width > 0 &&
           placed.map((item, index) => {
             const offset = index - front;
@@ -649,110 +651,121 @@ function Preview({
   missing,
   playing,
   onToggle,
+  onAlbum,
 }: {
   featured: ReturnType<typeof featuredTrack>;
   /** Previews were looked up and there are none. */
   missing: boolean;
   playing: boolean;
   onToggle: () => void;
+  onAlbum: () => void;
 }) {
   if (missing) return <p className="text-sm text-ink-soft">No previews for this record.</p>;
   const title = featured?.track.title;
   return (
-    <div>
-      <div className="flex items-center gap-3 border-t border-ink/70 py-2">
-        <Quaver className="size-5 shrink-0" />
-        <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate text-sm font-semibold">{title ?? '\u00a0'}</p>
-          <p className="mt-0.5 text-xs text-ink-soft">
-            {featured ? (featured.why === 'title' ? 'Title track' : 'Opening track') : '\u00a0'}
-          </p>
-        </div>
-        <motion.button
-          type="button"
-          disabled={!featured}
-          aria-busy={!featured}
-          aria-label={title ? `${playing ? 'Pause' : 'Play'} ${title}` : 'Preview'}
-          onClick={onToggle}
-          whileHover={featured ? { scale: 1.06 } : {}}
-          whileTap={featured ? { scale: 0.95 } : {}}
-          transition={press}
-          className="grid size-10 shrink-0 place-items-center rounded-full bg-sticker text-sticker-ink shadow-photo disabled:opacity-50"
-        >
-          {playing ? (
-            <Pause aria-hidden="true" className="size-4 fill-current" />
-          ) : (
-            <Play aria-hidden="true" className="ml-0.5 size-4 fill-current" />
-          )}
-        </motion.button>
+    <div className="flex items-center gap-3 border-t border-ink/70 py-2">
+      <Quaver className="size-5 shrink-0" />
+      <div className="min-w-0 flex-1 leading-tight">
+        <p className="truncate text-sm font-semibold">{title ?? '\u00a0'}</p>
+        {featured ? (
+          <button
+            type="button"
+            onClick={onAlbum}
+            className="mt-0.5 text-xs text-ink-soft underline"
+          >
+            Full album
+          </button>
+        ) : (
+          <p className="mt-0.5 text-xs">&nbsp;</p>
+        )}
       </div>
+      <PlayButton playing={playing} label={title} disabled={!featured} onClick={onToggle} />
     </div>
   );
 }
 
 /**
- * What to do with the front record: hear all of it, want it, or steer the picks. Each is
- * a quiet text action; a given verdict is set in ink and can be taken back.
+ * Wanting the front record, or steering the picks, as three quiet icons above its
+ * sleeve: a heart (want), a tick (more like this) and a cross (not for me). A given one
+ * is set heavier, the heart filled; each names itself on hover and to screen readers.
  */
-function Actions({
+function Verdicts({
   mainReleaseId,
-  canOpen,
   verdict,
   onVerdict,
-  onAlbum,
 }: {
   mainReleaseId: number;
-  canOpen: boolean;
   verdict: TasteVerdict | null;
   onVerdict: (verdict: TasteVerdict | null) => void;
-  onAlbum: () => void;
 }) {
   const want = useWant();
   const wanted = want.add.isSuccess;
-  const action = (on: boolean) =>
-    `underline-offset-2 ${on ? 'font-semibold text-ink' : 'text-ink-soft hover:text-ink'}`;
+  const icon = (on: boolean) => `size-6 ${on ? 'stroke-[2.5]' : 'stroke-[1.5]'}`;
   return (
-    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs">
-      {canOpen && (
-        <button type="button" onClick={onAlbum} className="underline">
-          Full album
-        </button>
+    <div className="flex items-center justify-end gap-5">
+      {want.add.isError && (
+        <span role="alert" className="text-xs text-ink-soft">
+          Couldn&rsquo;t reach Discogs just now.
+        </span>
       )}
-      <button
-        type="button"
-        aria-pressed={wanted}
+      <IconAction
+        label={wanted ? 'Wanted' : 'Want'}
+        pressed={wanted}
         disabled={wanted || want.add.isPending}
         onClick={() => {
           want.add.mutate(mainReleaseId);
         }}
-        className={action(wanted)}
       >
-        {wanted ? 'Wanted' : want.add.isPending ? 'Wanting…' : 'Want'}
-      </button>
-      <button
-        type="button"
-        aria-pressed={verdict === 'more'}
+        <Heart aria-hidden="true" className={`${icon(wanted)} ${wanted ? 'fill-current' : ''}`} />
+      </IconAction>
+      <IconAction
+        label="More like this"
+        pressed={verdict === 'more'}
         onClick={() => {
           onVerdict(verdict === 'more' ? null : 'more');
         }}
-        className={action(verdict === 'more')}
       >
-        More like this
-      </button>
-      <button
-        type="button"
+        <Check aria-hidden="true" className={icon(verdict === 'more')} />
+      </IconAction>
+      <IconAction
+        label="Not for me"
         onClick={() => {
           onVerdict('less');
         }}
-        className={action(false)}
       >
-        Not for me
-      </button>
-      {want.add.isError && (
-        <span role="alert" className="basis-full text-ink-soft">
-          Couldn&rsquo;t reach Discogs just now. Nothing changed.
-        </span>
-      )}
+        <X aria-hidden="true" className={icon(false)} />
+      </IconAction>
     </div>
+  );
+}
+
+function IconAction({
+  label,
+  pressed,
+  disabled = false,
+  onClick,
+  children,
+}: {
+  label: string;
+  pressed?: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <motion.button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      disabled={disabled}
+      onClick={onClick}
+      whileHover={disabled ? {} : { scale: 1.12 }}
+      whileTap={disabled ? {} : { scale: 0.9 }}
+      transition={press}
+      className="grid size-9 place-items-center rounded-full text-ink"
+    >
+      {children}
+    </motion.button>
   );
 }

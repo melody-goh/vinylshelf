@@ -106,7 +106,6 @@ describe('Discover', () => {
       { name: 'Play Shoreline' },
       { timeout: 4000 },
     );
-    expect(within(region).getByText(/Opening track/)).toBeInTheDocument();
     await user.click(play);
     expect(
       await within(region).findByRole('button', { name: 'Pause Shoreline' }),
