@@ -9,6 +9,7 @@ const TABLES = [
   'itunes_preview_cache',
   'catalogue_masters',
   'catalogue_meta',
+  'taste_feedback',
   'import_jobs',
   'sessions',
   'users',

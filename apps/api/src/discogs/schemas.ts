@@ -29,6 +29,8 @@ const artist = z.object({
 /** The release summary Discogs embeds in collection and wantlist entries. */
 const basicInformation = z.object({
   id: z.number().int().positive(),
+  /** 0 when the release belongs to no master. */
+  master_id: z.number().int().min(0).default(0),
   title: z.string(),
   year: z.number().int().min(0),
   cover_image: z.string().optional(),
@@ -65,6 +67,7 @@ const format = z.object({
 
 export const releaseResponse = z.object({
   id: z.number().int().positive(),
+  master_id: z.number().int().min(0).optional(),
   title: z.string(),
   year: z.number().int().min(0).optional(),
   artists: z.array(artist),

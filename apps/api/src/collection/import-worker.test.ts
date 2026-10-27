@@ -87,6 +87,18 @@ describe('runImport', () => {
     expect(requestedPages).toEqual([1, 2, 2]);
   });
 
+  it("keeps each record's master id on the shelf reference, null when it has none", async () => {
+    await run();
+    const items = await db()
+      .select({ releaseId: collectionItems.releaseId, masterId: collectionItems.masterId })
+      .from(collectionItems);
+    expect(items.sort((a, b) => a.releaseId - b.releaseId)).toEqual([
+      { releaseId: 9000001, masterId: 800001 },
+      { releaseId: 9000002, masterId: null },
+      { releaseId: 9000003, masterId: 800003 },
+    ]);
+  });
+
   it('removes shelf items that are no longer in the Discogs collection', async () => {
     await db()
       .insert(collectionItems)

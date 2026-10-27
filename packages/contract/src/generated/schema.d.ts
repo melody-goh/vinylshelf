@@ -396,6 +396,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/taste/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Steer recommendations with "more like this" or "not for me"
+         * @description `more` treats the record as if it were on the shelf, so it pulls picks its way;
+         *     `less` keeps it, and records very like it, out of the picks. Neither is
+         *     recommended again. A new verdict on the same record replaces the old one. Kept
+         *     as catalogue ids with the user's account (ADR 0008).
+         */
+        post: operations["giveTasteFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/taste/feedback/{masterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                masterId: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take back a verdict
+         * @description Withdrawing a verdict that was never given is treated as done.
+         */
+        delete: operations["withdrawTasteFeedback"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/taste/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Records the user is likely to love, grouped by the sides of their shelf
+         * @description The shelf is split into rooms, its sides, and each room gets its own picks, each
+         *     with a reason that names shelf records bearing it out (ADR 0008, Notes
+         *     2026-10-26). Picks come from the taste catalogue, built from Discogs' CC0 data
+         *     dumps (ADR 0012), so they carry no `expiresAt`; they still credit Discogs.
+         *
+         *     The same shelf, feedback and catalogue always give the same answer. `status`
+         *     says why there are no rooms, when there are none:
+         *
+         *     - `no_catalogue`: no taste catalogue is loaded on this server;
+         *     - `too_few_records`: fewer than three shelf records are in the catalogue
+         *       (`basedOn` says how many are), for example straight after the first import.
+         */
+        get: operations["getTasteRecommendations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/wantlist": {
         parameters: {
             query?: never;
@@ -456,6 +531,26 @@ export interface components {
          * @enum {string}
          */
         CaptureSource: "laptop_mic" | "file_upload" | "paired_phone";
+        /**
+         * @description An album across its pressings (a Discogs master), from the CC0 taste catalogue.
+         *     It has no image: a client shows a cover through `/releases/{mainReleaseId}`.
+         */
+        CatalogueMaster: {
+            artists: string[];
+            /**
+             * Format: uri
+             * @description The master's page on Discogs.
+             */
+            discogsUrl: string;
+            genres: string[];
+            labels: string[];
+            /** @description The release Discogs picks to stand for the master. */
+            mainReleaseId: number;
+            masterId: number;
+            styles: string[];
+            title: string;
+            year: number | null;
+        };
         CollectionFacets: {
             colourways: {
                 black: number;
@@ -749,6 +844,57 @@ export interface components {
             thumbUrl: string | null;
             title: string;
             year: number | null;
+        };
+        TasteFeedback: {
+            masterId: number;
+            /** @enum {string} */
+            verdict: "more" | "less";
+        };
+        TastePick: {
+            master: components["schemas"]["CatalogueMaster"];
+            reason: components["schemas"]["TasteReason"];
+        };
+        /**
+         * @description Why the record is picked, chosen by our code, never invented (ADR 0008 §2).
+         *     Strongest kind first: `people` (someone who made records on the shelf made this
+         *     one too), `label` (same label and decade), `styles`, `sound` (close to one
+         *     shelf record).
+         */
+        TasteReason: {
+            /** @enum {string} */
+            kind: "people" | "label" | "styles" | "sound";
+            /** @description Titles of the shelf records that bear the reason out. */
+            shelfTitles: string[];
+            /** @description One short line, e.g. "Rudy Van Gelder is on 4 of your records". */
+            text: string;
+        };
+        TasteRecommendations: {
+            basedOn: {
+                /** @description Of those, how many the catalogue knows, which the picks come from. */
+                inCatalogue: number;
+                /** @description Records on the shelf. */
+                shelfRecords: number;
+            };
+            /** @description The loaded taste catalogue; null when none is. */
+            catalogue: {
+                /** @description The Discogs data dump it was built from, e.g. "20261001". */
+                dump: string;
+                rows: number;
+            } | null;
+            /** @description Largest room first. Empty unless `status` is `ready`. */
+            rooms: components["schemas"]["TasteRoom"][];
+            /** @enum {string} */
+            status: "ready" | "no_catalogue" | "too_few_records";
+        };
+        TasteRoom: {
+            /** @description Stable while the shelf and feedback stay the same. */
+            id: string;
+            /** @description Best first. No record appears in two rooms. */
+            picks: components["schemas"]["TastePick"][];
+            /** @description Shelf records in the room, counting those marked "more like this". */
+            size: number;
+            /** @description The room's commonest styles, most common first; what it is called. */
+            styles: string[];
         };
         User: {
             discogsUsername: string;
@@ -1375,6 +1521,90 @@ export interface operations {
             };
             429: components["responses"]["RateLimited"];
             503: components["responses"]["Problem"];
+        };
+    };
+    giveTasteFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TasteFeedback"];
+            };
+        };
+        responses: {
+            /** @description Recorded; the next recommendations take it into account. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["ForbiddenOrigin"];
+            /** @description Not a record in the taste catalogue (`code: master_not_found`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    withdrawTasteFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                masterId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No verdict on this record any more. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Problem"];
+            403: components["responses"]["ForbiddenOrigin"];
+        };
+    };
+    getTasteRecommendations: {
+        parameters: {
+            query?: {
+                /**
+                 * @description `near` stays close to the shelf; `far` reaches further, trades some accuracy
+                 *     for range and only suggests artists the user does not own.
+                 */
+                distance?: "near" | "far";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recommendations, or why there are none. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TasteRecommendations"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
         };
     };
     listWantlist: {

@@ -19,6 +19,7 @@ function release(id: number, overrides: Partial<ReleaseSummaryData> = {}): Relea
     year: 1974,
     vinylColors: [],
     formatNames: ['Vinyl'],
+    masterId: null,
     genres: ['Classical'],
     styles: [],
     coverImageUrl: `https://i.discogs.com/fixture/cover-${id}.jpg`,

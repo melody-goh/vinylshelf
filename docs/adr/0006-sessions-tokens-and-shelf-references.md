@@ -76,3 +76,13 @@ production (ADR 0007).
   code to maintain for no benefit when every call is HTTPS.
 - **Keeping only release IDs:** the strictest reading of ADR 0004 §5, but the shelf
   could then not distinguish duplicate copies or keep its default sort order.
+
+### 2026-10-27: the master id is part of the shelf reference
+
+A shelf reference now also keeps the release's Discogs **master id** (null when the
+release has none). It is an identifier of the same kind as the release id: it says which
+album a copy belongs to and carries no descriptive data. It links a shelf record to the
+CC0 taste catalogue (ADR 0008), which has to work at any time; keeping the link in the
+release cache instead would mean either reading Discogs data past its six-hour deadline
+(ADR 0004) or losing the link whenever the cache expires. It is written by every import
+and every added record, and deleted with the shelf reference.

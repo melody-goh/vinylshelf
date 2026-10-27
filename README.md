@@ -93,12 +93,17 @@ pnpm --filter @vinylshelf/api models:fetch     # once: the embedding model's wei
 pnpm --filter @vinylshelf/api catalogue:load   # the newest catalogue release into Postgres
 ```
 
+Recommendations link shelf records to the catalogue by their Discogs master id, which
+imports record from migration 0007 on: after migrating an existing database, press
+**Sync with Discogs** once.
+
 | Command | What it does |
 |---|---|
 | `models:fetch` | Downloads `bge-small-en-v1.5` into `apps/api/.models` (git-ignored); the API never downloads at runtime |
 | `catalogue:load [--tag catalogue-YYYYMM \| --dir path]` | Verifies a built catalogue against its manifest and replaces the loaded one in a single transaction |
 | `catalogue:build --dump YYYYMM01 [--cap N] [--out dir]` | Builds a catalogue from a month's dumps, streaming them |
 | `catalogue:publish dir` | Publishes a built catalogue as the month's GitHub Release |
+| `taste:eval [--user name] [--folds 5] [--k 20]` | Scores the engine against your own imported shelf, a fold held out at a time, and prints the picks; prints only, writes nothing |
 
 To publish a new catalogue, build it locally and publish it: Discogs' download host
 currently refuses GitHub's runners, so the Catalogue workflow cannot fetch the dumps (ADR
