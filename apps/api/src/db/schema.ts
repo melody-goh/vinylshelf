@@ -291,3 +291,68 @@ export const tasteFeedback = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.masterId] })],
 );
+
+export const tasteSurface = pgEnum('taste_surface', ['discover', 'search']);
+export const tasteDistance = pgEnum('taste_distance', ['near', 'far']);
+export const tasteEventKind = pgEnum('taste_event_kind', [
+  'viewed',
+  'previewed',
+  'opened',
+  'wanted',
+  'more',
+  'less',
+  'withdrawn',
+]);
+export type TasteEventKind = (typeof tasteEventKind.enumValues)[number];
+
+/** One served pick, in the order the row shows it. */
+export interface ServedPick {
+  masterId: number;
+  /** The room it was found for; null in search results. */
+  roomId: string | null;
+}
+
+/**
+ * A list of picks as it was served (ADR 0013): where, with what settings, and in what
+ * order, so events can be read against what the listener was actually shown. Catalogue
+ * ids only (CC0); the user's own record of use, deleted with their account.
+ */
+export const tasteLists = pgTable(
+  'taste_lists',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    surface: tasteSurface('surface').notNull(),
+    distance: tasteDistance('distance'),
+    query: text('query'),
+    page: smallint('page').notNull().default(0),
+    picks: jsonb('picks').$type<ServedPick[]>().notNull(),
+    servedAt: timestamptz('served_at').notNull(),
+  },
+  (t) => [index('taste_lists_user_served_idx').on(t.userId, t.servedAt)],
+);
+
+/** What the listener did with one pick of a served list (ADR 0013). */
+export const tasteEvents = pgTable(
+  'taste_events',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    listId: uuid('list_id')
+      .notNull()
+      .references(() => tasteLists.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: tasteEventKind('kind').notNull(),
+    masterId: integer('master_id').notNull(),
+    /** Zero-based place in the list as served. */
+    position: smallint('position').notNull(),
+    at: timestamptz('at').notNull(),
+  },
+  (t) => [
+    index('taste_events_list_idx').on(t.listId),
+    index('taste_events_user_at_idx').on(t.userId, t.at),
+  ],
+);

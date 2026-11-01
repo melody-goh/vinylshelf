@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { API_PREFIX, type AppDependencies } from '../app.js';
-import { collectionItems, discogsReleaseCache } from '../db/schema.js';
+import { collectionItems, discogsReleaseCache, tasteEvents, tasteLists } from '../db/schema.js';
 import { buildTestApp, TEST_NOW, testConfig } from '../test/app.js';
 import { circle, seedCatalogue, TEST_DUMP, testWorld } from '../test/catalogue.js';
 import { useTestDatabase } from '../test/database.js';
@@ -11,6 +11,7 @@ import { discogsFixtures, discogsUrls } from '../test/discogs-handlers.js';
 import { createUser, sessionFor } from '../test/factories.js';
 import { mswServer } from '../test/msw.js';
 import type { SyntheticWorld } from './eval/synthetic.js';
+import { EVENT_BATCHES_PER_MINUTE } from './routes.js';
 import { PICKS_PER_ROOM } from './service.js';
 
 const { db, handle } = useTestDatabase();
@@ -102,6 +103,7 @@ describe('GET /taste/recommendations', () => {
       catalogue: null,
       basedOn: { shelfRecords: 10, inCatalogue: 0, wanted: null },
       rooms: [],
+      listId: null,
     });
   });
 
@@ -113,6 +115,7 @@ describe('GET /taste/recommendations', () => {
       catalogue: { dump: TEST_DUMP, rows: world.catalogue.length },
       basedOn: { shelfRecords: 4, inCatalogue: 2, wanted: 0 },
       rooms: [],
+      listId: null,
     });
   });
 
@@ -154,7 +157,11 @@ describe('GET /taste/recommendations', () => {
   it('gives the same answer for the same shelf', async () => {
     await seedCatalogue(db(), world);
     await shelve(SHELF());
-    expect(await recommendations()).toEqual(await recommendations());
+    const { listId: first, ...answer } = await recommendations();
+    const { listId: second, ...again } = await recommendations();
+    expect(again).toEqual(answer);
+    // Each serving is its own list for events, even when its picks are the same.
+    expect(second).not.toBe(first);
   });
 
   it('reaches only for artists the shelf does not have when far', async () => {
@@ -309,5 +316,83 @@ describe('taste feedback', () => {
   it('treats withdrawing a verdict never given as done', async () => {
     expect((await call('DELETE', '/taste/feedback/12345')).statusCode).toBe(204);
     expect((await call('DELETE', '/taste/feedback/nope')).statusCode).toBe(204);
+  });
+});
+
+describe('POST /taste/events', () => {
+  const events = (body: unknown, cookie?: string | null) =>
+    call('POST', '/taste/events', { body, cookie });
+
+  beforeEach(async () => {
+    await seedCatalogue(db(), world);
+    await shelve(SHELF());
+  });
+
+  it('keeps each served list in row order, and nothing for an empty one', async () => {
+    const served = await recommendations();
+    const [list] = await db().select().from(tasteLists);
+    expect(list).toMatchObject({
+      id: served.listId,
+      userId,
+      surface: 'discover',
+      distance: 'near',
+    });
+    expect(list?.picks).toEqual(
+      served.rooms.flatMap((room) =>
+        room.picks.map((pick) => ({ masterId: pick.master.masterId, roomId: room.id })),
+      ),
+    );
+
+    await db().delete(collectionItems);
+    expect((await recommendations()).listId).toBeNull();
+  });
+
+  it('records events with the position served, whatever the row shows now', async () => {
+    const served = await recommendations();
+    const listId = served.listId ?? '';
+    const third = picks(served)[2]?.master.masterId ?? 0;
+    const res = await events({
+      events: [
+        { listId, masterId: third, kind: 'viewed' },
+        { listId, masterId: third, kind: 'previewed' },
+      ],
+    });
+    expect(res.statusCode).toBe(204);
+    const rows = await db().select().from(tasteEvents);
+    expect(rows.map((r) => [r.kind, r.masterId, r.position, r.userId])).toEqual([
+      ['viewed', third, 2, userId],
+      ['previewed', third, 2, userId],
+    ]);
+    expect(rows[0]?.at).toEqual(new Date(TEST_NOW));
+  });
+
+  it("drops events for records not served, and for someone else's list", async () => {
+    const served = await recommendations();
+    const listId = served.listId ?? '';
+    const pick = picks(served)[0]?.master.masterId ?? 0;
+    const strangerSid = await sessionFor(
+      deps,
+      (await createUser(deps, { id: 2, username: 'stranger' })).id,
+    );
+    expect(
+      (await events({ events: [{ listId, masterId: pick, kind: 'more' }] }, strangerSid))
+        .statusCode,
+    ).toBe(204);
+    await events({ events: [{ listId, masterId: 999_999, kind: 'viewed' }] });
+    await events({
+      events: [{ listId: '00000000-0000-4000-8000-000000000000', masterId: pick, kind: 'viewed' }],
+    });
+    expect(await db().select().from(tasteEvents)).toEqual([]);
+  });
+
+  it('refuses malformed batches and strangers, and limits batches per session', async () => {
+    const listId = (await recommendations()).listId ?? '';
+    const one = { listId, masterId: 1, kind: 'viewed' };
+    expect((await events({ events: [] })).statusCode).toBe(400);
+    expect((await events({ events: Array(51).fill(one) })).statusCode).toBe(400);
+    expect((await events({ events: [{ ...one, kind: 'loved' }] })).statusCode).toBe(400);
+    expect((await events({ events: [one] }, null)).statusCode).toBe(401);
+    for (let i = 0; i < EVENT_BATCHES_PER_MINUTE; i++) await events({ events: [one] });
+    expect((await events({ events: [one] })).statusCode).toBe(429);
   });
 });

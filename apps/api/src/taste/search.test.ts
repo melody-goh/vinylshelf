@@ -109,6 +109,7 @@ describe('GET /taste/search', () => {
       status: 'no_catalogue',
       query: 'modal jazz',
       results: [],
+      listId: null,
     });
   });
 

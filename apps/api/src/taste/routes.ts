@@ -2,7 +2,9 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { currentUserId, requireUser } from '../auth/guard.js';
 import type { SessionStore } from '../auth/sessions.js';
+import { clientIp } from '../http/proxy.js';
 import {
+  tasteEventsBody,
   tasteFeedbackBody,
   tasteRecommendationsQuery,
   tasteSearchQuery,
@@ -10,6 +12,9 @@ import {
   tasteRecommendationsSchema,
 } from '../http/schemas.js';
 import type { TasteService } from './service.js';
+
+/** Per client: the web app sends one batch every few seconds at most. */
+export const EVENT_BATCHES_PER_MINUTE = 60;
 
 export interface TasteRouteDependencies {
   sessions: SessionStore;
@@ -41,6 +46,26 @@ export const tasteRoutes =
         schema: { querystring: tasteSearchQuery, response: { 200: tasteSearchSchema } },
       },
       async (request) => deps.taste.search(currentUserId(request), request.query.q),
+    );
+
+    app.post(
+      '/taste/events',
+      {
+        ...auth,
+        schema: { body: tasteEventsBody },
+        // Batched by the client every few seconds; this is far above honest use.
+        config: {
+          rateLimit: {
+            max: EVENT_BATCHES_PER_MINUTE,
+            timeWindow: 60_000,
+            keyGenerator: (request) => request.cookies.sid ?? clientIp(request),
+          },
+        },
+      },
+      async (request, reply) => {
+        await deps.taste.recordEvents(currentUserId(request), request.body.events);
+        return reply.status(204).send();
+      },
     );
 
     app.post(

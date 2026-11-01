@@ -232,6 +232,7 @@ export const tasteRecommendationsSchema = z.object({
       ),
     }),
   ),
+  listId: z.uuid().nullable(),
 });
 
 export const tasteRecommendationsQuery = z.object({
@@ -247,6 +248,20 @@ export const tasteSearchSchema = z.object({
   status: z.enum(['ready', 'no_catalogue']),
   query: z.string(),
   results: tasteRecommendationsSchema.shape.rooms.element.shape.picks,
+  listId: z.uuid().nullable(),
+});
+
+export const tasteEventsBody = z.object({
+  events: z
+    .array(
+      z.object({
+        listId: z.uuid(),
+        masterId: z.number().int().min(1),
+        kind: z.enum(['viewed', 'previewed', 'opened', 'wanted', 'more', 'less', 'withdrawn']),
+      }),
+    )
+    .min(1)
+    .max(50),
 });
 
 export const tasteSearchQuery = z.object({
