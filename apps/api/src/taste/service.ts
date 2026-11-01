@@ -7,6 +7,7 @@
  */
 import type {
   CatalogueMaster as CatalogueMasterView,
+  TasteEvent,
   TasteRecommendations,
   TasteSearch,
 } from '@vinylshelf/contract';
@@ -22,6 +23,7 @@ import { ProblemError } from '../http/problem.js';
 import type { Clock } from '../lib/clock.js';
 import { catalogueRows, pgMatchNames, pgvectorRetrieve } from './catalogue-store.js';
 import { recommend, type Retrieve } from './engine.js';
+import type { TasteLog } from './events.js';
 import type { QueryEmbedder } from './query-embedder.js';
 import type { Distance } from './rank.js';
 import { searchCatalogue, type MatchNames } from './search.js';
@@ -62,6 +64,7 @@ export class TasteService {
     private readonly gateway: DiscogsGateway,
     private readonly users: UserRepository,
     private readonly embedder: QueryEmbedder,
+    private readonly log: TasteLog,
   ) {
     this.retrieve = pgvectorRetrieve(database);
     this.matchNames = pgMatchNames(database);
@@ -83,6 +86,7 @@ export class TasteService {
         catalogue,
         basedOn: { shelfRecords: shelfItems.length, inCatalogue: 0, wanted: null },
         rooms: [],
+        listId: null,
       };
     }
     const shelf = await catalogueRows(this.database, [...ownedMasters]);
@@ -100,7 +104,7 @@ export class TasteService {
       wanted: wantedIds ? wanted.length : null,
     };
     if (shelf.length + wanted.length < MIN_SHELF) {
-      return { status: 'too_few_records', catalogue, basedOn, rooms: [] };
+      return { status: 'too_few_records', catalogue, basedOn, rooms: [], listId: null };
     }
 
     const verdicts = await db
@@ -138,18 +142,25 @@ export class TasteService {
       retrieve: this.retrieve,
     });
 
+    const rooms = results.filter((r) => r.picks.length > 0);
+    // Served room after room, as the row shows them.
+    const served = rooms.flatMap(({ room, picks }) =>
+      picks.map((pick) => ({ masterId: pick.master.id, roomId: room.id })),
+    );
     return {
       status: 'ready',
       catalogue,
       basedOn,
-      rooms: results
-        .filter((r) => r.picks.length > 0)
-        .map(({ room, picks }) => ({
-          id: room.id,
-          styles: room.styles,
-          size: room.members.length,
-          picks: picks.map((pick) => ({ master: toView(pick.master), reason: pick.reason })),
-        })),
+      rooms: rooms.map(({ room, picks }) => ({
+        id: room.id,
+        styles: room.styles,
+        size: room.members.length,
+        picks: picks.map((pick) => ({ master: toView(pick.master), reason: pick.reason })),
+      })),
+      listId:
+        served.length > 0
+          ? await this.log.served(userId, { surface: 'discover', distance, page: 0, picks: served })
+          : null,
     };
   }
 
@@ -188,7 +199,7 @@ export class TasteService {
   async search(userId: string, description: string): Promise<TasteSearch> {
     const query = description.trim();
     const manifest = await loadedCatalogue(this.database);
-    if (!manifest) return { status: 'no_catalogue', query, results: [] };
+    if (!manifest) return { status: 'no_catalogue', query, results: [], listId: null };
 
     let vector: Float32Array;
     try {
@@ -221,10 +232,15 @@ export class TasteService {
       retrieve: this.retrieve,
       limit: SEARCH_RESULTS,
     });
+    const served = hits.map((hit) => ({ masterId: hit.master.id, roomId: null }));
     return {
       status: 'ready',
       query,
       results: hits.map((hit) => ({ master: toView(hit.master), reason: hit.reason })),
+      listId:
+        served.length > 0
+          ? await this.log.served(userId, { surface: 'search', query, page: 0, picks: served })
+          : null,
     };
   }
 
@@ -242,6 +258,11 @@ export class TasteService {
         target: [tasteFeedback.userId, tasteFeedback.masterId],
         set: { verdict, createdAt },
       });
+  }
+
+  /** What the listener did with served picks (ADR 0013). */
+  async recordEvents(userId: string, events: readonly TasteEvent[]): Promise<void> {
+    await this.log.record(userId, events);
   }
 
   async withdrawFeedback(userId: string, masterId: number): Promise<void> {
