@@ -22,7 +22,7 @@ const REQUEST_TOKEN_TTL_SECONDS = 10 * 60;
 export const LOGIN_STARTS_PER_MINUTE = 10;
 
 export interface AuthRouteDependencies {
-  config: Pick<Config, 'nodeEnv' | 'webOrigin'> & {
+  config: Pick<Config, 'nodeEnv' | 'webOrigin' | 'allowedDiscogsUsers'> & {
     discogs: Pick<Config['discogs'], 'callbackUrl'>;
   };
   gateway: DiscogsGateway;
@@ -125,6 +125,12 @@ export const authRoutes =
             return reply.redirect(backToApp('discogs_unavailable'), 302);
           }
           throw error;
+        }
+
+        // Checked before anything is stored, so an uninvited user leaves no trace.
+        const allowed = config.allowedDiscogsUsers;
+        if (allowed && !allowed.includes(identity.username.toLowerCase())) {
+          return reply.redirect(backToApp('not_invited'), 302);
         }
 
         const user = await users.upsertFromDiscogs(identity, accessToken);
