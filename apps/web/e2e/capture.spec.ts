@@ -89,7 +89,14 @@ async function mockApi(page: Page, state: State): Promise<void> {
     const picks = recommendations()
       .rooms.flatMap((r) => r.picks)
       .reverse();
-    return route.fulfill({ json: { status: 'ready', query: q, results: picks } });
+    return route.fulfill({
+      json: {
+        status: 'ready',
+        query: q,
+        results: picks,
+        listId: '00000000-0000-4000-8000-00000000000b',
+      },
+    });
   });
   await page.route('**/api/v1/search/releases**', (route) =>
     route.fulfill({ json: searchResults() }),

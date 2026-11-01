@@ -13,12 +13,13 @@ import {
 } from 'react';
 import { useExpired } from '../api/expiry';
 import { useDwell, usePreviews } from '../api/previews';
+import { reportTasteEvent } from '../api/taste-events';
 import { useRelease } from '../api/releases';
 import { ApiError } from '../api/client';
 import { useRecommendations, useTasteFeedback, useTasteSearch, type Distance } from '../api/taste';
 import { useWant } from '../api/wantlist';
 import { useWideScreen } from '../design/media';
-import type { Release, TasteFeedback } from '@vinylshelf/contract';
+import type { Release, TasteEvent, TasteFeedback } from '@vinylshelf/contract';
 
 type TasteVerdict = TasteFeedback['verdict'];
 import { Disc } from './Disc';
@@ -30,27 +31,33 @@ import { DotChoice } from './DotChoice';
 import { SearchField } from './SearchField';
 import { Switch } from './Switch';
 
-/** One pick in the row, with the room it was found for. */
+/** One pick in the row, with the room it was found for and the list it was served in. */
 export interface Placed {
   pick: TastePick;
   room: TasteRoom;
+  listId: string | null;
 }
 
 /** Search results as a row of their own, named by the description in quotes. */
-export function placeSearch(query: string, picks: readonly TastePick[]): Placed[] {
+export function placeSearch(
+  query: string,
+  picks: readonly TastePick[],
+  listId: string | null,
+): Placed[] {
   const room: TasteRoom = {
     id: 'search',
     styles: [`“${query}”`],
     size: picks.length,
     picks: [...picks],
   };
-  return picks.map((pick) => ({ pick, room }));
+  return picks.map((pick) => ({ pick, room, listId }));
 }
 
 /** Every room's picks in one row, room after room, largest room first. */
 export function placeAll(recommendations: TasteRecommendations | undefined): Placed[] {
+  const listId = recommendations?.listId ?? null;
   return (recommendations?.rooms ?? []).flatMap((room) =>
-    room.picks.map((pick) => ({ pick, room })),
+    room.picks.map((pick) => ({ pick, room, listId })),
   );
 }
 
@@ -87,6 +94,16 @@ const press = { type: 'spring', stiffness: 500, damping: 28 } as const;
 
 /** The front sleeve's turn towards the reader; the Listening Room draws the disc from it. */
 const FRONT_TILT = -16;
+/** A record counts as viewed once it has been at the front this long (ADR 0013). */
+const VIEWED_AFTER_MS = 1000;
+
+/** Reports what the listener did with a pick, when it came from a served list. */
+function report(placed: Placed, kind: TasteEvent['kind']): void {
+  if (placed.listId) {
+    reportTasteEvent({ listId: placed.listId, masterId: placed.pick.master.masterId, kind });
+  }
+}
+
 /** The loading line is held for one pass of its notes, but never longer than this. */
 const HOLD_LIMIT_MS = 4000;
 
@@ -152,7 +169,7 @@ export function Discover() {
   const all = useMemo(
     () =>
       searched !== null
-        ? placeSearch(searched, search.data?.results ?? [])
+        ? placeSearch(searched, search.data?.results ?? [], search.data?.listId ?? null)
         : placeAll(recommendations.data),
     [searched, search.data, recommendations.data],
   );
@@ -227,6 +244,7 @@ export function Discover() {
             feedback.give.mutate({ masterId, verdict });
           }
           setVerdicts(next);
+          report(current, verdict ?? 'withdrawn');
         }}
       />
     );
@@ -362,6 +380,18 @@ function Row({
   const audio = useRef<HTMLAudioElement>(null);
   const [room, setRoom] = useState<{ from: DOMRect | null; startAt: string } | null>(null);
   const url = featured?.track.previewUrl;
+  const { listId } = current;
+
+  // Seen, not merely sent: the record stayed at the front for a moment.
+  useEffect(() => {
+    if (!listId) return;
+    const id = window.setTimeout(() => {
+      reportTasteEvent({ listId, masterId, kind: 'viewed' });
+    }, VIEWED_AFTER_MS);
+    return () => {
+      window.clearTimeout(id);
+    };
+  }, [listId, masterId]);
 
   useEffect(() => {
     const el = audio.current;
@@ -440,12 +470,14 @@ function Row({
           missing={tracks !== null && featured === null}
           playing={playing}
           onToggle={() => {
+            if (!playing) report(current, 'previewed');
             setListening(!playing);
             if (playing) audio.current?.pause();
             else if (url) void audio.current?.play().catch(() => undefined);
           }}
           onAlbum={() => {
             if (!featured) return;
+            report(current, 'opened');
             setListening(false);
             const frame = stage.current?.getBoundingClientRect();
             setRoom({
@@ -463,6 +495,9 @@ function Row({
             mainReleaseId={mainReleaseId}
             verdict={verdict}
             onVerdict={onVerdict}
+            onWanted={() => {
+              report(current, 'wanted');
+            }}
           />
         </div>
         {box.width > 0 &&
@@ -755,10 +790,12 @@ function Verdicts({
   mainReleaseId,
   verdict,
   onVerdict,
+  onWanted,
 }: {
   mainReleaseId: number;
   verdict: TasteVerdict | null;
   onVerdict: (verdict: TasteVerdict | null) => void;
+  onWanted: () => void;
 }) {
   const want = useWant();
   const wanted = want.add.isSuccess;
@@ -775,7 +812,7 @@ function Verdicts({
         pressed={wanted}
         disabled={wanted || want.add.isPending}
         onClick={() => {
-          want.add.mutate(mainReleaseId);
+          want.add.mutate(mainReleaseId, { onSuccess: onWanted });
         }}
       >
         <Heart aria-hidden="true" className={`${icon(wanted)} ${wanted ? 'fill-current' : ''}`} />

@@ -269,6 +269,7 @@ export function recommendations(
       size: 5,
       picks: room.picks,
     })),
+    listId: '00000000-0000-4000-8000-00000000000a',
     ...overrides,
   };
 }

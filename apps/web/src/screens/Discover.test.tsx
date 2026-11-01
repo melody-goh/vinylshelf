@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../App';
+import { flushTasteEvents } from '../api/taste-events';
 import { featuredTrack, placement } from '../components/Discover';
 import { renderWithQueries } from '../test/render';
 import {
@@ -33,12 +34,22 @@ let answer = READY;
 let distances: string[];
 /** Requests that changed something, as "METHOD path body". */
 let writes: string[];
+/** Events reported to the API, as "kind masterId listId". */
+let events: string[];
 
 beforeEach(() => {
   answer = READY;
   distances = [];
   writes = [];
+  events = [];
   server.use(
+    http.post(`${API}/taste/events`, async ({ request }) => {
+      const body = (await request.json()) as {
+        events: { kind: string; masterId: number; listId: string }[];
+      };
+      events.push(...body.events.map((e) => `${e.kind} ${String(e.masterId)} ${e.listId}`));
+      return new HttpResponse(null, { status: 204 });
+    }),
     http.post(`${API}/taste/feedback`, async ({ request }) => {
       writes.push(`POST /taste/feedback ${JSON.stringify(await request.json())}`);
       return new HttpResponse(null, { status: 204 });
@@ -64,6 +75,7 @@ beforeEach(() => {
         status: 'ready',
         query: q,
         results: q.includes('nothing') ? [] : [tastePick(40, { title: 'Phantazia' })],
+        listId: q.includes('nothing') ? null : '00000000-0000-4000-8000-00000000000b',
       });
     }),
     http.get(`${API}/taste/recommendations`, ({ request }) => {
@@ -153,6 +165,47 @@ describe('Discover', () => {
         'DELETE /taste/feedback/1',
         'POST /taste/feedback {"masterId":1,"verdict":"less"}',
       ]);
+    });
+  });
+
+  it('reports what the listener does with each pick, against the list it came in', async () => {
+    // A list of its own, so events other tests left queued cannot be mistaken for these.
+    const list = '00000000-0000-4000-8000-0000000000e1';
+    answer = { ...READY, listId: list };
+    const ours = () => events.filter((e) => e.endsWith(list));
+    const { user, region } = await openDiscover();
+    await within(region).findByRole('heading', { name: 'Rejoice' });
+
+    // Viewed only once it has stayed at the front a moment.
+    await waitFor(
+      () => {
+        flushTasteEvents();
+        expect(ours()).toEqual([`viewed 1 ${list}`]);
+      },
+      { timeout: 3000 },
+    );
+
+    const play = await within(region).findByRole(
+      'button',
+      { name: 'Play Shoreline' },
+      { timeout: 4000 },
+    );
+    await user.click(play);
+    await user.click(await within(region).findByRole('button', { name: 'Pause Shoreline' }));
+    await user.click(within(region).getByRole('button', { name: 'Want' }));
+    await within(region).findByRole('button', { name: 'Wanted' });
+    const more = within(region).getByRole('button', { name: 'More like this' });
+    await user.click(more);
+    await user.click(more);
+    await user.click(within(region).getByRole('button', { name: 'Not for me' }));
+
+    await waitFor(() => {
+      flushTasteEvents();
+      expect(ours().filter((e) => e.split(' ')[1] === '1')).toEqual(
+        ['viewed', 'previewed', 'wanted', 'more', 'withdrawn', 'less'].map(
+          (kind) => `${kind} 1 ${list}`,
+        ),
+      );
     });
   });
 
