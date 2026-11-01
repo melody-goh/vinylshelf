@@ -353,3 +353,39 @@ me" on picks, which the feedback table already records.
 Where a collection says where a collector's taste has been, the wantlist says where it is
 going. Wanted records now join the rooms like "more like this" and are excluded from the
 picks (ADR 0011, note of 2026-10-28; contract 0.10.0, `basedOn.wanted`).
+
+### 2026-10-28: search by description (phase 3)
+
+`GET /taste/search?q=` (contract 0.11.0) searches the catalogue by description without
+any language model. The API embeds the description with the catalogue's own model, with
+BGE's query instruction. The model loads on the first search, not at start-up, and the
+search refuses to answer (503) if the model is missing or differs from the one that
+built the loaded catalogue.
+
+**Hybrid, because meaning alone was measured to fail.** A labelled set of 30
+descriptions (`taste/eval/search-queries.ts`, written by hand) is scored by
+`search:eval` against the loaded catalogue with the real model: precision@10 counts
+results carrying one of each description's expected Discogs styles or genres. Meaning
+alone scored 0.793 and a keyword baseline 0.760. Meaning failed where a description's
+words match record *names*: "chicago house music" found the Art Ensemble of Chicago
+(0.1), "drum and bass" found Freestylers (0.1). The catalogue describes records with
+their titles and artists as well as their sound. The search is therefore hybrid:
+
+- candidates are the 200 nearest by meaning **plus** up to 200 whose style or genre
+  names contain the description's words (filler such as "music" dropped, one common
+  ending trimmed, so "dreamy" meets Dream Pop);
+- they are scored on meaning + 0.15 × the share of words their style and genre names
+  hold + 0.15 × nearness to the shelf's nearest side;
+- then diversified (MMR, one record per artist), leaving out owned and rejected records.
+
+Result: **0.910** precision@10 (meaning 0.793, keyword 0.760), with the first result
+fitting for 28 of 30. Tuning stopped there: with 30 labels, more would fit the list
+rather than search. The labels are mostly written as people describe music, which is
+where meaning should help; the set should grow with real queries, if the privacy notice
+allows collecting them.
+
+**Cost.** The model adds about 140 MB of resident memory once loaded (load 0.3 s on the
+development machine), inside the free host's 512 MB. A description embeds in 3 to 35 ms.
+A warm search takes 150 to 490 ms end to end: about 20 ms by meaning (HNSW) and 70 ms
+by name (a scan of the style and genre columns), the rest in re-ranking. A trigram index
+on style and genre names is the next step if the name scan grows.

@@ -8,6 +8,7 @@
 import type {
   CatalogueMaster as CatalogueMasterView,
   TasteRecommendations,
+  TasteSearch,
 } from '@vinylshelf/contract';
 import { and, eq } from 'drizzle-orm';
 import { loadedCatalogue } from '../catalogue/load.js';
@@ -19,14 +20,18 @@ import type { DiscogsReleaseCache } from '../discogs/cache.js';
 import type { DiscogsGateway } from '../discogs/gateway.js';
 import { ProblemError } from '../http/problem.js';
 import type { Clock } from '../lib/clock.js';
-import { catalogueRows, pgvectorRetrieve } from './catalogue-store.js';
+import { catalogueRows, pgMatchNames, pgvectorRetrieve } from './catalogue-store.js';
 import { recommend, type Retrieve } from './engine.js';
+import type { QueryEmbedder } from './query-embedder.js';
 import type { Distance } from './rank.js';
+import { searchCatalogue, type MatchNames } from './search.js';
 
 /** Fewer shelf records than this in the catalogue, and rooms would be guesses. */
 export const MIN_SHELF = 3;
 /** Picks per room: enough to browse, few enough that each one is considered. */
 export const PICKS_PER_ROOM = 8;
+/** Search results: a row's worth to browse. */
+export const SEARCH_RESULTS = 24;
 /** The newest wants read for each answer: 300 records, three requests to Discogs. */
 export const WANT_PAGES = 3;
 
@@ -48,6 +53,7 @@ function toView(row: CatalogueRow): CatalogueMasterView {
 
 export class TasteService {
   private readonly retrieve: Retrieve;
+  private readonly matchNames: MatchNames;
 
   constructor(
     private readonly database: DatabaseHandle,
@@ -55,8 +61,10 @@ export class TasteService {
     private readonly clock: Clock,
     private readonly gateway: DiscogsGateway,
     private readonly users: UserRepository,
+    private readonly embedder: QueryEmbedder,
   ) {
     this.retrieve = pgvectorRetrieve(database);
+    this.matchNames = pgMatchNames(database);
   }
 
   async recommendations(userId: string, distance: Distance): Promise<TasteRecommendations> {
@@ -170,6 +178,54 @@ export class TasteService {
       return null;
     }
     return ids;
+  }
+
+  /**
+   * Records that fit a description, leaning towards the user's taste (ADR 0008 §2).
+   * Search needs the catalogue's own model: a missing model, or a catalogue built with
+   * another one, is reported rather than answered with meaningless matches.
+   */
+  async search(userId: string, description: string): Promise<TasteSearch> {
+    const query = description.trim();
+    const manifest = await loadedCatalogue(this.database);
+    if (!manifest) return { status: 'no_catalogue', query, results: [] };
+
+    let vector: Float32Array;
+    try {
+      const model = await this.embedder.model();
+      if (model.id !== manifest.model.id || model.dims !== manifest.model.dims) {
+        throw new Error(`Catalogue built with ${manifest.model.id}, search has ${model.id}`);
+      }
+      vector = await this.embedder.embedQuery(query);
+    } catch {
+      throw new ProblemError(503, 'search_unavailable', 'Search is not set up on this server');
+    }
+
+    const { db } = this.database;
+    const owned = await db
+      .select({ masterId: collectionItems.masterId })
+      .from(collectionItems)
+      .where(eq(collectionItems.userId, userId));
+    const ownedMasters = owned.flatMap((i) => (i.masterId ? [i.masterId] : []));
+    const rejected = await db
+      .select({ masterId: tasteFeedback.masterId })
+      .from(tasteFeedback)
+      .where(and(eq(tasteFeedback.userId, userId), eq(tasteFeedback.verdict, 'less')));
+
+    const hits = await searchCatalogue({
+      query: vector,
+      description: query,
+      matchNames: this.matchNames,
+      shelf: await catalogueRows(this.database, ownedMasters),
+      exclude: new Set([...ownedMasters, ...rejected.map((r) => r.masterId)]),
+      retrieve: this.retrieve,
+      limit: SEARCH_RESULTS,
+    });
+    return {
+      status: 'ready',
+      query,
+      results: hits.map((hit) => ({ master: toView(hit.master), reason: hit.reason })),
+    };
   }
 
   /** Records "more like this" or "not for me"; a new verdict replaces an old one. */

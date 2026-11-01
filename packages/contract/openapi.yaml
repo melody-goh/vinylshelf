@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.10.0
+  version: 0.11.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -606,6 +606,45 @@ paths:
           $ref: '#/components/responses/Problem'
         '401':
           $ref: '#/components/responses/Problem'
+
+  /taste/search:
+    get:
+      tags: [Taste]
+      operationId: searchByDescription
+      summary: Records that fit a description, leaning towards the user's taste
+      description: |
+        Semantic search over the taste catalogue (ADR 0008 §2): the description is
+        embedded with the catalogue's own model, on our server, and matched by meaning,
+        not keywords ("moody 70s jazz with strings"). Records on the shelf or marked "not
+        for me" are left out; among close matches, those near the shelf's sides come
+        first. Picks carry the same reasons as recommendations. Nothing about the
+        shelf leaves our server.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: What to look for, in the user's own words.
+          schema: { type: string, minLength: 2, maxLength: 200 }
+      responses:
+        '200':
+          description: Matches, best first, or why there are none.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TasteSearch'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '503':
+          description: |
+            Search is not set up on this server (`code: search_unavailable`): its
+            embedding model is not installed, or the loaded catalogue was built with a
+            different one.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 
   /taste/feedback:
     post:
@@ -1339,6 +1378,23 @@ components:
           description: Largest room first. Empty unless `status` is `ready`.
           items:
             $ref: '#/components/schemas/TasteRoom'
+
+    TasteSearch:
+      type: object
+      required: [status, query, results]
+      properties:
+        status:
+          type: string
+          enum: [ready, no_catalogue]
+          description: '`no_catalogue`: no taste catalogue is loaded on this server.'
+        query:
+          type: string
+          description: The description as searched, trimmed.
+        results:
+          type: array
+          description: Best first; at most one record per artist. Empty without a catalogue.
+          items:
+            $ref: '#/components/schemas/TastePick'
 
     TasteRoom:
       type: object

@@ -5,6 +5,8 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from './app.js';
+import { createModelEmbedder } from './taste/embedder.js';
+import { lazyQueryEmbedder } from './taste/query-embedder.js';
 import { UserRepository } from './auth/users.js';
 import { runImport } from './collection/import-worker.js';
 import { loadConfig } from './config.js';
@@ -52,6 +54,8 @@ const app = await buildApp({
   releaseCache,
   clock,
   healthProbes: [database.ping],
+  // Weights come from `models:fetch`; the server never downloads them (ADR 0008).
+  queryEmbedder: lazyQueryEmbedder(() => createModelEmbedder({})),
 });
 
 await queue.start();

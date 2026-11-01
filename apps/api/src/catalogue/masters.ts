@@ -21,9 +21,14 @@ export function masterFacts(master: XmlNode): MasterFacts {
     id: Number.parseInt(master.attributes.id ?? '', 10) || 0,
     mainReleaseId: Number.parseInt(textOf(master, 'main_release'), 10) || 0,
     title: textOf(master, 'title'),
-    artists: children(child(master, 'artists'), 'artist')
-      .map((artist) => plainName(textOf(artist, 'name')))
-      .filter(Boolean),
+    // Discogs can list one artist twice (a name in two scripts, or with a "(2)" suffix).
+    artists: [
+      ...new Set(
+        children(child(master, 'artists'), 'artist')
+          .map((artist) => plainName(textOf(artist, 'name')))
+          .filter(Boolean),
+      ),
+    ],
     // Discogs reports an unknown year as 0.
     year: Number.isFinite(year) && year > 0 ? year : null,
     genres: children(child(master, 'genres'), 'genre').map((g) => g.text.trim()),

@@ -472,6 +472,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/taste/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Records that fit a description, leaning towards the user's taste
+         * @description Semantic search over the taste catalogue (ADR 0008 §2): the description is
+         *     embedded with the catalogue's own model, on our server, and matched by meaning,
+         *     not keywords ("moody 70s jazz with strings"). Records on the shelf or marked "not
+         *     for me" are left out; among close matches, those near the shelf's sides come
+         *     first. Picks carry the same reasons as recommendations. Nothing about the
+         *     shelf leaves our server.
+         */
+        get: operations["searchByDescription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/wantlist": {
         parameters: {
             query?: never;
@@ -917,6 +942,17 @@ export interface components {
             size: number;
             /** @description The room's commonest styles, most common first; what it is called. */
             styles: string[];
+        };
+        TasteSearch: {
+            /** @description The description as searched, trimmed. */
+            query: string;
+            /** @description Best first; at most one record per artist. Empty without a catalogue. */
+            results: components["schemas"]["TastePick"][];
+            /**
+             * @description `no_catalogue`: no taste catalogue is loaded on this server.
+             * @enum {string}
+             */
+            status: "ready" | "no_catalogue";
         };
         User: {
             discogsUsername: string;
@@ -1628,6 +1664,44 @@ export interface operations {
             };
             400: components["responses"]["Problem"];
             401: components["responses"]["Problem"];
+        };
+    };
+    searchByDescription: {
+        parameters: {
+            query: {
+                /** @description What to look for, in the user's own words. */
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matches, best first, or why there are none. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TasteSearch"];
+                };
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            /**
+             * @description Search is not set up on this server (`code: search_unavailable`): its
+             *     embedding model is not installed, or the loaded catalogue was built with a
+             *     different one.
+             */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     listWantlist: {

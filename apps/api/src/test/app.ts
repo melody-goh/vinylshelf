@@ -12,6 +12,9 @@ import { createDiscogsGateway } from '../discogs/index.js';
 import { createITunesGateway } from '../itunes/index.js';
 import type { EnqueueOptions, JobPayloads, JobQueue, QueueName } from '../jobs/queue.js';
 import { fakeClock } from './fake-clock.js';
+import { CATALOGUE_DIMS } from '../db/schema.js';
+import { createFakeEmbedder } from '../taste/embedder.js';
+import { lazyQueryEmbedder } from '../taste/query-embedder.js';
 
 /** 2026-10-23T12:00:00Z: a fixed "now" so expiry maths is deterministic. */
 export const TEST_NOW = Date.UTC(2026, 9, 23, 12, 0, 0);
@@ -85,6 +88,8 @@ export function testDependencies(
     }),
     queue: new FakeQueue(),
     releaseCache: new DiscogsReleaseCache(testConfig.discogs.cacheTtlSeconds, clock),
+    // The test catalogue is built with the same fake embedder (test/catalogue.ts).
+    queryEmbedder: lazyQueryEmbedder(() => Promise.resolve(createFakeEmbedder(CATALOGUE_DIMS))),
     ...overrides,
   };
 }

@@ -5,6 +5,8 @@ import type { SessionStore } from '../auth/sessions.js';
 import {
   tasteFeedbackBody,
   tasteRecommendationsQuery,
+  tasteSearchQuery,
+  tasteSearchSchema,
   tasteRecommendationsSchema,
 } from '../http/schemas.js';
 import type { TasteService } from './service.js';
@@ -30,6 +32,15 @@ export const tasteRoutes =
         },
       },
       async (request) => deps.taste.recommendations(currentUserId(request), request.query.distance),
+    );
+
+    app.get(
+      '/taste/search',
+      {
+        ...auth,
+        schema: { querystring: tasteSearchQuery, response: { 200: tasteSearchSchema } },
+      },
+      async (request) => deps.taste.search(currentUserId(request), request.query.q),
     );
 
     app.post(

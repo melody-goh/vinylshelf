@@ -7,6 +7,7 @@
 import type { CatalogueRow } from '../../catalogue/model.js';
 import { recommend, type Retrieve } from '../engine.js';
 import type { Distance, Weights } from '../rank.js';
+import type { MatchNames } from '../search.js';
 import { dot } from '../vectors.js';
 import { popularity, styleOverlap } from './baselines.js';
 import { diversity, mean, ndcgAt, recallAt } from './metrics.js';
@@ -43,6 +44,21 @@ export function scanRetrieve(catalogue: readonly CatalogueRow[]): Retrieve {
         .sort((a, b) => b.s - a.s)
         .slice(0, limit)
         .map(({ m }) => m),
+    );
+}
+
+/** Search's keyword half over an in-memory catalogue, as pgMatchNames does in SQL. */
+export function scanMatchNames(catalogue: readonly CatalogueRow[]): MatchNames {
+  return (words, limit, exclude, kinds) =>
+    Promise.resolve(
+      catalogue
+        .filter((m) => !exclude.has(m.id) && kinds.has(m.kind))
+        .filter((m) => {
+          const names = [...m.styles, ...m.genres].join(' ').toLowerCase();
+          return words.some((w) => names.includes(w));
+        })
+        .sort((a, b) => b.versions - a.versions)
+        .slice(0, limit),
     );
 }
 

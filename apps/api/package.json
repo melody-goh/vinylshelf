@@ -13,7 +13,8 @@
     "catalogue:build": "tsx scripts/catalogue-build.ts",
     "catalogue:load": "tsx scripts/catalogue-load.ts",
     "catalogue:publish": "bash scripts/catalogue-publish.sh",
-    "taste:eval": "tsx scripts/taste-eval.ts"
+    "taste:eval": "tsx scripts/taste-eval.ts",
+    "search:eval": "tsx scripts/search-eval.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

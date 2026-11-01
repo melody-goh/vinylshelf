@@ -26,7 +26,7 @@ export async function seedCatalogue(db: Database, world: SyntheticWorld): Promis
     manifest: {
       schemaVersion: 1,
       dump: TEST_DUMP,
-      model: { id: 'fake', dtype: 'fp32', dims: CATALOGUE_DIMS, pooling: 'cls' },
+      model: createFakeEmbedder(CATALOGUE_DIMS).model,
       rows: world.catalogue.length,
       sha256: '0'.repeat(64),
       builtAt: new Date(0).toISOString(),

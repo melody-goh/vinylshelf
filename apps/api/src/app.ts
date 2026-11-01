@@ -29,6 +29,7 @@ import { ProblemError, registerProblemHandlers } from './http/problem.js';
 import type { JobQueue } from './jobs/queue.js';
 import type { Clock } from './lib/clock.js';
 import { healthRoutes, type HealthProbe } from './meta/health.js';
+import type { QueryEmbedder } from './taste/query-embedder.js';
 import { tasteRoutes } from './taste/routes.js';
 import { TasteService } from './taste/service.js';
 import { wantlistRoutes } from './wantlist/routes.js';
@@ -59,6 +60,8 @@ export interface AppDependencies {
   releaseCache: DiscogsReleaseCache;
   clock: Clock;
   healthProbes?: readonly HealthProbe[];
+  /** Embeds search descriptions with the catalogue's model (loaded on first use). */
+  queryEmbedder: QueryEmbedder;
 }
 
 /** Builds the Fastify app without listening, so tests can drive it with `inject`. */
@@ -135,7 +138,14 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
       await api.register(
         tasteRoutes({
           sessions,
-          taste: new TasteService(database, deps.releaseCache, clock, deps.gateway, users),
+          taste: new TasteService(
+            database,
+            deps.releaseCache,
+            clock,
+            deps.gateway,
+            users,
+            deps.queryEmbedder,
+          ),
         }),
       );
     },

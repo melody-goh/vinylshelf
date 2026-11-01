@@ -30,3 +30,4 @@ export type CatalogueMaster = Schemas['CatalogueMaster'];
 export type TasteReason = Schemas['TasteReason'];
 export type TasteFeedback = Schemas['TasteFeedback'];
 export type TasteLink = Schemas['TasteLink'];
+export type TasteSearch = Schemas['TasteSearch'];
