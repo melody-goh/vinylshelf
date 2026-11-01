@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { currentUserId, requireUser } from '../auth/guard.js';
 import type { SessionStore } from '../auth/sessions.js';
 import { ProblemError } from '../http/problem.js';
+import { clientIp } from '../http/proxy.js';
 import {
   releasePreviewsSchema,
   releaseSchema,
@@ -75,7 +76,7 @@ export const releaseRoutes =
             max: SEARCHES_PER_MINUTE,
             timeWindow: 60_000,
             // Keyed by session, not IP: people behind one NAT should not share a limit.
-            keyGenerator: (request) => request.cookies.sid ?? request.ip,
+            keyGenerator: (request) => request.cookies.sid ?? clientIp(request),
           },
         },
         schema: { querystring: searchQuery, response: { 200: searchPageSchema } },

@@ -56,10 +56,26 @@ describe('loadConfig', () => {
   });
 });
 
+describe('loadConfig deployment', () => {
+  it('reads the invite list as lower-cased usernames, admitting everyone without one', () => {
+    expect(loadConfig(validEnv).allowedDiscogsUsers).toBeNull();
+    expect(
+      loadConfig({ ...validEnv, ALLOWED_DISCOGS_USERS: ' Jaylim_, ,other ' }).allowedDiscogsUsers,
+    ).toEqual(['jaylim_', 'other']);
+  });
+
+  it('requires a proxy secret of at least 32 characters in production (ADR 0007)', () => {
+    expect(() => loadConfig({ ...validEnv, NODE_ENV: 'production' })).toThrow(/PROXY_SECRET/);
+    expect(() => loadConfig({ ...validEnv, PROXY_SECRET: 'short' })).toThrow(/PROXY_SECRET/);
+    expect(loadConfig(validEnv).proxySecret).toBeNull();
+  });
+});
+
 describe('loadConfig host', () => {
   it('listens on localhost only outside production unless HOST is set', () => {
     expect(loadConfig(validEnv).host).toBe('127.0.0.1');
-    expect(loadConfig({ ...validEnv, NODE_ENV: 'production' }).host).toBe('0.0.0.0');
+    const production = { ...validEnv, NODE_ENV: 'production', PROXY_SECRET: 'p'.repeat(32) };
+    expect(loadConfig(production).host).toBe('0.0.0.0');
     expect(loadConfig({ ...validEnv, HOST: '::' }).host).toBe('::');
   });
 });

@@ -26,6 +26,7 @@ import type { DiscogsReleaseCache } from './discogs/cache.js';
 import type { DiscogsGateway } from './discogs/gateway.js';
 import type { ITunesGateway } from './itunes/gateway.js';
 import { ProblemError, registerProblemHandlers } from './http/problem.js';
+import { clientIp, proxyGuard } from './http/proxy.js';
 import type { JobQueue } from './jobs/queue.js';
 import type { Clock } from './lib/clock.js';
 import { healthRoutes, type HealthProbe } from './meta/health.js';
@@ -87,9 +88,11 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
   app.setSerializerCompiler(serializerCompiler);
   registerProblemHandlers(app);
   await app.register(cookie);
+  app.addHook('onRequest', proxyGuard(config.proxySecret, [`${API_PREFIX}/health`]));
   // Opt-in per route (config.rateLimit); limits are per client IP, kept in memory.
   await app.register(rateLimit, {
     global: false,
+    keyGenerator: clientIp,
     errorResponseBuilder: (_request, context) =>
       new ProblemError(429, 'rate_limited', 'Too many requests', `Try again in ${context.after}`),
   });

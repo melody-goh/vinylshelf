@@ -38,6 +38,8 @@ export const testConfig: Config = {
   refreshCooldownMinutes: 15,
   itunes: { country: 'GB' },
   queue: { pollingIntervalSeconds: 2, cachePurgeCron: '*/15 * * * *' },
+  allowedDiscogsUsers: null,
+  proxySecret: null,
 };
 
 /** Records enqueued jobs instead of running them. Workers are tested directly. */

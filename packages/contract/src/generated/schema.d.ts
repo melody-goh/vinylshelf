@@ -691,10 +691,12 @@ export interface components {
          * @description Value of the `loginError` query parameter the callback redirects with.
          *     `access_denied`: the user declined on Discogs. `invalid_request_token`: the
          *     request token is missing, expired or does not match. `discogs_unavailable`:
-         *     Discogs failed or could not be reached.
+         *     Discogs failed or could not be reached. `not_invited`: this deployment only
+         *     admits listed Discogs users, and this one is not listed; nothing about them
+         *     is stored.
          * @enum {string}
          */
-        LoginErrorCode: "access_denied" | "invalid_request_token" | "discogs_unavailable";
+        LoginErrorCode: "access_denied" | "invalid_request_token" | "discogs_unavailable" | "not_invited";
         Problem: {
             /** @description Stable machine-readable error code. */
             code?: string;
