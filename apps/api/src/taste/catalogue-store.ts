@@ -17,8 +17,16 @@ const MAX_EF_SEARCH = 1000;
 
 type StoredRow = typeof catalogueMasters.$inferSelect;
 
+/**
+ * Artists are deduplicated here as well as at build time, because catalogues published
+ * before the build did it list some artists twice.
+ */
 function toRow(stored: StoredRow): CatalogueRow {
-  return { ...stored, embedding: Float32Array.from(stored.embedding) };
+  return {
+    ...stored,
+    artists: [...new Set(stored.artists)],
+    embedding: Float32Array.from(stored.embedding),
+  };
 }
 
 /** Catalogue rows for these master ids; ids not in the catalogue are skipped. */

@@ -551,8 +551,8 @@ export function ListeningRoom({
           </h2>
           <dl className="mt-5">
             <Note label="Artist">
-              {release.artists.map((artist) => (
-                <span key={artist} className="block">
+              {release.artists.map((artist, i) => (
+                <span key={`${String(i)}-${artist}`} className="block">
                   {artist}
                 </span>
               ))}

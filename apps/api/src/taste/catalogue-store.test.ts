@@ -1,5 +1,7 @@
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from 'vitest';
 import { createDatabase, type DatabaseHandle } from '../db/client.js';
+import { catalogueMasters } from '../db/schema.js';
 import type { SyntheticWorld } from './eval/synthetic.js';
 import { seedCatalogue, testWorld } from '../test/catalogue.js';
 import { useTestDatabase } from '../test/database.js';
@@ -63,5 +65,14 @@ describe('catalogueRows', () => {
     expect(
       dot(rows.find((r) => r.id === 1)?.embedding ?? [], original?.embedding ?? []),
     ).toBeCloseTo(1, 2);
+  });
+
+  it('lists each artist once, even where an older catalogue repeats one', async () => {
+    await db()
+      .update(catalogueMasters)
+      .set({ artists: ['Teresa Teng', 'Teresa Teng'] })
+      .where(eq(catalogueMasters.id, 1));
+    const [row] = await catalogueRows(handle(), [1]);
+    expect(row?.artists).toEqual(['Teresa Teng']);
   });
 });

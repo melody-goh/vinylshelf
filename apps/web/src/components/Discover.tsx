@@ -561,8 +561,8 @@ function Notes({ current }: { current: Placed }) {
       </h2>
       <dl className="mt-4">
         <Note label="Artist">
-          {master.artists.map((artist) => (
-            <span key={artist} className="block">
+          {master.artists.map((artist, i) => (
+            <span key={`${String(i)}-${artist}`} className="block">
               {artist}
             </span>
           ))}
@@ -576,8 +576,8 @@ function Notes({ current }: { current: Placed }) {
         <Note label="Sound">{reason.sound}</Note>
         {reason.fansOf.length > 0 && (
           <Note label="For fans of">
-            {reason.fansOf.map((artist) => (
-              <span key={artist} className="block">
+            {reason.fansOf.map((artist, i) => (
+              <span key={`${String(i)}-${artist}`} className="block">
                 {artist}
               </span>
             ))}
