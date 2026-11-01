@@ -53,3 +53,6 @@ apps/api/catalogue-out/
 
 # Local assistant instructions (rules live in CONTRIBUTING.md)
 CLAUDE.md
+
+# Neon CLI's local link to the project (neon link)
+.neon
