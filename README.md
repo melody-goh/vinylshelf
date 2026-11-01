@@ -104,6 +104,8 @@ imports record from migration 0007 on: after migrating an existing database, pre
 | `catalogue:build --dump YYYYMM01 [--cap N] [--out dir]` | Builds a catalogue from a month's dumps, streaming them |
 | `catalogue:publish dir` | Publishes a built catalogue as the month's GitHub Release |
 | `taste:eval [--user name] [--folds 5] [--k 20]` | Scores the engine against your own imported shelf, a fold held out at a time, and prints the picks; prints only, writes nothing |
+| `search:eval` | Scores search by description on 30 labelled descriptions (precision@10), against meaning-only and keyword baselines |
+| `taste:metrics [--days N]` | Prints how picks are received in use: of the picks people reached, the share previewed, opened, wanted, given "more" or "less", by surface, reach and place (ADR 0013) |
 
 To publish a new catalogue, build it locally and publish it: Discogs' download host
 currently refuses GitHub's runners, so the Catalogue workflow cannot fetch the dumps (ADR
@@ -191,6 +193,7 @@ docs/domain-model.md
 | [ADR 0010](docs/adr/0010-track-previews-from-itunes.md) | Track previews from the iTunes Search API |
 | [ADR 0011](docs/adr/0011-the-wantlist.md) | The wantlist, read live from Discogs |
 | [ADR 0012](docs/adr/0012-catalogue-as-a-build-artifact.md) | The taste catalogue is a versioned build artifact |
+| [ADR 0013](docs/adr/0013-taste-events-and-online-metrics.md) | How picks are received: served lists, listener events and reception metrics |
 
 ## Roadmap
 
