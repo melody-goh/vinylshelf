@@ -1,0 +1,57 @@
+# The API on Render's free plan (ADR 0005, ADR 0007). The web app is on Cloudflare
+# Pages, which proxies /api/* here; see README "Deploying".
+services:
+  - type: web
+    name: vinylshelf-api
+    runtime: node
+    plan: free
+    # Fixed at creation: keep it next to the Neon database's region.
+    region: singapore
+    # Render reads neither packageManager nor corepack, so pnpm is pinned here. Dev
+    # dependencies are installed because tsx runs the server and the migrations.
+    buildCommand: >-
+      npx --yes pnpm@12.15.0 install --frozen-lockfile --production=false &&
+      npx --yes pnpm@12.15.0 --filter @vinylshelf/api models:fetch &&
+      npx --yes pnpm@12.15.0 --filter @vinylshelf/api db:migrate
+    startCommand: cd apps/api && node_modules/.bin/tsx src/server.ts
+    healthCheckPath: /api/v1/health
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/contract/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - render.yaml
+    envVars:
+      - key: NODE_VERSION
+        value: 22.19.0
+      - key: NODE_ENV
+        value: production
+      - key: WEB_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      # 32 random bytes, base64: exactly what the token cipher needs (ADR 0006).
+      - key: TOKEN_ENCRYPTION_KEY
+        generateValue: true
+      # Copied into the Pages project, so only the proxy can reach the API (ADR 0007).
+      - key: PROXY_SECRET
+        generateValue: true
+      - key: DISCOGS_CONSUMER_KEY
+        sync: false
+      - key: DISCOGS_CONSUMER_SECRET
+        sync: false
+      - key: DISCOGS_CALLBACK_URL
+        sync: false
+      - key: DISCOGS_USER_AGENT
+        value: VinylShelf/0.1 (+https://github.com/melody-goh/vinylshelf)
+      - key: ALLOWED_DISCOGS_USERS
+        sync: false
+      # ADR 0003 note: poll less often and purge hourly, so the database can sleep. The
+      # read path enforces the Discogs TTL whatever the purge cadence.
+      - key: QUEUE_POLLING_INTERVAL_SECONDS
+        value: '10'
+      - key: CACHE_PURGE_CRON
+        value: '0 * * * *'

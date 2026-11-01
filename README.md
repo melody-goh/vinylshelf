@@ -118,6 +118,50 @@ pnpm --filter @vinylshelf/api catalogue:publish -- ./catalogue-out              
 Publishing attaches `manifest.json` and `catalogue.jsonl.gz` to a `catalogue-YYYYMM`
 release, exactly as the workflow would.
 
+## Deploying
+
+Free tiers only (ADR 0005): the web app on Cloudflare Pages, whose Pages Function
+proxies `/api/*` to the API on Render (ADR 0007), and Postgres on Neon. Pick the same
+region for Neon and Render (`render.yaml` says Singapore; change it before the first
+deploy, as Render cannot move a service later).
+
+1. **Neon.** Create a project (Postgres 17, region AWS Asia Pacific (Singapore)). Copy
+   the **direct** connection string (the host without `-pooler`), with
+   `sslmode=require`.
+2. **Cloudflare Pages.** Create a project from this GitHub repo. The project name
+   gives the site its address, `https://<name>.pages.dev`.
+   - Framework preset: none. Root directory: `apps/web`.
+   - Build command: `pnpm install --frozen-lockfile && pnpm build`. Output: `dist`.
+   - Variables: `NODE_VERSION` = `22.19.0`, `PNPM_VERSION` = `12.15.0`. `API_ORIGIN`
+     and `PROXY_SECRET` come in step 5; the first build may fail until then.
+3. **Discogs.** At discogs.com/settings/developers, create a second application for
+   production, with the callback URL
+   `https://<name>.pages.dev/api/v1/auth/discogs/callback`.
+4. **Render.** New → Blueprint, pick this repo; `render.yaml` describes the service.
+   It asks for:
+   - `WEB_ORIGIN`: `https://<name>.pages.dev`
+   - `DATABASE_URL`: the Neon connection string
+   - `DISCOGS_CONSUMER_KEY`, `DISCOGS_CONSUMER_SECRET`: from the production Discogs app
+   - `DISCOGS_CALLBACK_URL`: the callback URL from step 3
+   - `ALLOWED_DISCOGS_USERS`: your Discogs username (comma-separate more)
+
+   `TOKEN_ENCRYPTION_KEY` and `PROXY_SECRET` are generated. The build installs, fetches
+   the embedding model and runs the migrations.
+5. **Connect the two.** In the Pages project, add `API_ORIGIN` (the Render service's
+   `https://….onrender.com` address) and `PROXY_SECRET` (copied from the Render
+   service's environment) as encrypted variables, then retry the deployment.
+6. **Load the catalogue** from your machine, once the Render deploy has run the
+   migrations (this takes a while over the network):
+
+   ```sh
+   DATABASE_URL='<neon connection string>' pnpm --filter @vinylshelf/api catalogue:load
+   ```
+
+7. Open `https://<name>.pages.dev`, sign in, sync your collection.
+
+After that, merging to `main` deploys both: Pages on every push, Render once CI passes.
+The API sleeps after 15 minutes without visitors and takes about a minute to wake.
+
 ## Repository layout
 
 ```
