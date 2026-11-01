@@ -57,6 +57,24 @@ const envSchema = z
 
     QUEUE_POLLING_INTERVAL_SECONDS: z.coerce.number().min(0.5).default(2),
     CACHE_PURGE_CRON: z.string().trim().min(1).default('*/15 * * * *'),
+
+    ALLOWED_DISCOGS_USERS: z
+      .string()
+      .trim()
+      .optional()
+      .transform((list) =>
+        list
+          ? list
+              .split(',')
+              .map((name) => name.trim().toLowerCase())
+              .filter(Boolean)
+          : null,
+      ),
+    PROXY_SECRET: z.string().trim().min(32, 'must be at least 32 characters').optional(),
+  })
+  .refine((env) => env.NODE_ENV !== 'production' || env.PROXY_SECRET !== undefined, {
+    path: ['PROXY_SECRET'],
+    message: 'is required in production, where the API is only reached through the web proxy',
   })
   .refine((env) => env.DISCOGS_REFRESH_AFTER_SECONDS < env.DISCOGS_CACHE_TTL_SECONDS, {
     path: ['DISCOGS_REFRESH_AFTER_SECONDS'],
@@ -89,6 +107,10 @@ export interface Config {
     pollingIntervalSeconds: number;
     cachePurgeCron: string;
   };
+  /** Lower-cased Discogs usernames allowed to sign in; null admits everyone. */
+  allowedDiscogsUsers: readonly string[] | null;
+  /** Shared with the web proxy (ADR 0007); null where the API is reached directly. */
+  proxySecret: string | null;
 }
 
 export class ConfigError extends Error {
@@ -129,5 +151,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       pollingIntervalSeconds: e.QUEUE_POLLING_INTERVAL_SECONDS,
       cachePurgeCron: e.CACHE_PURGE_CRON,
     },
+    allowedDiscogsUsers: e.ALLOWED_DISCOGS_USERS,
+    proxySecret: e.PROXY_SECRET ?? null,
   };
 }

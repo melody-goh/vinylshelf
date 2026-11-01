@@ -50,3 +50,6 @@ certs/
 apps/api/.models/
 # Local catalogue builds
 apps/api/catalogue-out/
+
+# Local assistant instructions (rules live in CONTRIBUTING.md)
+CLAUDE.md

@@ -26,9 +26,9 @@ Constraints from earlier decisions shape all three:
   which rules out a persistent vector index built from the API.
 - **Data we may share.** A user's collection is Restricted Data and may not be
   transferred to third parties (ADR 0004). An LLM provider is a third party.
-- **Free to run** (ADR 0005, CLAUDE.md). No always-on Python host. Small free
+- **Free to run** (ADR 0005, CONTRIBUTING.md). No always-on Python host. Small free
   Postgres (0.5 GB). Paid services only with explicit approval.
-- **Gateways** (CLAUDE.md). Every vendor sits behind our own interface, and tests
+- **Gateways** (CONTRIBUTING.md). Every vendor sits behind our own interface, and tests
   never call it live.
 
 ## Decision (proposed)

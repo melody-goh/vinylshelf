@@ -178,6 +178,27 @@ describe('GET /auth/discogs/callback', () => {
     expect(res.headers.location).toBe(`${WEB}/?loginError=discogs_unavailable`);
   });
 
+  it('turns away a Discogs user not on the invite list, storing nothing', async () => {
+    await app.close();
+    const config = { ...testConfig, allowedDiscogsUsers: ['someone_else'] };
+    ({ app, deps } = await buildTestApp(handle(), { config }));
+    const res = await callback(
+      `oauth_token=${REQUEST_TOKEN}&oauth_verifier=v1`,
+      await startLogin(),
+    );
+    expect(res.headers.location).toBe(`${WEB}/?loginError=not_invited`);
+    expect(cookie(res, 'sid')).toBeUndefined();
+    expect(await db().select().from(users)).toHaveLength(0);
+  });
+
+  it('admits a listed Discogs user whatever the case of their name', async () => {
+    await app.close();
+    const config = { ...testConfig, allowedDiscogsUsers: ['fixture_collector'] };
+    ({ app, deps } = await buildTestApp(handle(), { config }));
+    await login();
+    expect(await db().select().from(users)).toHaveLength(1);
+  });
+
   it('answers 400 to a request that is not an OAuth callback at all', async () => {
     const res = await callback('');
     expect(res.statusCode).toBe(400);

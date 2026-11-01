@@ -91,7 +91,7 @@ the taste engine (ADR 0008), then phone pairing.
   progress, never a blank screen or an unexplained spinner.
 - **Recognition has a small quota** (ADR 0005): rate-capped per user, a fixture-backed
   demo mode, and manual search as the fallback.
-- **Motion** (CLAUDE.md): only `transform` and `opacity`, springs over eased durations,
+- **Motion** (CONTRIBUTING.md): only `transform` and `opacity`, springs over eased durations,
   and `prefers-reduced-motion` always respected.
 
 **Terminology:** a *record* is an item on the user's shelf; a *release* or *pressing* is

@@ -1,5 +1,5 @@
 /**
- * The only way the rest of the API talks to Discogs (CLAUDE.md, ADR 0004 §1). Callers
+ * The only way the rest of the API talks to Discogs (CONTRIBUTING.md, ADR 0004 §1). Callers
  * depend on this interface and on our own domain types, never on Discogs' JSON. A
  * vendor change, or a fake in tests, touches only implementations of this interface.
  */

@@ -1,6 +1,6 @@
 # ADR 0007: Keep the API same-site with the web app in production
 
-- **Status:** Proposed (decision deferred until deployment work starts)
+- **Status:** Accepted (2026-11-01), option 1
 - **Date:** 2026-10-23
 - **Related:** ADR 0005 (free-tier hosting), ADR 0006 (sessions)
 
@@ -32,17 +32,31 @@ at deployment time.
 3. **`SameSite=None; Secure` with credentialed CORS across sites.** This is a
    third-party cookie, which browsers increasingly block or partition. **Rejected.**
 
-## Leaning
+## Decision
 
-Option 1 by default, because it keeps everything free and leaves the API untouched.
-Option 2 if a custom domain is bought for other reasons. Decide, and change this ADR's
-status, before the first deployment.
+Option 1. A Pages Function (`apps/web/functions/api/[[path]].ts`) forwards `/api/*` to
+the API on Render. It does not follow redirects, so the login's redirects to Discogs
+and back reach the browser, and it streams bodies both ways.
+
+The API stays reachable at its own `onrender.com` address, which would let anyone go
+around the proxy and claim any client IP in a forwarded header. So the proxy and the API
+share a secret (`PROXY_SECRET`, required in production): the proxy sets it on every
+request, along with the visitor's IP from `CF-Connecting-IP` in `x-client-ip`, and the
+API refuses requests without it, except the host's health check. The API uses
+`x-client-ip` for per-client rate limits only once the secret has matched. This
+replaces Fastify's `trustProxy`, which would have to guess how many proxies (Cloudflare
+and Render's own) sit in front.
+
+Option 2 remains the upgrade if a custom domain is bought for other reasons.
+
+SSE through the Function is still to be verified when recognition is built.
 
 ## Consequences
 
-Whatever is chosen, the API must keep working behind a proxy: it reads `WEB_ORIGIN`
-from configuration for the `Origin` check and redirects, and must trust the proxy's
-forwarded headers only when configured to. Per-client rate limits (for example on
-`/auth/discogs/start`) key on the client IP, so behind a proxy the API must read the
-client IP from the proxy's forwarded header (Fastify `trustProxy`), or every visitor
-shares one limit.
+The API keeps working behind a proxy: it reads `WEB_ORIGIN` from configuration for the
+`Origin` check and redirects, and trusts the proxy's visitor IP only after the shared
+secret matches. Per-client rate limits (for example on `/auth/discogs/start`) key on
+that IP, so visitors do not share one limit. Every API request is one Pages Function
+invocation, counted against the Workers free quota (100,000 a day at the time of
+writing), which is ample for an invite-only deployment. Rotating the secret means
+changing it in both places.

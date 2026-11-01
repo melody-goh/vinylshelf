@@ -1,5 +1,5 @@
 /**
- * The only way the rest of the API talks to the iTunes Search API (ADR 0010, CLAUDE.md).
+ * The only way the rest of the API talks to the iTunes Search API (ADR 0010, CONTRIBUTING.md).
  * Callers depend on this interface and these types, never on Apple's JSON.
  */
 

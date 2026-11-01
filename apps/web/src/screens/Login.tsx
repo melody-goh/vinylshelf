@@ -10,6 +10,7 @@ const LOGIN_ERRORS: Record<LoginErrorCode, string> = {
   access_denied: 'You declined access on Discogs, so we could not sign you in.',
   invalid_request_token: 'That sign-in link expired or was already used. Please try again.',
   discogs_unavailable: 'Discogs is not responding right now. Please try again in a few minutes.',
+  not_invited: 'Vinyl Shelf is invite-only for now.',
 };
 
 /** Illustration only: a few plain discs fanned beside the sleeve, standing for no record. */

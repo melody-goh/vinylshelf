@@ -28,3 +28,15 @@ constraint and the decision it drove is recorded here.
 Hosting is replaceable because the contract (ADR 0001) and the gateways are the stable
 boundaries. The cost is extra engineering around sleeping hosts and quotas, which is
 deliberate: it is the realistic constraint set for a small production service.
+
+## Notes
+
+**2026-11-01, first deployment.** Rechecked: Neon's free plan is now **1 GB per project**
+(100 CU-hours a month, suspends after 5 minutes idle, pgvector included), and Render's
+free web service is 512 MB RAM and 0.1 CPU. The taste catalogue measures about 420 MB
+loaded fresh (rows about 250 MB, the HNSW index 168 MB), so it fits Neon with room for
+user data but not for a second copy; a reload deletes the rows in place. The API sleeps
+after 15 minutes without traffic, which stops the job queue's polling, so the database
+sleeps with it and stays within its compute hours. The query embedding model adds about
+140 MB to the API; if 512 MB proves too tight, query embedding can move to Workers AI
+behind the existing `QueryEmbedder` interface.
