@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.12.0
+  version: 0.13.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -679,6 +679,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
 
+  /taste/events:
+    post:
+      tags: [Taste]
+      operationId: reportTasteEvents
+      summary: Report what the listener did with the picks
+      description: |
+        How picks are received, so the engine can be judged by use as well as by its
+        offline evaluation (ADR 0013). The server adds the record's position and room
+        from the list it served, and the time. Events about lists the user was not
+        served, or records not in them, are dropped without error. First-party only:
+        kept with the user's account and deleted with it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TasteEvents'
+      responses:
+        '204':
+          description: Recorded.
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          $ref: '#/components/responses/Problem'
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
   /taste/feedback/{masterId}:
     parameters:
       - name: masterId
@@ -1337,8 +1366,16 @@ components:
 
     TasteRecommendations:
       type: object
-      required: [status, catalogue, basedOn, rooms]
+      required: [status, catalogue, basedOn, rooms, listId]
       properties:
+        listId:
+          description: |
+            Names this list of picks, for the events the client reports about it
+            (`POST /taste/events`). Null when there are no picks to report on.
+          oneOf:
+            - type: string
+              format: uuid
+            - type: 'null'
         status:
           type: string
           enum: [ready, no_catalogue, too_few_records]
@@ -1383,8 +1420,16 @@ components:
 
     TasteSearch:
       type: object
-      required: [status, query, results]
+      required: [status, query, results, listId]
       properties:
+        listId:
+          description: |
+            Names this list of picks, for the events the client reports about it
+            (`POST /taste/events`). Null when there are no picks to report on.
+          oneOf:
+            - type: string
+              format: uuid
+            - type: 'null'
         status:
           type: string
           enum: [ready, no_catalogue]
@@ -1500,6 +1545,35 @@ components:
           maxItems: 3
           description: Titles of the shelf records that bear the link out.
           items: { type: string }
+
+    TasteEvents:
+      type: object
+      required: [events]
+      properties:
+        events:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/TasteEvent'
+
+    TasteEvent:
+      type: object
+      required: [listId, masterId, kind]
+      properties:
+        listId:
+          type: string
+          format: uuid
+          description: The `listId` of the recommendations or search the record was in.
+        masterId: { type: integer, minimum: 1 }
+        kind:
+          type: string
+          enum: [viewed, previewed, opened, wanted, more, less, withdrawn]
+          description: |
+            `viewed`: the record was at the front for a second or more. `previewed`: the
+            listener started its track (not autoplay). `opened`: they took it into the
+            Listening Room. `wanted`: added to their wantlist. `more`, `less`,
+            `withdrawn`: a verdict given or taken back.
 
     TasteFeedback:
       type: object

@@ -396,6 +396,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/taste/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report what the listener did with the picks
+         * @description How picks are received, so the engine can be judged by use as well as by its
+         *     offline evaluation (ADR 0013). The server adds the record's position and room
+         *     from the list it served, and the time. Events about lists the user was not
+         *     served, or records not in them, are dropped without error. First-party only:
+         *     kept with the user's account and deleted with it.
+         */
+        post: operations["reportTasteEvents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/taste/feedback": {
         parameters: {
             query?: never;
@@ -873,6 +897,25 @@ export interface components {
             title: string;
             year: number | null;
         };
+        TasteEvent: {
+            /**
+             * @description `viewed`: the record was at the front for a second or more. `previewed`: the
+             *     listener started its track (not autoplay). `opened`: they took it into the
+             *     Listening Room. `wanted`: added to their wantlist. `more`, `less`,
+             *     `withdrawn`: a verdict given or taken back.
+             * @enum {string}
+             */
+            kind: "viewed" | "previewed" | "opened" | "wanted" | "more" | "less" | "withdrawn";
+            /**
+             * Format: uuid
+             * @description The `listId` of the recommendations or search the record was in.
+             */
+            listId: string;
+            masterId: number;
+        };
+        TasteEvents: {
+            events: components["schemas"]["TasteEvent"][];
+        };
         TasteFeedback: {
             masterId: number;
             /** @enum {string} */
@@ -930,6 +973,11 @@ export interface components {
                 dump: string;
                 rows: number;
             } | null;
+            /**
+             * @description Names this list of picks, for the events the client reports about it
+             *     (`POST /taste/events`). Null when there are no picks to report on.
+             */
+            listId: string | null;
             /** @description Largest room first. Empty unless `status` is `ready`. */
             rooms: components["schemas"]["TasteRoom"][];
             /** @enum {string} */
@@ -946,6 +994,11 @@ export interface components {
             styles: string[];
         };
         TasteSearch: {
+            /**
+             * @description Names this list of picks, for the events the client reports about it
+             *     (`POST /taste/events`). Null when there are no picks to report on.
+             */
+            listId: string | null;
             /** @description The description as searched, trimmed. */
             query: string;
             /** @description Best first; at most one record per artist. Empty without a catalogue. */
@@ -1581,6 +1634,32 @@ export interface operations {
             };
             429: components["responses"]["RateLimited"];
             503: components["responses"]["Problem"];
+        };
+    };
+    reportTasteEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TasteEvents"];
+            };
+        };
+        responses: {
+            /** @description Recorded. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Problem"];
+            401: components["responses"]["Problem"];
+            403: components["responses"]["ForbiddenOrigin"];
+            429: components["responses"]["RateLimited"];
         };
     };
     giveTasteFeedback: {

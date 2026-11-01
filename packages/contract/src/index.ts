@@ -31,3 +31,5 @@ export type TasteReason = Schemas['TasteReason'];
 export type TasteFeedback = Schemas['TasteFeedback'];
 export type TasteLink = Schemas['TasteLink'];
 export type TasteSearch = Schemas['TasteSearch'];
+export type TasteEvents = Schemas['TasteEvents'];
+export type TasteEvent = Schemas['TasteEvent'];
