@@ -5,7 +5,7 @@
  *
  * Needs a user who has signed in through the app (their encrypted token is read from
  * the database). It makes four read-only live Discogs calls and prints field paths only, never
- * values. Never run in tests or CI (CLAUDE.md: tests do not hit live APIs).
+ * values. Never run in tests or CI (CONTRIBUTING.md: tests do not hit live APIs).
  * Exits 1 if a live response fails the gateway's schemas, since imports would break.
  */
 import { existsSync } from 'node:fs';

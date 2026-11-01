@@ -18,7 +18,7 @@ The options considered:
   Spotify Premium and a Spotify login, and new apps are limited to an allow-list of
   test users.
 - **Apple MusicKit.** Fully custom and full-length, but needs a paid Apple Developer
-  membership (CLAUDE.md: no paid services without asking) and an Apple Music
+  membership (CONTRIBUTING.md: no paid services without asking) and an Apple Music
   subscription per listener.
 - **iTunes Search API.** Free, no key, a 30-second `previewUrl` per track, streamed as
   plain audio, so the player is entirely ours.
@@ -26,7 +26,7 @@ The options considered:
 ## Decision
 
 1. **Previews come from the iTunes Search API**, behind an `ITunesGateway` interface in
-   `apps/api/src/itunes/`, like Discogs (CLAUDE.md). A lint rule keeps
+   `apps/api/src/itunes/`, like Discogs (CONTRIBUTING.md). A lint rule keeps
    `itunes.apple.com` out of every other module.
 2. **Looked up on demand, two calls per record.** When the user first presses play on a
    record, the API searches for the album (artist and title), then lists its songs.

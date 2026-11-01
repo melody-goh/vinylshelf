@@ -26,7 +26,7 @@ releases dump (10.5 GB gzipped, about 15 million releases) and the masters dump
    hand, with the dump month and the cap as inputs). The repository is public, so
    standard runners are free with no minutes cap; a runner has 4 vCPUs, 16 GB of
    memory and 14 GB of disk, enough for the build below. This is infrastructure the
-   project already uses for CI, so nothing new is added (CLAUDE.md).
+   project already uses for CI, so nothing new is added (CONTRIBUTING.md).
 2. **The dumps are streamed, never stored.** The build reads each dump over HTTPS
    through a gunzip stream and a streaming XML parser (`saxes`), keeping only what it
    needs:
@@ -57,7 +57,7 @@ releases dump (10.5 GB gzipped, about 15 million releases) and the masters dump
 5. **The pipeline is tested without the real dumps.** Every stage is a small module
    with unit tests, and an end-to-end test builds a catalogue from fixture dumps of a
    few releases with a deterministic fake embedder, then loads it into the test
-   database and queries it. CI never downloads a dump or a model (CLAUDE.md).
+   database and queries it. CI never downloads a dump or a model (CONTRIBUTING.md).
 6. **Model weights come from Hugging Face once per build**, cached by the workflow, and
    once per developer machine through `models:fetch`. The API loads them from disk and
    never downloads at runtime. Hugging Face is a source of files, like npm, not a

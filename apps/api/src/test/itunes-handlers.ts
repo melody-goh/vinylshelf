@@ -1,6 +1,6 @@
 /**
  * MSW handlers that stand in for the iTunes Search API, serving the hand-built fixtures
- * in fixtures/itunes. Tests never reach Apple (CLAUDE.md).
+ * in fixtures/itunes. Tests never reach Apple (CONTRIBUTING.md).
  */
 import { readFileSync } from 'node:fs';
 import { http, HttpResponse, type HttpHandler } from 'msw';

@@ -6,7 +6,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 /**
- * CLAUDE.md: every external service is reached only through its gateway module.
+ * CONTRIBUTING.md: every external service is reached only through its gateway module.
  * These rules make that a lint error instead of a convention.
  */
 const GATEWAYS = {
