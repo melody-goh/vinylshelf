@@ -1,5 +1,6 @@
 import type { TasteFeedback } from '@vinylshelf/contract';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { api, unwrap } from './client';
 
 export type Distance = 'near' | 'far';
@@ -21,12 +22,10 @@ export function useRecommendations(distance: Distance) {
 }
 
 /**
- * "More like this" and "not for me". Recommendations are refetched afterwards, but the
- * caller decides when to show them, so a row does not reshuffle under the listener.
+ * "More like this" and "not for me". The picks are not worked out again while the
+ * listener browses, so the row does not reshuffle under them; see `useRepickOnLeave`.
  */
 export function useTasteFeedback() {
-  const queryClient = useQueryClient();
-  const settle = () => queryClient.invalidateQueries({ queryKey: tasteKey });
   const give = useMutation({
     mutationFn: (feedback: TasteFeedback) =>
       unwrap(api.POST('/taste/feedback', { body: feedback })),
@@ -35,20 +34,37 @@ export function useTasteFeedback() {
     mutationFn: (masterId: number) =>
       unwrap(api.DELETE('/taste/feedback/{masterId}', { params: { path: { masterId } } })),
   });
-  return { give, withdraw, settle };
+  return { give, withdraw };
+}
+
+/**
+ * Works the picks out again once the listener leaves, if they steered them while there.
+ * The cleanup runs only on leaving, as long as the caller never turns `steered` back to
+ * false; the query client does not change. (Refetching on every render instead looped: each answer is a
+ * new served list, so it re-rendered, which refetched.)
+ */
+export function useRepickOnLeave(steered: boolean): void {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!steered) return;
+    return () => {
+      void queryClient.invalidateQueries({ queryKey: tasteKey });
+    };
+  }, [steered, queryClient]);
 }
 
 /**
  * Records that fit a description (ADR 0008 §2), for one submitted description at a
- * time. Not retried: a 503 means search is not set up here, and asking again will not
- * change that.
+ * time. Kept, like the picks, so a row is not replaced under the listener when they
+ * come back to the tab. Not retried: a 503 means search is not set up here, and asking
+ * again will not change that.
  */
 export function useTasteSearch(query: string | null) {
   return useQuery({
     queryKey: ['taste-search', query],
     queryFn: () => unwrap(api.GET('/taste/search', { params: { query: { q: query ?? '' } } })),
     enabled: query !== null,
-    staleTime: 5 * 60 * 1000,
+    staleTime: Infinity,
     retry: false,
   });
 }

@@ -166,6 +166,14 @@ describe('Discover', () => {
         'POST /taste/feedback {"masterId":1,"verdict":"less"}',
       ]);
     });
+    // The picks are worked out again only once the listener leaves, never under them.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(distances).toEqual(['near']);
+    await user.click(screen.getByRole('button', { name: 'Shelf' }));
+    await user.click(screen.getByRole('button', { name: 'Discover' }));
+    await waitFor(() => {
+      expect(distances).toEqual(['near', 'near']);
+    });
   });
 
   it('reports what the listener does with each pick, against the list it came in', async () => {

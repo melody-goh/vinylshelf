@@ -16,7 +16,13 @@ import { useDwell, usePreviews } from '../api/previews';
 import { reportTasteEvent } from '../api/taste-events';
 import { useRelease } from '../api/releases';
 import { ApiError } from '../api/client';
-import { useRecommendations, useTasteFeedback, useTasteSearch, type Distance } from '../api/taste';
+import {
+  useRecommendations,
+  useRepickOnLeave,
+  useTasteFeedback,
+  useTasteSearch,
+  type Distance,
+} from '../api/taste';
 import { useWant } from '../api/wantlist';
 import { useWideScreen } from '../design/media';
 import type { Release, TasteEvent, TasteFeedback } from '@vinylshelf/contract';
@@ -182,14 +188,9 @@ export function Discover() {
     [all, verdicts],
   );
   const feedback = useTasteFeedback();
-  const { settle } = feedback;
-  const steered = verdicts.size > 0;
-  useEffect(
-    () => () => {
-      if (steered) void settle();
-    },
-    [steered, settle],
-  );
+  // Steered on this visit, even if every verdict was then taken back.
+  const [steered, setSteered] = useState(false);
+  useRepickOnLeave(steered);
   const data = recommendations.data;
   // The first visit holds the loading line for one pass of its notes, so it is seen.
   const [held, setHeld] = useState(true);
@@ -244,6 +245,7 @@ export function Discover() {
             feedback.give.mutate({ masterId, verdict });
           }
           setVerdicts(next);
+          setSteered(true);
           report(current, verdict ?? 'withdrawn');
         }}
       />
