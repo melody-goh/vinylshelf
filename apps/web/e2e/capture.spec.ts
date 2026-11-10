@@ -95,6 +95,7 @@ async function mockApi(page: Page, state: State): Promise<void> {
         query: q,
         results: picks,
         listId: '00000000-0000-4000-8000-00000000000b',
+        nextPage: null,
       },
     });
   });

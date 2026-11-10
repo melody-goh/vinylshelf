@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.13.0
+  version: 0.14.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -577,7 +577,9 @@ paths:
         2026-10-26). Picks come from the taste catalogue, built from Discogs' CC0 data
         dumps (ADR 0012), so they carry no `expiresAt`; they still credit Discogs.
 
-        The same shelf, feedback and catalogue always give the same answer. `status`
+        Picks come a page at a time: each page is every room's next round of picks,
+        so no record appears on two pages, and no artist twice in one room. The same
+        shelf, feedback and catalogue always give the same pages. `status`
         says why there are no rooms, when there are none:
 
         - `no_catalogue`: no taste catalogue is loaded on this server;
@@ -595,6 +597,12 @@ paths:
             type: string
             enum: [near, far]
             default: near
+        - name: page
+          in: query
+          description: |
+            Which page of picks: 0 is the first. Each page holds what was not on the
+            pages before it; `nextPage` says whether there is another.
+          schema: { type: integer, minimum: 0, maximum: 4, default: 0 }
       responses:
         '200':
           description: Recommendations, or why there are none.
@@ -625,6 +633,12 @@ paths:
           required: true
           description: What to look for, in the user's own words.
           schema: { type: string, minLength: 2, maxLength: 200 }
+        - name: page
+          in: query
+          description: |
+            Which page of picks: 0 is the first. Each page holds what was not on the
+            pages before it; `nextPage` says whether there is another.
+          schema: { type: integer, minimum: 0, maximum: 4, default: 0 }
       responses:
         '200':
           description: Matches, best first, or why there are none.
@@ -1366,8 +1380,14 @@ components:
 
     TasteRecommendations:
       type: object
-      required: [status, catalogue, basedOn, rooms, listId]
+      required: [status, catalogue, basedOn, rooms, listId, nextPage]
       properties:
+        nextPage:
+          description: The page to ask for next, or null when this is the last.
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
         listId:
           description: |
             Names this list of picks, for the events the client reports about it
@@ -1420,8 +1440,14 @@ components:
 
     TasteSearch:
       type: object
-      required: [status, query, results, listId]
+      required: [status, query, results, listId, nextPage]
       properties:
+        nextPage:
+          description: The page to ask for next, or null when this is the last.
+          oneOf:
+            - type: integer
+              minimum: 1
+            - type: 'null'
         listId:
           description: |
             Names this list of picks, for the events the client reports about it

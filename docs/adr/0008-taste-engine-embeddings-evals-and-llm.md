@@ -389,3 +389,22 @@ development machine), inside the free host's 512 MB. A description embeds in 3 t
 A warm search takes 150 to 490 ms end to end: about 20 ms by meaning (HNSW) and 70 ms
 by name (a scan of the style and genre columns), the rest in re-ranking. A trigram index
 on style and genre names is the next step if the name scan grows.
+
+### 2026-11-10: more picks, a page at a time
+
+Discover and search now page (contract 0.14.0), so a listener who has seen a row can
+keep going. There are at most five pages: 40 picks per room, or 120 search results.
+
+- **Pages are rounds.** Page n is every room's (n+1)th round of picks, ranked after the
+  rounds before it, with their records and, within a room, their artists held back.
+  Ranking each room deeper in one go would be simpler. But the rooms share the set of
+  records already picked, so one room's extra picks would change another room's first
+  ones: pages would overlap or skip records, and page 0 would depend on how many pages
+  were asked for. As rounds, page 0 is exactly what it was before paging.
+- **Search slices one longer run.** Its re-ranking picks greedily, best first, so the
+  first 24 of a run of 48 are the run of 24.
+- **Each page is its own served list** for the event log (ADR 0013), with its page
+  number, so reception can be read by depth.
+- **Cost:** each page recomputes the rooms, and reads the wantlist again (ADR 0011).
+  That is acceptable for one listener's few pages. If it shows in Discogs' rate limit,
+  the wantlist can be held for the visit.

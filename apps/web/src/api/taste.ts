@@ -1,5 +1,10 @@
 import type { TasteFeedback } from '@vinylshelf/contract';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { api, unwrap } from './client';
 
@@ -8,14 +13,20 @@ export type Distance = 'near' | 'far';
 export const tasteKey = ['taste'] as const;
 
 /**
- * The shelf's rooms and their picks (ADR 0008). The same shelf and feedback always give
- * the same answer, so it is kept until feedback or the shelf changes it. Switching
- * distance keeps the previous row on screen until the new one arrives.
+ * The shelf's rooms and their picks (ADR 0008), a page at a time; each page is every
+ * room's next round. The same shelf and feedback always give the same pages, so they
+ * are kept until feedback or the shelf changes them. Switching distance keeps the
+ * previous row on screen until the new one arrives.
  */
 export function useRecommendations(distance: Distance) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: [...tasteKey, distance],
-    queryFn: () => unwrap(api.GET('/taste/recommendations', { params: { query: { distance } } })),
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        api.GET('/taste/recommendations', { params: { query: { distance, page: pageParam } } }),
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextPage ?? undefined,
     staleTime: Infinity,
     placeholderData: keepPreviousData,
   });
@@ -60,9 +71,12 @@ export function useRepickOnLeave(steered: boolean): void {
  * again will not change that.
  */
 export function useTasteSearch(query: string | null) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['taste-search', query],
-    queryFn: () => unwrap(api.GET('/taste/search', { params: { query: { q: query ?? '' } } })),
+    queryFn: ({ pageParam }) =>
+      unwrap(api.GET('/taste/search', { params: { query: { q: query ?? '', page: pageParam } } })),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextPage ?? undefined,
     enabled: query !== null,
     staleTime: Infinity,
     retry: false,

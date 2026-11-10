@@ -34,6 +34,11 @@ export const MIN_SHELF = 3;
 export const PICKS_PER_ROOM = 8;
 /** Search results: a row's worth to browse. */
 export const SEARCH_RESULTS = 24;
+/**
+ * The last page of picks or results (pages start at 0): five rows' worth, which the
+ * candidates fetched per room and per search still cover.
+ */
+export const MAX_PAGE = 4;
 /** The newest wants read for each answer: 300 records, three requests to Discogs. */
 export const WANT_PAGES = 3;
 
@@ -70,7 +75,11 @@ export class TasteService {
     this.matchNames = pgMatchNames(database);
   }
 
-  async recommendations(userId: string, distance: Distance): Promise<TasteRecommendations> {
+  async recommendations(
+    userId: string,
+    distance: Distance,
+    page = 0,
+  ): Promise<TasteRecommendations> {
     const { db } = this.database;
     const manifest = await loadedCatalogue(this.database);
     const catalogue = manifest ? { dump: manifest.dump, rows: manifest.rows } : null;
@@ -87,6 +96,7 @@ export class TasteService {
         basedOn: { shelfRecords: shelfItems.length, inCatalogue: 0, wanted: null },
         rooms: [],
         listId: null,
+        nextPage: null,
       };
     }
     const shelf = await catalogueRows(this.database, [...ownedMasters]);
@@ -104,7 +114,14 @@ export class TasteService {
       wanted: wantedIds ? wanted.length : null,
     };
     if (shelf.length + wanted.length < MIN_SHELF) {
-      return { status: 'too_few_records', catalogue, basedOn, rooms: [], listId: null };
+      return {
+        status: 'too_few_records',
+        catalogue,
+        basedOn,
+        rooms: [],
+        listId: null,
+        nextPage: null,
+      };
     }
 
     const verdicts = await db
@@ -139,6 +156,7 @@ export class TasteService {
       ownedArtists: await this.ownedArtists(shelf, shelfItems),
       distance,
       picksPerRoom: PICKS_PER_ROOM,
+      page,
       retrieve: this.retrieve,
     });
 
@@ -159,8 +177,11 @@ export class TasteService {
       })),
       listId:
         served.length > 0
-          ? await this.log.served(userId, { surface: 'discover', distance, page: 0, picks: served })
+          ? await this.log.served(userId, { surface: 'discover', distance, page, picks: served })
           : null,
+      // Another page only while some room still fills a whole round.
+      nextPage:
+        page < MAX_PAGE && rooms.some((r) => r.picks.length === PICKS_PER_ROOM) ? page + 1 : null,
     };
   }
 
@@ -196,10 +217,12 @@ export class TasteService {
    * Search needs the catalogue's own model: a missing model, or a catalogue built with
    * another one, is reported rather than answered with meaningless matches.
    */
-  async search(userId: string, description: string): Promise<TasteSearch> {
+  async search(userId: string, description: string, page = 0): Promise<TasteSearch> {
     const query = description.trim();
     const manifest = await loadedCatalogue(this.database);
-    if (!manifest) return { status: 'no_catalogue', query, results: [], listId: null };
+    if (!manifest) {
+      return { status: 'no_catalogue', query, results: [], listId: null, nextPage: null };
+    }
 
     let vector: Float32Array;
     try {
@@ -230,17 +253,20 @@ export class TasteService {
       shelf: await catalogueRows(this.database, ownedMasters),
       exclude: new Set([...ownedMasters, ...rejected.map((r) => r.masterId)]),
       retrieve: this.retrieve,
-      limit: SEARCH_RESULTS,
+      // Search picks greedily, best first, so the first n of a longer run are the run of n.
+      limit: SEARCH_RESULTS * (page + 1),
     });
-    const served = hits.map((hit) => ({ masterId: hit.master.id, roomId: null }));
+    const onPage = hits.slice(SEARCH_RESULTS * page);
+    const served = onPage.map((hit) => ({ masterId: hit.master.id, roomId: null }));
     return {
       status: 'ready',
       query,
-      results: hits.map((hit) => ({ master: toView(hit.master), reason: hit.reason })),
+      results: onPage.map((hit) => ({ master: toView(hit.master), reason: hit.reason })),
       listId:
         served.length > 0
-          ? await this.log.served(userId, { surface: 'search', query, page: 0, picks: served })
+          ? await this.log.served(userId, { surface: 'search', query, page, picks: served })
           : null,
+      nextPage: page < MAX_PAGE && onPage.length === SEARCH_RESULTS ? page + 1 : null,
     };
   }
 
