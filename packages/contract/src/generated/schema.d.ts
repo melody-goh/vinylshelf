@@ -479,7 +479,9 @@ export interface paths {
          *     2026-10-26). Picks come from the taste catalogue, built from Discogs' CC0 data
          *     dumps (ADR 0012), so they carry no `expiresAt`; they still credit Discogs.
          *
-         *     The same shelf, feedback and catalogue always give the same answer. `status`
+         *     Picks come a page at a time: each page is every room's next round of picks,
+         *     so no record appears on two pages, and no artist twice in one room. The same
+         *     shelf, feedback and catalogue always give the same pages. `status`
          *     says why there are no rooms, when there are none:
          *
          *     - `no_catalogue`: no taste catalogue is loaded on this server;
@@ -978,6 +980,8 @@ export interface components {
              *     (`POST /taste/events`). Null when there are no picks to report on.
              */
             listId: string | null;
+            /** @description The page to ask for next, or null when this is the last. */
+            nextPage: number | null;
             /** @description Largest room first. Empty unless `status` is `ready`. */
             rooms: components["schemas"]["TasteRoom"][];
             /** @enum {string} */
@@ -999,6 +1003,8 @@ export interface components {
              *     (`POST /taste/events`). Null when there are no picks to report on.
              */
             listId: string | null;
+            /** @description The page to ask for next, or null when this is the last. */
+            nextPage: number | null;
             /** @description The description as searched, trimmed. */
             query: string;
             /** @description Best first; at most one record per artist. Empty without a catalogue. */
@@ -1727,6 +1733,11 @@ export interface operations {
                  *     further, trades some accuracy for range and only suggests new artists.
                  */
                 distance?: "near" | "far";
+                /**
+                 * @description Which page of picks: 0 is the first. Each page holds what was not on the
+                 *     pages before it; `nextPage` says whether there is another.
+                 */
+                page?: number;
             };
             header?: never;
             path?: never;
@@ -1750,6 +1761,11 @@ export interface operations {
     searchByDescription: {
         parameters: {
             query: {
+                /**
+                 * @description Which page of picks: 0 is the first. Each page holds what was not on the
+                 *     pages before it; `nextPage` says whether there is another.
+                 */
+                page?: number;
                 /** @description What to look for, in the user's own words. */
                 q: string;
             };
