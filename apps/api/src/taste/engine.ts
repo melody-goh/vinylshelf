@@ -28,6 +28,8 @@ export interface TasteInput {
   ownedArtists: ReadonlySet<string>;
   distance: Distance;
   picksPerRoom: number;
+  /** Which page of picks: page n is every room's (n+1)th round. Defaults to the first. */
+  page?: number;
   retrieve: Retrieve;
   /** For tuning experiments only. */
   weights?: Weights;
@@ -60,6 +62,12 @@ export function kindsFor(room: Room): Set<RecordKind> {
 const CANDIDATES = { near: 150, far: 400 } as const;
 const FAR_SKIP = 60;
 
+/**
+ * Each room's picks for one page. Pages are rounds: every room picks its first round,
+ * then its second, and so on, each from what no room has picked before. So page 0 is
+ * the same however many pages follow, and no record appears on two pages; ranking each
+ * room deeper in one go would let one room's extra picks change another's first ones.
+ */
 export async function recommend(input: TasteInput): Promise<RoomPicks[]> {
   const rooms = buildRooms([...input.shelf, ...input.liked]);
   const exclude = new Set([
@@ -67,8 +75,7 @@ export async function recommend(input: TasteInput): Promise<RoomPicks[]> {
     ...input.liked.map((m) => m.id),
     ...input.disliked.map((m) => m.id),
   ]);
-  const taken = new Set<number>();
-  const results: RoomPicks[] = [];
+  const candidates: CatalogueRow[][] = [];
   for (const room of rooms) {
     const found = await input.retrieve(
       room.centroid,
@@ -76,17 +83,30 @@ export async function recommend(input: TasteInput): Promise<RoomPicks[]> {
       exclude,
       kindsFor(room),
     );
-    const candidates = input.distance === 'far' ? found.slice(FAR_SKIP) : found;
-    const picks = rankRoom(room, candidates, {
-      distance: input.distance,
-      limit: input.picksPerRoom,
-      ownedArtists: input.ownedArtists,
-      disliked: input.disliked,
-      taken,
-      ...(input.weights ? { weights: input.weights } : {}),
+    candidates.push(input.distance === 'far' ? found.slice(FAR_SKIP) : found);
+  }
+
+  const taken = new Set<number>();
+  const shownArtists = rooms.map(() => new Set<string>());
+  const page = input.page ?? 0;
+  let results: RoomPicks[] = [];
+  for (let round = 0; round <= page; round++) {
+    results = rooms.map((room, i) => {
+      const picks = rankRoom(room, candidates[i] ?? [], {
+        distance: input.distance,
+        limit: input.picksPerRoom,
+        ownedArtists: input.ownedArtists,
+        disliked: input.disliked,
+        taken,
+        heldArtists: shownArtists[i],
+        ...(input.weights ? { weights: input.weights } : {}),
+      });
+      for (const pick of picks) {
+        taken.add(pick.master.id);
+        for (const artist of pick.master.artists) shownArtists[i]?.add(artist.toLowerCase());
+      }
+      return { room, picks };
     });
-    for (const pick of picks) taken.add(pick.master.id);
-    results.push({ room, picks });
   }
   return results;
 }

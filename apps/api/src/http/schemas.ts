@@ -233,10 +233,15 @@ export const tasteRecommendationsSchema = z.object({
     }),
   ),
   listId: z.uuid().nullable(),
+  nextPage: z.number().int().min(1).nullable(),
 });
+
+/** Which page of picks or results; MAX_PAGE in taste/service.ts is the last. */
+const tastePage = z.coerce.number().int().min(0).max(4).default(0);
 
 export const tasteRecommendationsQuery = z.object({
   distance: z.enum(['near', 'far']).default('near'),
+  page: tastePage,
 });
 
 export const tasteFeedbackBody = z.object({
@@ -249,6 +254,7 @@ export const tasteSearchSchema = z.object({
   query: z.string(),
   results: tasteRecommendationsSchema.shape.rooms.element.shape.picks,
   listId: z.uuid().nullable(),
+  nextPage: z.number().int().min(1).nullable(),
 });
 
 export const tasteEventsBody = z.object({
@@ -266,4 +272,5 @@ export const tasteEventsBody = z.object({
 
 export const tasteSearchQuery = z.object({
   q: z.string().trim().min(2).max(200),
+  page: tastePage,
 });

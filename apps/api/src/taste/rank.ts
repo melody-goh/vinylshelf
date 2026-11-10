@@ -62,8 +62,10 @@ export interface RankContext {
   ownedArtists: ReadonlySet<string>;
   /** Records the user said were not for them; candidates very like them are pushed down. */
   disliked: readonly CatalogueRow[];
-  /** Masters already picked for another room, so no record appears twice. */
+  /** Masters already picked for another room or an earlier page, so none appears twice. */
   taken: ReadonlySet<number>;
+  /** Artists this room picked on earlier pages, lower-cased: each artist once per room. */
+  heldArtists?: ReadonlySet<string>;
   /** Overrides for tuning experiments; production always uses WEIGHTS. */
   weights?: Weights;
 }
@@ -123,7 +125,7 @@ export function rankRoom(
     });
 
   const picks: Pick[] = [];
-  const artists = new Set<string>();
+  const artists = new Set<string>(context.heldArtists);
   let ownedPicks = 0;
   const pool = [...scored].sort((a, b) => b.score - a.score || a.candidate.id - b.candidate.id);
   while (picks.length < context.limit && pool.length > 0) {

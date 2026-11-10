@@ -36,7 +36,12 @@ export const tasteRoutes =
           response: { 200: tasteRecommendationsSchema },
         },
       },
-      async (request) => deps.taste.recommendations(currentUserId(request), request.query.distance),
+      async (request) =>
+        deps.taste.recommendations(
+          currentUserId(request),
+          request.query.distance,
+          request.query.page,
+        ),
     );
 
     app.get(
@@ -45,7 +50,8 @@ export const tasteRoutes =
         ...auth,
         schema: { querystring: tasteSearchQuery, response: { 200: tasteSearchSchema } },
       },
-      async (request) => deps.taste.search(currentUserId(request), request.query.q),
+      async (request) =>
+        deps.taste.search(currentUserId(request), request.query.q, request.query.page),
     );
 
     app.post(

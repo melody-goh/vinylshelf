@@ -104,6 +104,7 @@ describe('GET /taste/recommendations', () => {
       basedOn: { shelfRecords: 10, inCatalogue: 0, wanted: null },
       rooms: [],
       listId: null,
+      nextPage: null,
     });
   });
 
@@ -116,6 +117,7 @@ describe('GET /taste/recommendations', () => {
       basedOn: { shelfRecords: 4, inCatalogue: 2, wanted: 0 },
       rooms: [],
       listId: null,
+      nextPage: null,
     });
   });
 
@@ -241,6 +243,41 @@ describe('GET /taste/recommendations', () => {
     const result = await recommendations();
     expect(result.status).toBe('ready');
     expect(result.basedOn.wanted).toBeNull();
+  });
+
+  it('pages through further picks, never repeating a record or an artist in a room', async () => {
+    await seedCatalogue(db(), world);
+    await shelve(SHELF());
+    const first = await recommendations();
+    expect(first.nextPage).toBe(1);
+    const second = (
+      await call('GET', '/taste/recommendations?distance=near&page=1')
+    ).json<TasteRecommendations>();
+
+    const ids = (r: TasteRecommendations) => picks(r).map((p) => p.master.masterId);
+    expect(ids(second).length).toBeGreaterThan(0);
+    expect(ids(second).filter((id) => ids(first).includes(id))).toEqual([]);
+    for (const room of second.rooms) {
+      const before = first.rooms.find((r) => r.id === room.id);
+      const artists = new Set(before?.picks.flatMap((p) => p.master.artists));
+      expect(room.picks.filter((p) => p.master.artists.some((a) => artists.has(a)))).toEqual([]);
+    }
+    // Asking for a later page leaves the first one as it was.
+    expect({ ...(await recommendations()), listId: null }).toEqual({ ...first, listId: null });
+    expect(second.listId).not.toBe(first.listId);
+    const pages = (await db().select().from(tasteLists)).map((l) => l.page);
+    expect(pages.sort()).toEqual([0, 0, 1]);
+  });
+
+  it('says when there are no more pages, and refuses pages past the last', async () => {
+    await seedCatalogue(db(), world);
+    await shelve(SHELF());
+    const last = (
+      await call('GET', '/taste/recommendations?distance=near&page=4')
+    ).json<TasteRecommendations>();
+    expect(last.nextPage).toBeNull();
+    expect((await call('GET', '/taste/recommendations?page=5')).statusCode).toBe(400);
+    expect((await call('GET', '/taste/recommendations?page=-1')).statusCode).toBe(400);
   });
 
   it('rejects an unknown distance and requires sign-in', async () => {

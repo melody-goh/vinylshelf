@@ -11,6 +11,7 @@ import { createFakeEmbedder } from './embedder.js';
 import type { SyntheticWorld } from './eval/synthetic.js';
 import { lazyQueryEmbedder } from './query-embedder.js';
 import { nameMatch, searchWords } from './search.js';
+import { SEARCH_RESULTS } from './service.js';
 
 const { db, handle } = useTestDatabase();
 
@@ -77,6 +78,31 @@ describe('GET /taste/search', () => {
     expect(new Set(artists).size).toBe(artists.length);
   });
 
+  it('pages on from the first results without repeating any', async () => {
+    await seedCatalogue(db(), world);
+    const q = encodeURIComponent(sceneStyles(1).join(' '));
+    const page = async (n: number) =>
+      (
+        await app.inject({
+          method: 'GET',
+          url: `${API_PREFIX}/taste/search?q=${q}&page=${String(n)}`,
+          headers: { origin: testConfig.webOrigin },
+          cookies: { sid },
+        })
+      ).json<TasteSearch>();
+    const first = await page(0);
+    const second = await page(1);
+    const ids = (r: TasteSearch) => r.results.map((hit) => hit.master.masterId);
+    expect(first.results).toHaveLength(SEARCH_RESULTS);
+    expect(first.nextPage).toBe(1);
+    expect(second.results.length).toBeGreaterThan(0);
+    expect(ids(second).filter((id) => ids(first).includes(id))).toEqual([]);
+    // One longer run cut in two: still one record per artist across both pages.
+    const artists = [...first.results, ...second.results].map((r) => r.master.artists[0]);
+    expect(new Set(artists).size).toBe(artists.length);
+    expect(first.listId).not.toBe(second.listId);
+  });
+
   it('leaves out records on the shelf and records marked not for me', async () => {
     await seedCatalogue(db(), world);
     const styles = sceneStyles(1);
@@ -110,6 +136,7 @@ describe('GET /taste/search', () => {
       query: 'modal jazz',
       results: [],
       listId: null,
+      nextPage: null,
     });
   });
 
