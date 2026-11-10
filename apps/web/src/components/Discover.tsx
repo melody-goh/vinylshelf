@@ -1,4 +1,4 @@
-import type { TastePick, TasteRecommendations, TasteRoom } from '@vinylshelf/contract';
+import type { TastePick, TasteRecommendations, TasteRoom, TasteSearch } from '@vinylshelf/contract';
 import { useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronLeft, ChevronRight, Heart, X } from 'lucide-react';
 import { motion, useAnimationFrame, useMotionValue, useReducedMotion } from 'motion/react';
@@ -44,26 +44,35 @@ export interface Placed {
   listId: string | null;
 }
 
-/** Search results as a row of their own, named by the description in quotes. */
-export function placeSearch(
-  query: string,
-  picks: readonly TastePick[],
-  listId: string | null,
-): Placed[] {
-  const room: TasteRoom = {
-    id: 'search',
-    styles: [`“${query}”`],
-    size: picks.length,
-    picks: [...picks],
-  };
-  return picks.map((pick) => ({ pick, room, listId }));
+/** Each record once, where it first appears: pages never repeat, but a refetch may. */
+function once(placed: Placed[]): Placed[] {
+  const seen = new Set<number>();
+  return placed.filter(({ pick }) => {
+    const id = pick.master.masterId;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }
 
-/** Every room's picks in one row, room after room, largest room first. */
-export function placeAll(recommendations: TasteRecommendations | undefined): Placed[] {
-  const listId = recommendations?.listId ?? null;
-  return (recommendations?.rooms ?? []).flatMap((room) =>
-    room.picks.map((pick) => ({ pick, room, listId })),
+/** Search results as a row of their own, named by the description in quotes, page after page. */
+export function placeSearch(query: string, pages: readonly TasteSearch[]): Placed[] {
+  const picks = pages.flatMap((page) => page.results);
+  const room: TasteRoom = { id: 'search', styles: [`“${query}”`], size: picks.length, picks };
+  return once(
+    pages.flatMap((page) => page.results.map((pick) => ({ pick, room, listId: page.listId }))),
+  );
+}
+
+/**
+ * Every room's picks in one row, room after room, largest room first; each further page
+ * goes round the rooms again.
+ */
+export function placeAll(pages: readonly TasteRecommendations[]): Placed[] {
+  return once(
+    pages.flatMap((page) =>
+      page.rooms.flatMap((room) => room.picks.map((pick) => ({ pick, room, listId: page.listId }))),
+    ),
   );
 }
 
@@ -100,6 +109,8 @@ const press = { type: 'spring', stiffness: 500, damping: 28 } as const;
 
 /** The front sleeve's turn towards the reader; the Listening Room draws the disc from it. */
 const FRONT_TILT = -16;
+/** Records still ahead of the front one when the next page is asked for. */
+const FETCH_AHEAD = 4;
 /** A record counts as viewed once it has been at the front this long (ADR 0013). */
 const VIEWED_AFTER_MS = 1000;
 
@@ -175,8 +186,8 @@ export function Discover() {
   const all = useMemo(
     () =>
       searched !== null
-        ? placeSearch(searched, search.data?.results ?? [], search.data?.listId ?? null)
-        : placeAll(recommendations.data),
+        ? placeSearch(searched, search.data?.pages ?? [])
+        : placeAll(recommendations.data?.pages ?? []),
     [searched, search.data, recommendations.data],
   );
   const [front, setFront] = useState(0);
@@ -191,7 +202,7 @@ export function Discover() {
   // Steered on this visit, even if every verdict was then taken back.
   const [steered, setSteered] = useState(false);
   useRepickOnLeave(steered);
-  const data = recommendations.data;
+  const data = recommendations.data?.pages[0];
   // The first visit holds the loading line for one pass of its notes, so it is seen.
   const [held, setHeld] = useState(true);
   useEffect(() => {
@@ -203,12 +214,24 @@ export function Discover() {
     };
   }, []);
 
-  // A new row (another distance, or after feedback) starts from its first pick.
-  const [shown, setShown] = useState(all);
-  if (shown !== all) {
-    setShown(all);
+  // A new row (another distance or description, or picks worked out again) starts from
+  // its first pick; a further page joining the row does not move it.
+  const source = searched !== null ? search : recommendations;
+  const firstList = source.data?.pages[0]?.listId ?? null;
+  const row = `${searched ?? distance}|${firstList ?? ''}`;
+  const [shownRow, setShownRow] = useState(row);
+  if (shownRow !== row) {
+    setShownRow(row);
     setFront(0);
   }
+
+  // The next page is asked for while a few records are still ahead, so the row runs on.
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = source;
+  useEffect(() => {
+    if (front >= placed.length - FETCH_AHEAD && hasNextPage && !isFetchingNextPage) {
+      void fetchNextPage();
+    }
+  }, [front, placed.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const reach = (
     <DotChoice
@@ -264,7 +287,7 @@ export function Discover() {
           </Quiet>
         );
       }
-      if (search.data.status === 'no_catalogue') {
+      if (search.data.pages[0]?.status === 'no_catalogue') {
         return (
           <Quiet>Discover needs the taste catalogue, which isn&rsquo;t loaded here yet.</Quiet>
         );

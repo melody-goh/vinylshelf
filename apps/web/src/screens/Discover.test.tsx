@@ -31,6 +31,8 @@ const READY = recommendations([
   { styles: ['Smooth Jazz'], picks: [tastePick(3, { title: 'Next Exit' })] },
 ]);
 let answer = READY;
+/** Later pages of picks, by page number; none unless a test adds them. */
+let later: Record<number, ReturnType<typeof recommendations>>;
 let distances: string[];
 /** Requests that changed something, as "METHOD path body". */
 let writes: string[];
@@ -39,6 +41,7 @@ let events: string[];
 
 beforeEach(() => {
   answer = READY;
+  later = {};
   distances = [];
   writes = [];
   events = [];
@@ -76,11 +79,14 @@ beforeEach(() => {
         query: q,
         results: q.includes('nothing') ? [] : [tastePick(40, { title: 'Phantazia' })],
         listId: q.includes('nothing') ? null : '00000000-0000-4000-8000-00000000000b',
+        nextPage: null,
       });
     }),
     http.get(`${API}/taste/recommendations`, ({ request }) => {
-      distances.push(new URL(request.url).searchParams.get('distance') ?? '');
-      return HttpResponse.json(answer);
+      const params = new URL(request.url).searchParams;
+      const page = Number(params.get('page') ?? 0);
+      distances.push(`${params.get('distance') ?? ''}${page > 0 ? ` page ${String(page)}` : ''}`);
+      return HttpResponse.json(page > 0 ? later[page] : answer);
     }),
   );
 });
@@ -215,6 +221,24 @@ describe('Discover', () => {
         ),
       );
     });
+  });
+
+  it('runs on into the next page near the end of the row, without moving', async () => {
+    answer = { ...READY, nextPage: 1 };
+    later[1] = recommendations(
+      [{ styles: ['Soul', 'Disco'], picks: [tastePick(4, { title: 'Brick House' })] }],
+      { listId: '00000000-0000-4000-8000-0000000000f1' },
+    );
+    const { user, region } = await openDiscover();
+    await within(region).findByRole('heading', { name: 'Rejoice' });
+
+    expect(await within(region).findByText('1 / 4')).toBeInTheDocument();
+    expect(within(region).getByRole('heading', { name: 'Rejoice' })).toBeInTheDocument();
+    expect(distances).toEqual(['near', 'near page 1']);
+
+    await user.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
+    expect(within(region).getByRole('heading', { name: 'Brick House' })).toBeInTheDocument();
+    expect(within(region).getByRole('button', { name: 'Next record' })).toBeDisabled();
   });
 
   it('searches by description, and returns to the picks when cleared', async () => {
