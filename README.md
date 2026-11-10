@@ -194,6 +194,7 @@ docs/domain-model.md
 | [ADR 0011](docs/adr/0011-the-wantlist.md) | The wantlist, read live from Discogs |
 | [ADR 0012](docs/adr/0012-catalogue-as-a-build-artifact.md) | The taste catalogue is a versioned build artifact |
 | [ADR 0013](docs/adr/0013-taste-events-and-online-metrics.md) | How picks are received: served lists, listener events and reception metrics |
+| [ADR 0014](docs/adr/0014-demo-mode.md) | Demo mode: a sample shelf for visitors without a Discogs account, kept apart from Discogs |
 
 ## Roadmap
 
