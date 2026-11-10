@@ -69,6 +69,7 @@ describe('reception', () => {
     const zeros = { viewed: 0, previewed: 0, opened: 0, wanted: 0, more: 0, less: 0 };
     expect(rows).toEqual([
       {
+        demo: false,
         surface: 'discover',
         distance: 'near',
         from: null,
@@ -82,6 +83,7 @@ describe('reception', () => {
         less: 1,
       },
       {
+        demo: false,
         surface: 'discover',
         distance: 'near',
         from: 0,
@@ -94,6 +96,7 @@ describe('reception', () => {
         less: 1,
       },
       {
+        demo: false,
         surface: 'discover',
         distance: 'near',
         from: 8,
@@ -103,14 +106,36 @@ describe('reception', () => {
         viewed: 1,
         wanted: 1,
       },
-      { surface: 'search', distance: null, from: null, lists: 1, reached: 1, ...zeros, viewed: 1 },
-      { surface: 'search', distance: null, from: 0, lists: 1, reached: 1, ...zeros, viewed: 1 },
+      {
+        demo: false,
+        surface: 'search',
+        distance: null,
+        from: null,
+        lists: 1,
+        reached: 1,
+        ...zeros,
+        viewed: 1,
+      },
+      {
+        demo: false,
+        surface: 'search',
+        distance: null,
+        from: 0,
+        lists: 1,
+        reached: 1,
+        ...zeros,
+        viewed: 1,
+      },
     ]);
   });
 
   it('leaves out lists served before the window', async () => {
     const userId = (await createUser(testDependencies(handle()))).id;
-    const old = await served(userId, { surface: 'search', size: 4, at: new Date('2026-01-01') });
+    const old = await served(userId, {
+      surface: 'search',
+      size: 4,
+      at: new Date('2026-01-01'),
+    });
     await happened(userId, old, [['viewed', 0]]);
     expect(await reception(handle(), new Date('2026-06-01'))).toEqual([]);
   });

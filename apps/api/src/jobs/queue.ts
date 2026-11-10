@@ -24,6 +24,12 @@ export const QUEUES = {
     retryLimit: 0,
     expireInSeconds: 5 * 60,
   },
+  demoCleanup: {
+    name: 'demo-cleanup',
+    // The next hourly run catches anything this one missed.
+    retryLimit: 0,
+    expireInSeconds: 5 * 60,
+  },
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES]['name'];
@@ -35,6 +41,7 @@ export type QueueName = (typeof QUEUES)[keyof typeof QUEUES]['name'];
 export interface JobPayloads {
   'collection-import': { importJobId: string };
   'discogs-cache-purge': Record<string, never>;
+  'demo-cleanup': Record<string, never>;
 }
 
 export interface QueuedJob<T> {

@@ -11,6 +11,7 @@ import { userSchema } from '../http/schemas.js';
 import type { Clock } from '../lib/clock.js';
 import { currentUserId, requireUser } from './guard.js';
 import { SESSION_COOKIE, SESSION_TTL_SECONDS, type SessionStore } from './sessions.js';
+import { DEMO_TTL_SECONDS, type DemoService } from '../demo/service.js';
 import type { UserRepository } from './users.js';
 
 const REQUEST_COOKIE = 'oauth_req';
@@ -20,15 +21,21 @@ const REQUEST_TOKEN_TTL_SECONDS = 10 * 60;
  * anonymous client must not be able to drain it. Ten a minute is plenty for a person.
  */
 export const LOGIN_STARTS_PER_MINUTE = 10;
+/**
+ * Each demo is a user with a 31-record import behind it (ADR 0014); a person needs one,
+ * and this bounds how fast anyone can make more.
+ */
+export const DEMO_STARTS_PER_HOUR = 5;
 
 export interface AuthRouteDependencies {
-  config: Pick<Config, 'nodeEnv' | 'webOrigin' | 'allowedDiscogsUsers'> & {
+  config: Pick<Config, 'nodeEnv' | 'webOrigin' | 'allowedDiscogsUsers' | 'demoEnabled'> & {
     discogs: Pick<Config['discogs'], 'callbackUrl'>;
   };
   gateway: DiscogsGateway;
   cipher: TokenCipher;
   users: UserRepository;
   sessions: SessionStore;
+  demo: DemoService;
   clock: Clock;
 }
 
@@ -144,6 +151,24 @@ export const authRoutes =
       },
     );
 
+    app.post(
+      '/auth/demo',
+      { config: { rateLimit: { max: DEMO_STARTS_PER_HOUR, timeWindow: 60 * 60_000 } } },
+      async (_request, reply) => {
+        if (!config.demoEnabled) {
+          throw new ProblemError(404, 'demo_unavailable', 'Demos are turned off here');
+        }
+        const session = await deps.demo.start();
+        return reply
+          .setCookie(SESSION_COOKIE, session.token, {
+            ...sessionCookieOptions,
+            maxAge: DEMO_TTL_SECONDS,
+          })
+          .status(204)
+          .send();
+      },
+    );
+
     app.post('/auth/logout', { preHandler: requireUser(sessions) }, async (request, reply) => {
       const token = request.cookies[SESSION_COOKIE];
       if (token) await sessions.revoke(token);
@@ -157,7 +182,7 @@ export const authRoutes =
         const user = await users.findById(currentUserId(request));
         // A valid session for a deleted user: treat as signed out.
         if (!user) throw new ProblemError(401, 'unauthenticated', 'Sign in required');
-        return { id: user.id, discogsUsername: user.discogsUsername };
+        return { id: user.id, discogsUsername: user.discogsUsername, demo: user.demo };
       },
     );
 

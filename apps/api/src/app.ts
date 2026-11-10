@@ -32,6 +32,7 @@ import type { Clock } from './lib/clock.js';
 import { healthRoutes, type HealthProbe } from './meta/health.js';
 import type { QueryEmbedder } from './taste/query-embedder.js';
 import { tasteRoutes } from './taste/routes.js';
+import { DemoService } from './demo/service.js';
 import { TasteLog } from './taste/events.js';
 import { TasteService } from './taste/service.js';
 import { wantlistRoutes } from './wantlist/routes.js';
@@ -121,7 +122,15 @@ export async function buildApp(deps: AppDependencies): Promise<FastifyInstance> 
     async (api) => {
       await api.register(healthRoutes(deps.healthProbes ?? []));
       await api.register(
-        authRoutes({ config, gateway: deps.gateway, cipher: deps.cipher, users, sessions, clock }),
+        authRoutes({
+          config,
+          gateway: deps.gateway,
+          cipher: deps.cipher,
+          users,
+          sessions,
+          demo: new DemoService(database, users, sessions, imports, clock),
+          clock,
+        }),
       );
       await api.register(
         collectionRoutes({

@@ -28,6 +28,7 @@ export const API = '*/api/v1';
 export const fixtureUser: User = {
   id: '6f1c5f53-6e47-4a6b-9a55-2c1f1c0b7a10',
   discogsUsername: 'fixture_collector',
+  demo: false,
 };
 
 const HOUR = 60 * 60 * 1000;

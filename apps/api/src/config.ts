@@ -71,6 +71,10 @@ const envSchema = z
           : null,
       ),
     PROXY_SECRET: z.string().trim().min(32, 'must be at least 32 characters').optional(),
+    DEMO_ENABLED: z
+      .enum(['true', 'false'])
+      .default('true')
+      .transform((value) => value === 'true'),
   })
   .refine((env) => env.NODE_ENV !== 'production' || env.PROXY_SECRET !== undefined, {
     path: ['PROXY_SECRET'],
@@ -111,6 +115,8 @@ export interface Config {
   allowedDiscogsUsers: readonly string[] | null;
   /** Shared with the web proxy (ADR 0007); null where the API is reached directly. */
   proxySecret: string | null;
+  /** Whether visitors may start a demo (ADR 0014). */
+  demoEnabled: boolean;
 }
 
 export class ConfigError extends Error {
@@ -153,5 +159,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     allowedDiscogsUsers: e.ALLOWED_DISCOGS_USERS,
     proxySecret: e.PROXY_SECRET ?? null,
+    demoEnabled: e.DEMO_ENABLED,
   };
 }

@@ -19,6 +19,7 @@ export type ProblemCode =
   | 'previews_unavailable'
   | 'master_not_found'
   | 'search_unavailable'
+  | 'demo_unavailable'
   | 'discogs_unavailable'
   | 'discogs_auth_revoked'
   | 'discogs_unexpected_response'

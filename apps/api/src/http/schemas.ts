@@ -18,6 +18,7 @@ export const problemSchema = z.object({
 export const userSchema = z.object({
   id: z.uuid(),
   discogsUsername: z.string(),
+  demo: z.boolean(),
 });
 
 export const importJobSchema = z.object({

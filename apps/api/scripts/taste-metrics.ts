@@ -1,8 +1,8 @@
 /**
  * Prints how picks are received (ADR 0013): of the picks people reached, the share they
  * previewed, opened, wanted, asked for more of, or turned down, by surface and reach,
- * then by place in the list. Reads the database named by DATABASE_URL; prints only,
- * writes nothing, and shows no user or record names.
+ * then by place in the list, with demo visitors (ADR 0014) apart. Reads the database
+ * named by DATABASE_URL; prints only, writes nothing, and shows no user or record names.
  *
  *   pnpm --filter @vinylshelf/api taste:metrics
  *   pnpm --filter @vinylshelf/api taste:metrics -- --days 7
@@ -30,7 +30,9 @@ const percent = (part: number, whole: number) =>
   whole === 0 ? '–' : `${((100 * part) / whole).toFixed(1)}%`;
 
 const label = (row: ReceptionRow) => {
-  const where = row.surface === 'search' ? 'search' : `discover ${row.distance ?? ''}`;
+  const where = `${row.demo ? 'demo · ' : ''}${
+    row.surface === 'search' ? 'search' : `discover ${row.distance ?? ''}`
+  }`;
   return row.from === null
     ? where
     : `  places ${String(row.from + 1)}–${String(row.from + POSITION_BUCKET)}`;

@@ -1,14 +1,28 @@
-import { eq, sql } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+import { and, eq, isNotNull, lte, sql } from 'drizzle-orm';
 import type { TokenCipher } from '../crypto/token-cipher.js';
 import type { Database } from '../db/client.js';
-import { users } from '../db/schema.js';
+import { demoUserIds, users } from '../db/schema.js';
+import { demoToken } from '../discogs/demo-gateway.js';
 import type { DiscogsIdentity, TokenPair } from '../discogs/gateway.js';
 
 export interface UserRecord {
   id: string;
   discogsUserId: number;
   discogsUsername: string;
+  /** A demo visitor (ADR 0014), deleted when their demo ends. */
+  demo: boolean;
 }
+
+/** The name demo users go by; what the header shows. */
+export const DEMO_USERNAME = 'demo';
+
+const record = {
+  id: users.id,
+  discogsUserId: users.discogsUserId,
+  discogsUsername: users.discogsUsername,
+  demo: sql<boolean>`${users.demoExpiresAt} is not null`,
+};
 
 /**
  * Our accounts, keyed by Discogs user id (usernames can change). Access tokens are
@@ -41,25 +55,46 @@ export class UserRepository {
           updatedAt: sql`now()`,
         },
       })
-      .returning({
-        id: users.id,
-        discogsUserId: users.discogsUserId,
-        discogsUsername: users.discogsUsername,
-      });
+      .returning(record);
     if (!row) throw new Error('User upsert returned no row');
     return row;
   }
 
-  async findById(id: string): Promise<UserRecord | null> {
+  /**
+   * A demo user for one visitor (ADR 0014). Its access token is the demo marker, stored
+   * encrypted like any other, so every service treats it as an ordinary user and the
+   * gateway routes its calls to the demo gateway. Its Discogs id is negative, so it can
+   * never meet a real one.
+   */
+  async createDemo(expiresAt: Date): Promise<UserRecord> {
+    const id = randomUUID();
+    const token = demoToken(id);
     const [row] = await this.db
-      .select({
-        id: users.id,
-        discogsUserId: users.discogsUserId,
-        discogsUsername: users.discogsUsername,
+      .insert(users)
+      .values({
+        id,
+        discogsUserId: sql`-nextval(${demoUserIds.seqName})`,
+        discogsUsername: DEMO_USERNAME,
+        oauthTokenEnc: this.cipher.encrypt(token.token, 'discogs_access_token'),
+        oauthSecretEnc: this.cipher.encrypt(token.secret, 'discogs_access_secret'),
+        demoExpiresAt: expiresAt,
       })
-      .from(users)
-      .where(eq(users.id, id))
-      .limit(1);
+      .returning(record);
+    if (!row) throw new Error('Demo user insert returned no row');
+    return row;
+  }
+
+  /** Deletes demo users whose demo has ended, and with them everything they own. */
+  async deleteEndedDemos(now: Date): Promise<number> {
+    const deleted = await this.db
+      .delete(users)
+      .where(and(isNotNull(users.demoExpiresAt), lte(users.demoExpiresAt, now)))
+      .returning({ id: users.id });
+    return deleted.length;
+  }
+
+  async findById(id: string): Promise<UserRecord | null> {
+    const [row] = await this.db.select(record).from(users).where(eq(users.id, id)).limit(1);
     return row ?? null;
   }
 
@@ -72,6 +107,7 @@ export class UserRepository {
         id: row.id,
         discogsUserId: row.discogsUserId,
         discogsUsername: row.discogsUsername,
+        demo: row.demoExpiresAt !== null,
       },
       token: {
         token: this.cipher.decrypt(row.oauthTokenEnc, 'discogs_access_token'),
