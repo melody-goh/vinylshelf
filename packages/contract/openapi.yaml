@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vinyl Shelf API
-  version: 0.14.0
+  version: 0.15.0
   summary: Collection browsing, audio recognition and taste-based discovery for vinyl collectors.
   description: |
     Contract-first API for the Vinyl Shelf web app (working title). This file is the
@@ -123,6 +123,35 @@ paths:
               schema: { type: string }
         '400':
           $ref: '#/components/responses/Problem'
+
+  /auth/demo:
+    post:
+      tags: [Auth]
+      operationId: startDemo
+      summary: Sign in to a demo of the app, without a Discogs account
+      description: |
+        Creates a demo user for this visitor alone, with a sample shelf and wantlist,
+        and signs them in (ADR 0014). Every feature works, but the visitor's
+        collection and wantlist live only in this app: nothing is written to Discogs.
+        The demo user, and everything it did, is deleted 24 hours after it starts. The
+        shelf fills by the usual import, which this starts.
+      responses:
+        '204':
+          description: Signed in; the session cookie is set and expires with the demo.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+        '403':
+          $ref: '#/components/responses/ForbiddenOrigin'
+        '404':
+          description: |
+            Demos are turned off on this server (`code: demo_unavailable`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          $ref: '#/components/responses/RateLimited'
 
   /auth/logout:
     post:
@@ -933,10 +962,15 @@ components:
 
     User:
       type: object
-      required: [id, discogsUsername]
+      required: [id, discogsUsername, demo]
       properties:
         id: { type: string, format: uuid }
         discogsUsername: { type: string }
+        demo:
+          type: boolean
+          description: |
+            A demo user (ADR 0014): its collection and wantlist live only in this app,
+            and it is deleted 24 hours after it started.
 
     ImportJob:
       type: object

@@ -5,6 +5,30 @@
  */
 
 export interface paths {
+    "/auth/demo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in to a demo of the app, without a Discogs account
+         * @description Creates a demo user for this visitor alone, with a sample shelf and wantlist,
+         *     and signs them in (ADR 0014). Every feature works, but the visitor's
+         *     collection and wantlist live only in this app: nothing is written to Discogs.
+         *     The demo user, and everything it did, is deleted 24 hours after it starts. The
+         *     shelf fills by the usual import, which this starts.
+         */
+        post: operations["startDemo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/discogs/callback": {
         parameters: {
             query?: never;
@@ -1016,6 +1040,11 @@ export interface components {
             status: "ready" | "no_catalogue";
         };
         User: {
+            /**
+             * @description A demo user (ADR 0014): its collection and wantlist live only in this app,
+             *     and it is deleted 24 hours after it started.
+             */
+            demo: boolean;
             discogsUsername: string;
             /** Format: uuid */
             id: string;
@@ -1077,6 +1106,36 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    startDemo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed in; the session cookie is set and expires with the demo. */
+            204: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["ForbiddenOrigin"];
+            /** @description Demos are turned off on this server (`code: demo_unavailable`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+        };
+    };
     finishDiscogsLogin: {
         parameters: {
             query?: {

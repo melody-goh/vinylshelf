@@ -11,6 +11,8 @@ import type { DatabaseHandle } from '../db/client.js';
 export const POSITION_BUCKET = 8;
 
 export interface ReceptionRow {
+  /** Demo visitors (ADR 0014), counted apart from collectors. */
+  demo: boolean;
   surface: 'discover' | 'search';
   /** Near or far for Discover; null for search. */
   distance: 'near' | 'far' | null;
@@ -29,7 +31,8 @@ export interface ReceptionRow {
 }
 
 /**
- * Counts per surface and reach, overall and by place in the list. A pick counts once
+ * Counts per surface and reach, overall and by place in the list, for collectors and
+ * demo visitors apart. A pick counts once
  * per list for each kind, however often it happened; a verdict later withdrawn still
  * counts, since it was given.
  */
@@ -52,7 +55,7 @@ export async function reception(
       where l.served_at >= ${since}
       group by e.list_id, e.master_id
     )
-    select l.surface, l.distance,
+    select u.demo_expires_at is not null as demo, l.surface, l.distance,
       case when grouping(p.bucket) = 1 then null else p.bucket end as "from",
       count(distinct p.list_id)::int as lists,
       count(*)::int as reached,
@@ -64,11 +67,12 @@ export async function reception(
       count(*) filter (where p.less)::int as less
     from picks p
     join taste_lists l on l.id = p.list_id
+    join users u on u.id = l.user_id
     group by grouping sets (
-      (l.surface, l.distance),
-      (l.surface, l.distance, p.bucket)
+      (1, l.surface, l.distance),
+      (1, l.surface, l.distance, p.bucket)
     )
-    order by l.surface, l.distance nulls first, "from" nulls first
+    order by 1, l.surface, l.distance nulls first, "from" nulls first
   `);
   return result.rows as unknown as ReceptionRow[];
 }

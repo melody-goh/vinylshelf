@@ -8,6 +8,7 @@ import type { Config } from '../config.js';
 import { TokenCipher } from '../crypto/token-cipher.js';
 import type { DatabaseHandle } from '../db/client.js';
 import { DiscogsReleaseCache } from '../discogs/cache.js';
+import { PgDemoLists } from '../demo/lists.js';
 import { createDiscogsGateway } from '../discogs/index.js';
 import { createITunesGateway } from '../itunes/index.js';
 import type { EnqueueOptions, JobPayloads, JobQueue, QueueName } from '../jobs/queue.js';
@@ -40,6 +41,7 @@ export const testConfig: Config = {
   queue: { pollingIntervalSeconds: 2, cachePurgeCron: '*/15 * * * *' },
   allowedDiscogsUsers: null,
   proxySecret: null,
+  demoEnabled: true,
 };
 
 /** Records enqueued jobs instead of running them. Workers are tested directly. */
@@ -82,6 +84,10 @@ export function testDependencies(
       consumer: { key: testConfig.discogs.consumerKey, secret: testConfig.discogs.consumerSecret },
       userAgent: testConfig.discogs.userAgent,
       clock,
+      demo: {
+        lists: new PgDemoLists(database.db, clock),
+        ttlSeconds: testConfig.discogs.cacheTtlSeconds,
+      },
     }),
     itunes: createITunesGateway({
       country: testConfig.itunes.country,

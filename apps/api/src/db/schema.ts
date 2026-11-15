@@ -12,6 +12,7 @@ import {
   integer,
   jsonb,
   pgEnum,
+  pgSequence,
   pgTable,
   primaryKey,
   smallint,
@@ -29,16 +30,26 @@ const timestamptz = (name: string) => timestamp(name, { withTimezone: true, mode
 const createdAt = () => timestamptz('created_at').notNull().defaultNow();
 const updatedAt = () => timestamptz('updated_at').notNull().defaultNow();
 
-export const users = pgTable('users', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  discogsUserId: integer('discogs_user_id').notNull().unique(),
-  discogsUsername: text('discogs_username').notNull(),
-  /** AES-256-GCM ciphertext (ADR 0006). Never log or return these. */
-  oauthTokenEnc: text('oauth_token_enc').notNull(),
-  oauthSecretEnc: text('oauth_secret_enc').notNull(),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-});
+export const users = pgTable(
+  'users',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Negative for demo users (ADR 0014), so they can never meet a real Discogs id. */
+    discogsUserId: integer('discogs_user_id').notNull().unique(),
+    discogsUsername: text('discogs_username').notNull(),
+    /** AES-256-GCM ciphertext (ADR 0006). Never log or return these. */
+    oauthTokenEnc: text('oauth_token_enc').notNull(),
+    oauthSecretEnc: text('oauth_secret_enc').notNull(),
+    /** Set only on demo users (ADR 0014): when they, and all they own, are deleted. */
+    demoExpiresAt: timestamptz('demo_expires_at'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('users_demo_expires_at_idx').on(t.demoExpiresAt)],
+);
+
+/** Discogs ids for demo users, negated (ADR 0014). */
+export const demoUserIds = pgSequence('demo_user_ids');
 
 export const sessions = pgTable(
   'sessions',
@@ -355,4 +366,34 @@ export const tasteEvents = pgTable(
     index('taste_events_list_idx').on(t.listId),
     index('taste_events_user_at_idx').on(t.userId, t.at),
   ],
+);
+
+/**
+ * A demo visitor's collection (ADR 0014): the sample shelf and anything they added,
+ * as public Discogs release ids. Their copy of what Discogs would hold; never sent there.
+ */
+export const demoCollection = pgTable(
+  'demo_collection',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    instanceId: integer('instance_id').notNull(),
+    releaseId: integer('release_id').notNull(),
+    dateAdded: timestamptz('date_added').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.instanceId] })],
+);
+
+/** A demo visitor's wantlist (ADR 0014), likewise kept here and never sent to Discogs. */
+export const demoWants = pgTable(
+  'demo_wants',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    releaseId: integer('release_id').notNull(),
+    dateAdded: timestamptz('date_added').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.releaseId] })],
 );

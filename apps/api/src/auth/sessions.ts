@@ -22,10 +22,16 @@ export class SessionStore {
     private readonly clock: Clock,
   ) {}
 
-  /** Returns the cookie value. It is shown to the browser once and never stored. */
-  async create(userId: string): Promise<{ token: string; expiresAt: Date }> {
+  /**
+   * Returns the cookie value. It is shown to the browser once and never stored.
+   * `ttlSeconds` shortens the session, as for a demo that ends sooner (ADR 0014).
+   */
+  async create(
+    userId: string,
+    ttlSeconds = SESSION_TTL_SECONDS,
+  ): Promise<{ token: string; expiresAt: Date }> {
     const token = randomBytes(32).toString('base64url');
-    const expiresAt = new Date(this.clock.now() + SESSION_TTL_SECONDS * 1000);
+    const expiresAt = new Date(this.clock.now() + ttlSeconds * 1000);
     await this.db.insert(sessions).values({ idHash: hash(token), userId, expiresAt });
     return { token, expiresAt };
   }

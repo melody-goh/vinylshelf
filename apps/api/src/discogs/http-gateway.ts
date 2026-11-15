@@ -66,6 +66,8 @@ interface SignedRequest {
   lane?: Lane;
   /** Never retry, even on 429: for writes that must not be applied twice. */
   noRetry?: boolean;
+  /** Sign with the app's own key and secret, for no user (ADR 0014). */
+  asApp?: boolean;
 }
 
 /**
@@ -149,19 +151,47 @@ export class HttpDiscogsGateway implements DiscogsGateway {
   }
 
   async getRelease(accessToken: TokenPair, releaseId: number): Promise<ReleaseDetailData> {
+    return this.release({ token: accessToken }, releaseId);
+  }
+
+  async searchReleases(
+    accessToken: TokenPair,
+    query: string,
+    page: number,
+  ): Promise<SearchPageData> {
+    return this.search({ token: accessToken }, query, page);
+  }
+
+  /**
+   * A release read with the app's own key, for no user: what demo visitors see
+   * (ADR 0014). Discogs allows key/secret authentication on its database endpoints.
+   */
+  async getReleaseAsApp(releaseId: number): Promise<ReleaseDetailData> {
+    return this.release({ asApp: true }, releaseId);
+  }
+
+  /** Search with the app's own key: no user, so nothing is marked as wanted (ADR 0014). */
+  async searchReleasesAsApp(query: string, page: number): Promise<SearchPageData> {
+    return this.search({ asApp: true }, query, page);
+  }
+
+  private async release(
+    auth: { token: TokenPair } | { asApp: true },
+    releaseId: number,
+  ): Promise<ReleaseDetailData> {
     const endpoint = 'releases/:id';
     const body = await this.send({
       method: 'GET',
       url: discogsEndpoints.release(releaseId),
       endpoint,
-      token: accessToken,
+      ...auth,
       lane: 'interactive',
     });
     return toReleaseDetail(parse(releaseResponse, parseJson(body, endpoint), endpoint));
   }
 
-  async searchReleases(
-    accessToken: TokenPair,
+  private async search(
+    auth: { token: TokenPair } | { asApp: true },
     query: string,
     page: number,
   ): Promise<SearchPageData> {
@@ -177,7 +207,7 @@ export class HttpDiscogsGateway implements DiscogsGateway {
       method: 'GET',
       url: url.toString(),
       endpoint,
-      token: accessToken,
+      ...auth,
       lane: 'interactive',
     });
     return toSearchPage(parse(searchResponse, parseJson(body, endpoint), endpoint));
@@ -271,12 +301,14 @@ export class HttpDiscogsGateway implements DiscogsGateway {
           'User-Agent': userAgent,
           Accept: request.form ? 'application/x-www-form-urlencoded' : 'application/json',
           ...(request.form ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
-          Authorization: authorizationHeader({
-            consumer,
-            ...(request.token ? { token: request.token } : {}),
-            ...(request.callback !== undefined ? { callback: request.callback } : {}),
-            ...(request.verifier !== undefined ? { verifier: request.verifier } : {}),
-          }),
+          Authorization: request.asApp
+            ? `Discogs key=${consumer.key}, secret=${consumer.secret}`
+            : authorizationHeader({
+                consumer,
+                ...(request.token ? { token: request.token } : {}),
+                ...(request.callback !== undefined ? { callback: request.callback } : {}),
+                ...(request.verifier !== undefined ? { verifier: request.verifier } : {}),
+              }),
         },
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });

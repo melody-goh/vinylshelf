@@ -15,6 +15,8 @@ import { createDatabase } from './db/client.js';
 import { DiscogsReleaseCache } from './discogs/cache.js';
 import { createDiscogsGateway } from './discogs/index.js';
 import { createITunesGateway } from './itunes/index.js';
+import { PgDemoLists } from './demo/lists.js';
+import { scheduleDemoCleanup } from './demo/service.js';
 import { scheduleCachePurge } from './jobs/cache-purge.js';
 import { PgBossQueue, QUEUES } from './jobs/queue.js';
 import { systemClock } from './lib/clock.js';
@@ -29,6 +31,10 @@ const database = createDatabase(config.databaseUrl);
 const gateway = createDiscogsGateway({
   consumer: { key: config.discogs.consumerKey, secret: config.discogs.consumerSecret },
   userAgent: config.discogs.userAgent,
+  demo: {
+    lists: new PgDemoLists(database.db, clock),
+    ttlSeconds: config.discogs.cacheTtlSeconds,
+  },
 });
 const itunes = createITunesGateway({
   country: config.itunes.country,
@@ -64,6 +70,12 @@ await scheduleCachePurge({
   db: database.db,
   cache: releaseCache,
   cron: config.queue.cachePurgeCron,
+  log: app.log,
+});
+await scheduleDemoCleanup({
+  queue,
+  users: new UserRepository(database.db, cipher),
+  clock,
   log: app.log,
 });
 await queue.work(QUEUES.collectionImport.name, (job) =>
