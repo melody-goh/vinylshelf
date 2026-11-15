@@ -36,5 +36,17 @@ export function useLogout() {
   });
 }
 
+/**
+ * Starts a demo of the app without a Discogs account (ADR 0014): the server signs the
+ * visitor in to a demo user of their own, and the session query then finds them.
+ */
+export function useStartDemo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.POST('/auth/demo')),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: meKey }),
+  });
+}
+
 /** Full-page navigation: the OAuth flow leaves the app and comes back via a redirect. */
 export const LOGIN_URL = '/api/v1/auth/discogs/start';

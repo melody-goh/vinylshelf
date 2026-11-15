@@ -113,7 +113,9 @@ export function Shelf({ user }: { user: User }) {
           )}
         </div>
         <h1 className="sr-only">
-          {user.discogsUsername}&rsquo;s {VIEW_NAMES[view].toLowerCase()}
+          {user.demo
+            ? `Demo ${VIEW_NAMES[view].toLowerCase()}`
+            : `${user.discogsUsername}’s ${VIEW_NAMES[view].toLowerCase()}`}
         </h1>
         <SearchField
           value={query}
@@ -144,7 +146,9 @@ export function Shelf({ user }: { user: User }) {
               {importing ? 'Syncing…' : 'Sync with Discogs'}
             </LiquidButton>
           )}
-          <span className="hidden text-ink-soft md:inline">{user.discogsUsername}</span>
+          <span className="hidden text-ink-soft md:inline">
+            {user.demo ? 'Demo' : user.discogsUsername}
+          </span>
           <LiquidButton
             onClick={() => {
               logout.mutate();

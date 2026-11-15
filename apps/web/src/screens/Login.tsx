@@ -1,6 +1,7 @@
 import type { LoginErrorCode } from '@vinylshelf/contract';
 import { useEffect, useState } from 'react';
-import { LOGIN_URL } from '../api/session';
+import { ApiError } from '../api/client';
+import { LOGIN_URL, useStartDemo } from '../api/session';
 import { ClosedSleeve } from '../components/ClosedSleeve';
 import { Disc } from '../components/Disc';
 import { HypeSticker } from '../components/HypeSticker';
@@ -20,7 +21,17 @@ function isLoginErrorCode(value: string | null): value is LoginErrorCode {
   return value !== null && value in LOGIN_ERRORS;
 }
 
+/** Why a demo could not start, by the API's answer. */
+function demoError(error: unknown): string {
+  if (error instanceof ApiError && error.status === 404) return 'The demo isn’t available here.';
+  if (error instanceof ApiError && error.status === 429) {
+    return 'Too many demos started from here. Try again in a while.';
+  }
+  return 'The demo didn’t start just now. Try again.';
+}
+
 export function Login() {
+  const demo = useStartDemo();
   const [error] = useState(() => {
     const code = new URLSearchParams(window.location.search).get('loginError');
     return isLoginErrorCode(code) ? LOGIN_ERRORS[code] : null;
@@ -53,6 +64,23 @@ export function Login() {
           </p>
           <p>We only read your collection. It stays here and is never shared.</p>
         </ClosedSleeve>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
+          <button
+            type="button"
+            onClick={() => {
+              demo.mutate();
+            }}
+            disabled={demo.isPending}
+            className="underline underline-offset-4 disabled:opacity-50"
+          >
+            {demo.isPending ? 'Setting up the demo…' : 'Try the demo'}
+          </button>
+          {demo.isError && (
+            <span role="alert" className="text-ink-soft">
+              {demoError(demo.error)}
+            </span>
+          )}
+        </div>
       </div>
 
       <div aria-hidden="true" className="hidden w-[18rem] shrink-0 flex-col lg:flex">
